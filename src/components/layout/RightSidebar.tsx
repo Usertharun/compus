@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { useApp } from "@/context/AppContext";
 
 export function RightSidebar() {
-  const { openCreatePost } = useApp();
+  const navigate = useNavigate();
+  const { openHostEvent, openCreateOpp } = useApp();
   const [communities, setCommunities] = useState([
     { id: 1, name: "Design Club", members: "1.2k", logo: "🎨", joined: false },
     { id: 2, name: "Web Devs", members: "850", logo: "💻", joined: true },
@@ -21,13 +22,18 @@ export function RightSidebar() {
   };
 
   return (
-    <aside className="sticky top-20 self-start h-[calc(100vh-6rem)] w-full hidden lg:flex flex-col gap-6 overflow-y-auto pb-6 scrollbar-hide">
+    <aside className="sticky top-20 self-start w-full hidden lg:flex flex-col gap-6 pb-6">
       
       {/* Active Students */}
       <div className="glass-panel rounded-3xl p-5 shadow-lg">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold text-foreground">Active on Campus</h3>
-          <span className="text-xs text-primary font-medium hover:underline cursor-pointer">View All</span>
+          <button 
+            onClick={() => navigate("/discover")}
+            className="text-xs text-primary font-medium hover:underline cursor-pointer"
+          >
+            View All
+          </button>
         </div>
 
         <div className="flex flex-col gap-3">
@@ -37,7 +43,7 @@ export function RightSidebar() {
             { name: "Emma Wilson", location: "Engineering Bldg", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Emma" },
             { name: "David Kim", location: "Coffee Shop", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=David" },
           ].map((student) => (
-            <div key={student.name} className="flex items-center gap-3 p-1.5 rounded-xl hover:bg-secondary/50 transition-colors">
+            <div key={student.name} onClick={() => navigate("/discover")} className="flex items-center gap-3 p-1.5 rounded-xl hover:bg-secondary/50 transition-colors cursor-pointer">
               <div className="relative">
                 <Avatar className="h-9 w-9">
                   <AvatarImage src={student.avatar} />
@@ -66,7 +72,7 @@ export function RightSidebar() {
         <div className="flex flex-col gap-3">
           {communities.map((community) => (
             <div key={community.id} className="flex items-center justify-between gap-2 p-1.5 rounded-xl hover:bg-secondary/50 transition-colors">
-              <div className="flex items-center gap-3 min-w-0">
+              <div onClick={() => navigate("/communities")} className="flex items-center gap-3 min-w-0 cursor-pointer">
                 <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-lg shrink-0">
                   {community.logo}
                 </div>
@@ -93,16 +99,16 @@ export function RightSidebar() {
       <div className="glass-panel rounded-3xl p-5 shadow-lg">
         <h3 className="font-semibold text-foreground mb-4">Quick Actions</h3>
         <div className="flex flex-col gap-2">
-          <Button onClick={openCreatePost} variant="outline" className="w-full justify-start gap-2 h-10 rounded-xl border-dashed cursor-pointer">
-            <Plus className="w-4 h-4" />
+          <Button onClick={openHostEvent} variant="outline" className="w-full justify-start gap-2 h-10 rounded-xl border-dashed cursor-pointer">
+            <Plus className="w-4 h-4 text-indigo-500" />
             Host Event
           </Button>
-          <Button onClick={openCreatePost} variant="outline" className="w-full justify-start gap-2 h-10 rounded-xl border-dashed cursor-pointer">
-            <Plus className="w-4 h-4" />
+          <Button onClick={openCreateOpp} variant="outline" className="w-full justify-start gap-2 h-10 rounded-xl border-dashed cursor-pointer">
+            <Plus className="w-4 h-4 text-emerald-500" />
             Create Opportunity
           </Button>
           <Button onClick={() => alert('Invite link copied to clipboard!')} variant="outline" className="w-full justify-start gap-2 h-10 rounded-xl border-dashed cursor-pointer">
-            <UserPlus className="w-4 h-4" />
+            <UserPlus className="w-4 h-4 text-purple-500" />
             Invite Friends
           </Button>
         </div>

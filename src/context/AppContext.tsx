@@ -94,6 +94,12 @@ interface AppContextType {
   isCreatePostOpen: boolean;
   openCreatePost: () => void;
   closeCreatePost: () => void;
+  isHostEventOpen: boolean;
+  openHostEvent: () => void;
+  closeHostEvent: () => void;
+  isCreateOppOpen: boolean;
+  openCreateOpp: () => void;
+  closeCreateOpp: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -170,9 +176,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const [isCreatePostOpen, setIsCreatePostOpen] = useState(false);
+  const [isHostEventOpen, setIsHostEventOpen] = useState(false);
+  const [isCreateOppOpen, setIsCreateOppOpen] = useState(false);
 
   const openCreatePost = () => setIsCreatePostOpen(true);
   const closeCreatePost = () => setIsCreatePostOpen(false);
+
+  const openHostEvent = () => setIsHostEventOpen(true);
+  const closeHostEvent = () => setIsHostEventOpen(false);
+
+  const openCreateOpp = () => setIsCreateOppOpen(true);
+  const closeCreateOpp = () => setIsCreateOppOpen(false);
 
   return (
     <AppContext.Provider
@@ -186,6 +200,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         isCreatePostOpen,
         openCreatePost,
         closeCreatePost,
+        isHostEventOpen,
+        openHostEvent,
+        closeHostEvent,
+        isCreateOppOpen,
+        openCreateOpp,
+        closeCreateOpp,
       }}
     >
       {children}

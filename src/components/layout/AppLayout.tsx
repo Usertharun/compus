@@ -12,6 +12,8 @@ import { X } from "lucide-react";
 import { LeftSidebar } from "./LeftSidebar";
 import { RightSidebar } from "./RightSidebar";
 import { CreatePostModal } from "@/components/home/CreatePostModal";
+import { HostEventModal } from "@/components/events/HostEventModal";
+import { CreateOpportunityModal } from "@/components/opportunities/CreateOpportunityModal";
 import { useApp } from "@/context/AppContext";
 
 export function AppLayout({
@@ -23,12 +25,18 @@ export function AppLayout({
   maxWidthClass = "max-w-[1440px]",
 }: AppLayoutProps) {
   const location = useLocation();
-  const { isCreatePostOpen, closeCreatePost } = useApp();
+  const { 
+    isCreatePostOpen, closeCreatePost,
+    isHostEventOpen, closeHostEvent,
+    isCreateOppOpen, closeCreateOpp
+  } = useApp();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Close create post modal automatically on route change
+  // Close all modals automatically on route change
   useEffect(() => {
     closeCreatePost();
+    closeHostEvent();
+    closeCreateOpp();
   }, [location.pathname]);
 
   // Determine if we should force hide sidebars on specific routes (e.g. Messages)
@@ -134,8 +142,10 @@ export function AppLayout({
         )}
       </AnimatePresence>
 
-      {/* Global Create Post Modal */}
+      {/* Global Modals */}
       <CreatePostModal isOpen={isCreatePostOpen} onClose={closeCreatePost} />
+      <HostEventModal isOpen={isHostEventOpen} onClose={closeHostEvent} />
+      <CreateOpportunityModal isOpen={isCreateOppOpen} onClose={closeCreateOpp} />
     </div>
   );
 }
