@@ -35,7 +35,7 @@ export function LeftSidebar() {
     <aside className="sticky top-20 h-[calc(100vh-6rem)] w-full hidden lg:flex flex-col gap-6 overflow-y-auto pb-6 scrollbar-hide">
       
       {/* Greeting Card */}
-      <div className="bg-card rounded-2xl p-5 border border-border/50 shadow-sm">
+      <div className="glass-panel rounded-3xl p-5 shadow-lg">
         <div className="flex items-center gap-4 mb-4">
           <div className="relative">
             <Avatar className="h-12 w-12 border-2 border-background shadow-sm">
@@ -55,11 +55,11 @@ export function LeftSidebar() {
         </div>
 
         <div className="grid grid-cols-2 gap-3 text-center mb-5">
-          <div className="bg-secondary/50 rounded-xl p-2.5">
+          <div className="glass-pill rounded-xl p-2.5">
             <div className="font-bold text-foreground text-lg leading-none mb-1">3</div>
             <div className="text-xs text-muted-foreground font-medium">Events</div>
           </div>
-          <div className="bg-secondary/50 rounded-xl p-2.5">
+          <div className="glass-pill rounded-xl p-2.5">
             <div className="font-bold text-foreground text-lg leading-none mb-1">5</div>
             <div className="text-xs text-muted-foreground font-medium">Groups</div>
           </div>
@@ -67,7 +67,7 @@ export function LeftSidebar() {
 
         <Button 
           onClick={() => setIsModalOpen(true)}
-          className="w-full gap-2 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm" 
+          className="w-full gap-2 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground shadow-md shadow-primary/20 cursor-pointer" 
           size="lg"
         >
           <PenSquare className="w-4 h-4" />
@@ -76,7 +76,7 @@ export function LeftSidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex flex-col gap-1.5 bg-card rounded-2xl p-3 border border-border/50 shadow-sm">
+      <nav className="flex flex-col gap-1.5 glass-panel rounded-3xl p-3 shadow-lg">
         {NAV_ITEMS.map((item) => {
           const isActive = location.pathname.startsWith(item.href) || 
                            (item.href === "/campus" && location.pathname === "/");

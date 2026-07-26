@@ -34,7 +34,7 @@ export function RightSidebar() {
     <aside className="sticky top-20 h-[calc(100vh-6rem)] w-full hidden lg:flex flex-col gap-6 overflow-y-auto pb-6 scrollbar-hide">
       
       {/* Active on Campus */}
-      <div className="bg-card rounded-2xl p-5 border border-border/50 shadow-sm">
+      <div className="glass-panel rounded-3xl p-5 shadow-lg">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold text-foreground">Active on Campus</h3>
           <button onClick={() => navigate('/discover')} className="text-xs text-primary font-medium hover:underline cursor-pointer">View All</button>
@@ -65,7 +65,7 @@ export function RightSidebar() {
       </div>
 
       {/* Featured Communities */}
-      <div className="bg-card rounded-2xl p-5 border border-border/50 shadow-sm">
+      <div className="glass-panel rounded-3xl p-5 shadow-lg">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold text-foreground">Featured Communities</h3>
         </div>
@@ -86,7 +86,7 @@ export function RightSidebar() {
                 onClick={() => toggleJoin(idx)}
                 variant={community.joined ? "outline" : "secondary"} 
                 size="sm" 
-                className="h-8 rounded-lg text-xs font-medium hover:bg-primary hover:text-primary-foreground"
+                className="h-8 rounded-lg text-xs font-medium hover:bg-primary hover:text-primary-foreground cursor-pointer"
               >
                 {community.joined ? "Joined" : "Join"}
               </Button>
@@ -96,18 +96,18 @@ export function RightSidebar() {
       </div>
 
       {/* Quick Actions */}
-      <div className="bg-card rounded-2xl p-5 border border-border/50 shadow-sm">
+      <div className="glass-panel rounded-3xl p-5 shadow-lg">
         <h3 className="font-semibold text-foreground mb-4">Quick Actions</h3>
         <div className="flex flex-col gap-2">
-          <Button onClick={() => setIsModalOpen(true)} variant="outline" className="w-full justify-start gap-2 h-10 rounded-xl border-dashed">
+          <Button onClick={() => setIsModalOpen(true)} variant="outline" className="w-full justify-start gap-2 h-10 rounded-xl border-dashed cursor-pointer">
             <Plus className="w-4 h-4" />
             Host Event
           </Button>
-          <Button onClick={() => setIsModalOpen(true)} variant="outline" className="w-full justify-start gap-2 h-10 rounded-xl border-dashed">
+          <Button onClick={() => setIsModalOpen(true)} variant="outline" className="w-full justify-start gap-2 h-10 rounded-xl border-dashed cursor-pointer">
             <Plus className="w-4 h-4" />
             Create Opportunity
           </Button>
-          <Button onClick={() => alert('Invite link copied to clipboard!')} variant="outline" className="w-full justify-start gap-2 h-10 rounded-xl border-dashed">
+          <Button onClick={() => alert('Invite link copied to clipboard!')} variant="outline" className="w-full justify-start gap-2 h-10 rounded-xl border-dashed cursor-pointer">
             <UserPlus className="w-4 h-4" />
             Invite Friends
           </Button>

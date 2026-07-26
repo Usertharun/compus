@@ -98,7 +98,7 @@ export function CampusPostFeed() {
   return (
     <div className="flex flex-col gap-6 pb-20">
       {posts.map((post) => (
-        <div key={post.id} className="bg-card rounded-2xl border border-border/50 shadow-sm p-5 space-y-4 transition-shadow hover:shadow-md">
+        <div key={post.id} className="glass-panel rounded-3xl p-5 space-y-4 transition-all duration-300 hover:shadow-xl">
           {/* Author Header */}
           <div className="flex items-start justify-between gap-3">
             <div className="flex gap-3 items-center">
