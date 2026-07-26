@@ -13,7 +13,17 @@ import Opportunities from "@/pages/Opportunities";
 import Saved from "@/pages/Saved";
 import Settings from "@/pages/Settings";
 
+function ProtectedLayout() {
+  const isAuthenticated = localStorage.getItem("compus_auth") === "true";
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+  return <AppLayout />;
+}
+
 export default function AppRouter() {
+  const isAuthenticated = localStorage.getItem("compus_auth") === "true";
+
   return (
     <BrowserRouter>
       <Routes>
@@ -22,7 +32,7 @@ export default function AppRouter() {
         <Route path="/onboarding" element={<Onboarding />} />
 
         {/* Authenticated App Layout Routes */}
-        <Route element={<AppLayout />}>
+        <Route element={<ProtectedLayout />}>
           <Route path="/" element={<Campus />} />
           <Route path="/campus" element={<Campus />} />
           <Route path="/discover" element={<Discover />} />
@@ -36,7 +46,7 @@ export default function AppRouter() {
         </Route>
 
         {/* Fallback redirect */}
-        <Route path="*" element={<Navigate to="/campus" replace />} />
+        <Route path="*" element={<Navigate to={isAuthenticated ? "/campus" : "/login"} replace />} />
       </Routes>
     </BrowserRouter>
   );

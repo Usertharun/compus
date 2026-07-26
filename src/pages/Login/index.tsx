@@ -28,40 +28,19 @@ export default function Login() {
     setTimeout(() => {
       setIsLoading(false);
       setIsSuccess(true);
+      localStorage.setItem("compus_auth", "true");
       setTimeout(() => {
         if (mode === "signup") {
           navigate("/onboarding");
         } else {
           navigate("/campus");
         }
-      }, 1000);
-    }, 1200);
+      }, 800);
+    }, 1000);
   };
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 sm:p-6 relative overflow-hidden selection:bg-indigo-500/20">
-      {/* Background Ambient Floating Orbs */}
-      <motion.div 
-        animate={{ 
-          scale: [1, 1.2, 1],
-          opacity: [0.15, 0.25, 0.15],
-          x: [0, 30, 0],
-          y: [0, -30, 0]
-        }}
-        transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
-        className="absolute top-1/4 left-1/4 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-indigo-500/20 rounded-full blur-[140px] pointer-events-none" 
-      />
-      <motion.div 
-        animate={{ 
-          scale: [1, 1.15, 1],
-          opacity: [0.1, 0.2, 0.1],
-          x: [0, -40, 0],
-          y: [0, 40, 0]
-        }}
-        transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
-        className="absolute bottom-1/4 right-1/4 translate-x-1/2 translate-y-1/2 w-[600px] h-[600px] bg-purple-500/20 rounded-full blur-[140px] pointer-events-none" 
-      />
-
       {/* Main Glass Card */}
       <motion.div 
         initial={{ opacity: 0, y: 25, scale: 0.96 }}
@@ -69,7 +48,7 @@ export default function Login() {
         transition={{ duration: 0.5, ease: "easeOut" }}
         className="w-full max-w-md relative z-10"
       >
-        <div className="bg-card/80 backdrop-blur-2xl rounded-3xl border border-border/60 shadow-2xl p-6 sm:p-8 space-y-6">
+        <div className="glass-panel rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl">
           
           {/* Header & Logo */}
           <div className="flex flex-col items-center text-center space-y-3">
@@ -91,29 +70,39 @@ export default function Login() {
             </div>
           </div>
 
-          {/* Mode Switcher Pills */}
-          <div className="flex items-center bg-secondary/50 p-1 rounded-2xl border border-border/40">
+          {/* Glass Bubble Mode Switcher */}
+          <div className="flex items-center glass-pill p-1 rounded-2xl relative">
             <button
               onClick={() => { setMode("login"); setError(""); }}
               className={cn(
-                "flex-1 py-2 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer",
-                mode === "login" 
-                  ? "bg-background text-foreground shadow-sm" 
-                  : "text-muted-foreground hover:text-foreground"
+                "flex-1 py-2.5 rounded-xl text-xs font-bold transition-colors duration-200 cursor-pointer relative z-10",
+                mode === "login" ? "text-foreground" : "text-muted-foreground hover:text-foreground"
               )}
             >
-              Sign In
+              {mode === "login" && (
+                <motion.div
+                  layoutId="loginTabBubble"
+                  className="absolute inset-0 bg-background/90 dark:bg-card/90 rounded-xl shadow-sm border border-border/50"
+                  transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                />
+              )}
+              <span className="relative z-20">Sign In</span>
             </button>
             <button
               onClick={() => { setMode("signup"); setError(""); }}
               className={cn(
-                "flex-1 py-2 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer",
-                mode === "signup" 
-                  ? "bg-background text-foreground shadow-sm" 
-                  : "text-muted-foreground hover:text-foreground"
+                "flex-1 py-2.5 rounded-xl text-xs font-bold transition-colors duration-200 cursor-pointer relative z-10",
+                mode === "signup" ? "text-foreground" : "text-muted-foreground hover:text-foreground"
               )}
             >
-              Create Account
+              {mode === "signup" && (
+                <motion.div
+                  layoutId="loginTabBubble"
+                  className="absolute inset-0 bg-background/90 dark:bg-card/90 rounded-xl shadow-sm border border-border/50"
+                  transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                />
+              )}
+              <span className="relative z-20">Create Account</span>
             </button>
           </div>
 
