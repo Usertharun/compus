@@ -14,6 +14,8 @@ import {
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
+import { useApp } from "@/context/AppContext";
+import { useToast } from "@/context/ToastContext";
 
 const SETTINGS_TABS = [
   { id: "account", label: "Account & Profile", icon: User },
@@ -24,14 +26,17 @@ const SETTINGS_TABS = [
 
 export default function Settings() {
   const navigate = useNavigate();
+  const { user, updateUser } = useApp();
+  const toast = useToast();
+
   const [activeTab, setActiveTab] = useState("account");
   const [isSaved, setIsSaved] = useState(false);
 
   // Form states
-  const [name, setName] = useState("Alex Rivera");
-  const [email, setEmail] = useState("arivera@stanford.edu");
-  const [major, setMajor] = useState("Computer Science");
-  const [bio, setBio] = useState("Building open-source tools and capstone projects.");
+  const [name, setName] = useState(user.name || "Alex Rivera");
+  const [email, setEmail] = useState(user.email || "arivera@stanford.edu");
+  const [major, setMajor] = useState(user.major || "Computer Science");
+  const [bio, setBio] = useState(user.bio || "Building open-source tools and capstone projects.");
   const [themeMode, setThemeMode] = useState<"light" | "dark" | "system">(() => {
     return document.documentElement.classList.contains("dark") ? "dark" : "light";
   });
@@ -51,7 +56,7 @@ export default function Settings() {
   });
 
   const handleThemeChange = (mode: "light" | "dark" | "system") => {
-    setThemeMode(mode);
+    setThemeMode(mode as any);
     if (mode === "dark") {
       document.documentElement.classList.add("dark");
       localStorage.setItem("theme", "dark");
@@ -66,15 +71,19 @@ export default function Settings() {
         document.documentElement.classList.remove("dark");
       }
     }
+    toast.success(`Theme set to ${mode}`);
   };
 
   const handleSave = () => {
+    updateUser({ name, email, major, bio });
     setIsSaved(true);
+    toast.success("Settings saved successfully!");
     setTimeout(() => setIsSaved(false), 2000);
   };
 
   const handleLogout = () => {
     localStorage.removeItem("compus_auth");
+    toast.info("Logged out successfully");
     navigate("/login");
   };
 

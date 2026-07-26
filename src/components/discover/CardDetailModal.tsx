@@ -2,6 +2,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Coffee, UserPlus, Sparkles, Trophy, Calendar, MapPin, ExternalLink, ShieldCheck } from "lucide-react";
 import { SeniorMentor, PeerStudent, DiscoverCommunity, HackathonItem, DiscoverOpportunity } from "./types";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/context/ToastContext";
 
 type DetailItem = SeniorMentor | PeerStudent | DiscoverCommunity | HackathonItem | DiscoverOpportunity;
 
@@ -11,6 +12,7 @@ interface CardDetailModalProps {
 }
 
 export function CardDetailModal({ item, onClose }: CardDetailModalProps) {
+  const toast = useToast();
   if (!item) return null;
 
   const isSenior = "companyTag" in item;
@@ -32,7 +34,7 @@ export function CardDetailModal({ item, onClose }: CardDetailModalProps) {
           {/* Close button */}
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 z-10 p-2 rounded-full bg-background/80 hover:bg-accent text-muted-foreground hover:text-foreground backdrop-blur-md transition-colors border border-border/50"
+            className="absolute top-4 right-4 z-10 p-2 rounded-full bg-background/80 hover:bg-accent text-muted-foreground hover:text-foreground backdrop-blur-md transition-colors border border-border/50 cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -71,7 +73,13 @@ export function CardDetailModal({ item, onClose }: CardDetailModalProps) {
               </div>
 
               <div className="pt-2 flex gap-3">
-                <button onClick={onClose} className="flex-1 py-3 rounded-2xl bg-indigo-600 text-white font-bold text-xs flex items-center justify-center gap-2 hover:bg-indigo-500 shadow-md">
+                <button 
+                  onClick={() => {
+                    toast.success(`Coffee chat invitation sent to ${item.name}! ☕`);
+                    onClose();
+                  }} 
+                  className="flex-1 py-3 rounded-2xl bg-indigo-600 text-white font-bold text-xs flex items-center justify-center gap-2 hover:bg-indigo-500 shadow-md cursor-pointer"
+                >
                   <Coffee className="w-4 h-4" /> Schedule Coffee Chat ☕
                 </button>
               </div>
@@ -104,7 +112,13 @@ export function CardDetailModal({ item, onClose }: CardDetailModalProps) {
               </div>
 
               <div className="pt-2 flex gap-3">
-                <button onClick={onClose} className="flex-1 py-3 rounded-2xl bg-cyan-600 text-white font-bold text-xs flex items-center justify-center gap-2 hover:bg-cyan-500 shadow-md">
+                <button 
+                  onClick={() => {
+                    toast.success(`Connection request sent to ${item.name}!`);
+                    onClose();
+                  }} 
+                  className="flex-1 py-3 rounded-2xl bg-cyan-600 text-white font-bold text-xs flex items-center justify-center gap-2 hover:bg-cyan-500 shadow-md cursor-pointer"
+                >
                   <UserPlus className="w-4 h-4" /> Send Connection Request
                 </button>
               </div>
@@ -128,7 +142,13 @@ export function CardDetailModal({ item, onClose }: CardDetailModalProps) {
                 </div>
                 <p className="text-xs text-muted-foreground leading-relaxed">{item.description}</p>
                 <div className="pt-2 flex gap-3">
-                  <button onClick={onClose} className="flex-1 py-3 rounded-2xl bg-amber-600 text-white font-bold text-xs flex items-center justify-center gap-2 hover:bg-amber-500 shadow-md">
+                  <button 
+                    onClick={() => {
+                      toast.success(`Joined channel for ${item.name}!`);
+                      onClose();
+                    }} 
+                    className="flex-1 py-3 rounded-2xl bg-amber-600 text-white font-bold text-xs flex items-center justify-center gap-2 hover:bg-amber-500 shadow-md cursor-pointer"
+                  >
                     <Sparkles className="w-4 h-4" /> Join Community Channel
                   </button>
                 </div>
@@ -153,7 +173,13 @@ export function CardDetailModal({ item, onClose }: CardDetailModalProps) {
                 </div>
               </div>
               <div className="pt-2 flex gap-3">
-                <button onClick={onClose} className="flex-1 py-3 rounded-2xl bg-emerald-600 text-white font-bold text-xs flex items-center justify-center gap-2 hover:bg-emerald-500 shadow-md">
+                <button 
+                  onClick={() => {
+                    toast.success(`Registered for ${item.title}!`);
+                    onClose();
+                  }} 
+                  className="flex-1 py-3 rounded-2xl bg-emerald-600 text-white font-bold text-xs flex items-center justify-center gap-2 hover:bg-emerald-500 shadow-md cursor-pointer"
+                >
                   <Trophy className="w-4 h-4" /> Register / Join Team Matchmaking
                 </button>
               </div>
@@ -176,7 +202,13 @@ export function CardDetailModal({ item, onClose }: CardDetailModalProps) {
                 </div>
               )}
               <div className="pt-2 flex gap-3">
-                <button onClick={onClose} className="flex-1 py-3 rounded-2xl bg-primary text-primary-foreground font-bold text-xs flex items-center justify-center gap-2 shadow-md">
+                <button 
+                  onClick={() => {
+                    toast.success(`Application submitted to ${item.organization}!`);
+                    onClose();
+                  }} 
+                  className="flex-1 py-3 rounded-2xl bg-primary text-primary-foreground font-bold text-xs flex items-center justify-center gap-2 shadow-md cursor-pointer"
+                >
                   Submit Application <ExternalLink className="w-4 h-4" />
                 </button>
               </div>

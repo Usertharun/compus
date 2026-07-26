@@ -1,10 +1,11 @@
 import { ReactNode, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Search, Sparkles, Command, Menu } from "lucide-react";
+import { Search, Sparkles, Command, Menu, X } from "lucide-react";
 import { NotificationDropdown } from "@/components/layout/NotificationDropdown";
 import { UserMenuDropdown } from "@/components/layout/UserMenuDropdown";
 import { cn } from "@/lib/utils";
 import { motion, useScroll, useMotionValueEvent } from "framer-motion";
+import { useApp } from "@/context/AppContext";
 
 export interface TopBarProps {
   /** Custom page title override */
@@ -73,6 +74,7 @@ export function TopBar({
     }
   };
 
+  const { searchQuery, setSearchQuery } = useApp();
   const { scrollY } = useScroll();
   const [hidden, setHidden] = useState(false);
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
@@ -150,38 +152,47 @@ export function TopBar({
             
             <div className="hidden lg:block h-5 w-[1px] bg-border/60 shrink-0" />
             
-            {/* Expandable Search Input */}
+            {/* Expandable Single Search Icon */}
             {showSearch && (
               <div className="flex items-center relative">
                 <motion.div
                   initial={false}
-                  animate={{ width: isSearchExpanded ? (window.innerWidth < 640 ? 200 : 260) : 40 }}
+                  animate={{ width: (isSearchExpanded || searchQuery) ? (window.innerWidth < 640 ? 200 : 260) : 40 }}
                   className={cn(
                     "relative flex items-center bg-accent/50 hover:bg-accent border border-border/50 rounded-xl transition-colors overflow-hidden h-10",
-                    isSearchExpanded ? "ring-2 ring-primary/20 border-primary/30" : ""
+                    (isSearchExpanded || searchQuery) ? "ring-2 ring-primary/20 border-primary/30" : ""
                   )}
                 >
                   <button
                     onClick={() => setIsSearchExpanded(!isSearchExpanded)}
-                    className="w-10 h-10 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors shrink-0 outline-none"
+                    className="w-10 h-10 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors shrink-0 outline-none cursor-pointer"
                     aria-label="Toggle Search"
                   >
                     <Search className="w-4 h-4" />
                   </button>
                   <input
                     type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search campus..."
                     className={cn(
-                      "w-full bg-transparent outline-none text-sm text-foreground placeholder:text-muted-foreground/70 pr-3 transition-opacity",
-                      isSearchExpanded ? "opacity-100" : "opacity-0 pointer-events-none"
+                      "w-full bg-transparent outline-none text-sm text-foreground placeholder:text-muted-foreground/70 pr-7 transition-opacity",
+                      (isSearchExpanded || searchQuery) ? "opacity-100" : "opacity-0 pointer-events-none"
                     )}
-                    onBlur={() => setIsSearchExpanded(false)}
+                    onFocus={() => setIsSearchExpanded(true)}
                   />
-                  {isSearchExpanded && (
+                  {searchQuery ? (
+                    <button
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-2 p-1 text-muted-foreground hover:text-foreground rounded-lg"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  ) : (isSearchExpanded && (
                     <kbd className="hidden lg:inline-flex absolute right-2 items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground bg-background rounded-md border border-border/60 pointer-events-none">
                       <Command className="w-2.5 h-2.5" />K
                     </kbd>
-                  )}
+                  ))}
                 </motion.div>
               </div>
             )}

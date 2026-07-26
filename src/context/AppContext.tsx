@@ -91,6 +91,8 @@ interface AppContextType {
   addPost: (content: string, image?: string | null, tags?: string[]) => void;
   toggleLikePost: (id: number | string) => void;
   toggleSavePost: (id: number | string) => void;
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
   isCreatePostOpen: boolean;
   openCreatePost: () => void;
   closeCreatePost: () => void;
@@ -175,6 +177,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     );
   };
 
+  const [searchQuery, setSearchQuery] = useState("");
   const [isCreatePostOpen, setIsCreatePostOpen] = useState(false);
   const [isHostEventOpen, setIsHostEventOpen] = useState(false);
   const [isCreateOppOpen, setIsCreateOppOpen] = useState(false);
@@ -197,6 +200,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         addPost,
         toggleLikePost,
         toggleSavePost,
+        searchQuery,
+        setSearchQuery,
         isCreatePostOpen,
         openCreatePost,
         closeCreatePost,

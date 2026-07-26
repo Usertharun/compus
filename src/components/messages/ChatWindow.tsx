@@ -1,25 +1,84 @@
 import { useState } from "react";
-import { Send, Paperclip, Smile, Phone, Video, MoreVertical, Image as ImageIcon, Mic } from "lucide-react";
+import { Send, Paperclip, Phone, Video, MoreVertical, Image as ImageIcon, Mic } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/context/ToastContext";
+
+interface ConvoInfo {
+  id: string;
+  name: string;
+  avatar: string;
+  online: boolean;
+}
+
+const CONVO_DETAILS: Record<string, ConvoInfo> = {
+  "1": {
+    id: "1",
+    name: "Study Group - CS 101",
+    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=StudyGroup",
+    online: true,
+  },
+  "2": {
+    id: "2",
+    name: "Sarah Jenkins",
+    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah",
+    online: false,
+  },
+  "3": {
+    id: "3",
+    name: "Hackathon Team",
+    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Hackathon",
+    online: true,
+  },
+};
+
+const INITIAL_MESSAGES_MAP: Record<string, Array<{ id: number; sender: "me" | "them"; text: string; time: string }>> = {
+  "1": [
+    { id: 1, sender: "them", text: "Hey! Are we meeting at the library tonight?", time: "10:30 AM" },
+    { id: 2, sender: "me", text: "Yeah, definitely. Let me grab my laptop first.", time: "10:32 AM" },
+    { id: 3, sender: "them", text: "Awesome! We're at Green Library, 2nd floor.", time: "10:33 AM" },
+  ],
+  "2": [
+    { id: 1, sender: "them", text: "Thanks for sharing the lecture notes!", time: "Yesterday" },
+    { id: 2, sender: "me", text: "No problem at all! Let me know if you have questions.", time: "Yesterday" },
+  ],
+  "3": [
+    { id: 1, sender: "them", text: "I pushed the latest API changes to the main branch.", time: "Tuesday" },
+    { id: 2, sender: "me", text: "Great, pulling now to test the spatial UI integration.", time: "Tuesday" },
+  ],
+};
 
 export function ChatWindow({ activeId }: { activeId: string }) {
+  const toast = useToast();
   const [inputText, setInputText] = useState("");
-  const [messages, setMessages] = useState([
-    { id: 1, sender: "them", text: "Hey! Are you going to the career fair tomorrow?", time: "10:30 AM" },
-    { id: 2, sender: "me", text: "Yeah, definitely. I want to check out the startup booths.", time: "10:32 AM" },
-    { id: 3, sender: "them", text: "Awesome! Let's meet at the library and walk over together.", time: "10:33 AM" },
-  ]);
+  const [messagesMap, setMessagesMap] = useState(INITIAL_MESSAGES_MAP);
+
+  const activeConvo = CONVO_DETAILS[activeId] || {
+    id: activeId,
+    name: "Campus Chat",
+    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Chat",
+    online: true,
+  };
+
+  const currentMessages = messagesMap[activeId] || [
+    { id: 1, sender: "them", text: `Connected with ${activeConvo.name}`, time: "Just now" }
+  ];
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputText.trim()) return;
-    
-    setMessages([...messages, { 
-      id: Date.now(), 
-      sender: "me", 
-      text: inputText, 
-      time: "Just now" 
-    }]);
+
+    const newMsg = {
+      id: Date.now(),
+      sender: "me" as const,
+      text: inputText,
+      time: "Just now",
+    };
+
+    setMessagesMap((prev) => ({
+      ...prev,
+      [activeId]: [...(prev[activeId] || []), newMsg],
+    }));
+
     setInputText("");
   };
 
@@ -29,23 +88,33 @@ export function ChatWindow({ activeId }: { activeId: string }) {
       <div className="h-16 border-b border-border/50 flex items-center justify-between px-6 bg-card shrink-0">
         <div className="flex items-center gap-3">
           <div className="relative">
-            <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=StudyGroup" alt="Avatar" className="w-10 h-10 rounded-full border border-border" />
-            <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-background"></div>
+            <img src={activeConvo.avatar} alt={activeConvo.name} className="w-10 h-10 rounded-full border border-border object-cover" />
+            {activeConvo.online && (
+              <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-background"></div>
+            )}
           </div>
           <div>
-            <h3 className="font-bold text-sm text-foreground">Study Group - CS 101</h3>
-            <p className="text-[11px] text-green-600 dark:text-green-500 font-medium">Online</p>
+            <h3 className="font-bold text-sm text-foreground">{activeConvo.name}</h3>
+            <p className={cn("text-[11px] font-medium", activeConvo.online ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground")}>
+              {activeConvo.online ? "Online" : "Offline"}
+            </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          <button className="w-9 h-9 flex items-center justify-center rounded-xl text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors">
+          <button
+            onClick={() => toast.info(`Starting audio call with ${activeConvo.name}...`)}
+            className="w-9 h-9 flex items-center justify-center rounded-xl text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors cursor-pointer"
+          >
             <Phone className="w-4 h-4" />
           </button>
-          <button className="w-9 h-9 flex items-center justify-center rounded-xl text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors">
+          <button
+            onClick={() => toast.info(`Starting video call with ${activeConvo.name}...`)}
+            className="w-9 h-9 flex items-center justify-center rounded-xl text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors cursor-pointer"
+          >
             <Video className="w-5 h-5" />
           </button>
-          <button className="w-9 h-9 flex items-center justify-center rounded-xl text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors">
+          <button className="w-9 h-9 flex items-center justify-center rounded-xl text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors cursor-pointer">
             <MoreVertical className="w-5 h-5" />
           </button>
         </div>
@@ -59,7 +128,7 @@ export function ChatWindow({ activeId }: { activeId: string }) {
           </span>
         </div>
 
-        {messages.map((msg) => (
+        {currentMessages.map((msg) => (
           <div key={msg.id} className={cn("flex w-full", msg.sender === "me" ? "justify-end" : "justify-start")}>
             <div className={cn("max-w-[70%] flex flex-col gap-1", msg.sender === "me" ? "items-end" : "items-start")}>
               <div className={cn(
@@ -79,17 +148,17 @@ export function ChatWindow({ activeId }: { activeId: string }) {
       {/* Composer */}
       <div className="p-4 bg-card border-t border-border/50 shrink-0">
         <form onSubmit={handleSend} className="flex items-end gap-2 bg-secondary/30 border border-border/50 rounded-2xl p-2 transition-colors focus-within:border-primary/50 focus-within:bg-card shadow-sm">
-          <button type="button" className="p-2.5 text-muted-foreground hover:text-foreground transition-colors rounded-xl hover:bg-secondary shrink-0">
+          <button type="button" onClick={() => toast.info("Attachment feature coming soon")} className="p-2.5 text-muted-foreground hover:text-foreground transition-colors rounded-xl hover:bg-secondary shrink-0 cursor-pointer">
             <Paperclip className="w-5 h-5" />
           </button>
-          <button type="button" className="p-2.5 text-muted-foreground hover:text-foreground transition-colors rounded-xl hover:bg-secondary shrink-0">
+          <button type="button" onClick={() => toast.info("Image upload coming soon")} className="p-2.5 text-muted-foreground hover:text-foreground transition-colors rounded-xl hover:bg-secondary shrink-0 cursor-pointer">
             <ImageIcon className="w-5 h-5" />
           </button>
           
           <textarea 
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
-            placeholder="Message..."
+            placeholder={`Message ${activeConvo.name}...`}
             className="flex-1 max-h-32 min-h-[44px] bg-transparent resize-none py-3 px-2 text-[15px] focus:outline-none text-foreground placeholder:text-muted-foreground"
             rows={1}
             onKeyDown={(e) => {
@@ -101,11 +170,11 @@ export function ChatWindow({ activeId }: { activeId: string }) {
           />
 
           {inputText ? (
-            <button type="submit" className="p-2.5 bg-primary text-primary-foreground rounded-xl shadow-sm hover:opacity-90 transition-opacity shrink-0 mb-0.5">
+            <button type="submit" className="p-2.5 bg-primary text-primary-foreground rounded-xl shadow-sm hover:opacity-90 transition-opacity shrink-0 mb-0.5 cursor-pointer">
               <Send className="w-5 h-5" />
             </button>
           ) : (
-            <button type="button" className="p-2.5 text-muted-foreground hover:text-foreground transition-colors rounded-xl hover:bg-secondary shrink-0 mb-0.5">
+            <button type="button" onClick={() => toast.info("Voice note recording started...")} className="p-2.5 text-muted-foreground hover:text-foreground transition-colors rounded-xl hover:bg-secondary shrink-0 mb-0.5 cursor-pointer">
               <Mic className="w-5 h-5" />
             </button>
           )}

@@ -9,6 +9,7 @@ export interface CampusOpportunity {
   tags?: string[];
   description?: string;
   badgeColor?: string;
+  isSaved?: boolean;
 }
 
 export const OPPORTUNITIES_DATA: CampusOpportunity[] = [

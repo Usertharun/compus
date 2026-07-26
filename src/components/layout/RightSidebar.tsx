@@ -4,9 +4,11 @@ import { MapPin, Plus, UserPlus } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useApp } from "@/context/AppContext";
+import { useToast } from "@/context/ToastContext";
 
 export function RightSidebar() {
   const navigate = useNavigate();
+  const toast = useToast();
   const { openHostEvent, openCreateOpp } = useApp();
   const [communities, setCommunities] = useState([
     { id: 1, name: "Design Club", members: "1.2k", logo: "🎨", joined: false },
@@ -17,7 +19,14 @@ export function RightSidebar() {
 
   const toggleJoin = (id: number) => {
     setCommunities((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, joined: !c.joined } : c))
+      prev.map((c) => {
+        if (c.id === id) {
+          const nextState = !c.joined;
+          toast.success(nextState ? `Joined ${c.name}!` : `Left ${c.name}`);
+          return { ...c, joined: nextState };
+        }
+        return c;
+      })
     );
   };
 
@@ -107,7 +116,14 @@ export function RightSidebar() {
             <Plus className="w-4 h-4 text-emerald-500" />
             Create Opportunity
           </Button>
-          <Button onClick={() => alert('Invite link copied to clipboard!')} variant="outline" className="w-full justify-start gap-2 h-10 rounded-xl border-dashed cursor-pointer">
+          <Button 
+            onClick={() => {
+              navigator.clipboard?.writeText?.(window.location.origin);
+              toast.success("Invite link copied to clipboard!");
+            }} 
+            variant="outline" 
+            className="w-full justify-start gap-2 h-10 rounded-xl border-dashed cursor-pointer"
+          >
             <UserPlus className="w-4 h-4 text-purple-500" />
             Invite Friends
           </Button>

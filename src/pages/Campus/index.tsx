@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { UniversalSearch } from "@/components/home/UniversalSearch";
 import { FilterTabs } from "@/components/home/FilterTabs";
 import { CompactUpcomingEvents } from "@/components/home/CompactUpcomingEvents";
 import { CompactOpportunities } from "@/components/home/CompactOpportunities";
@@ -10,7 +9,6 @@ export default function CampusHome() {
 
   return (
     <div className="flex flex-col gap-6 w-full max-w-3xl mx-auto xl:max-w-none">
-      <UniversalSearch />
       <FilterTabs activeTab={activeTab} onTabChange={setActiveTab} />
       
       {(activeTab === "All" || activeTab === "Events" || activeTab === "Opportunities") && (

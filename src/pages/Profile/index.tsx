@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { USER_PROFILE_DATA } from "@/data/profileMockData";
 import { FullUserProfile } from "@/components/profile/types";
 import {
@@ -15,6 +16,7 @@ import { motion } from "framer-motion";
 import { useApp } from "@/context/AppContext";
 
 export default function ProfilePage() {
+  const navigate = useNavigate();
   const { user: appUser, updateUser: updateAppUser } = useApp();
   const [profileData, setProfileData] = useState<FullUserProfile>(USER_PROFILE_DATA);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -52,7 +54,7 @@ export default function ProfilePage() {
       <ProfileHeader
         user={displayUser}
         onEditProfile={() => setIsEditModalOpen(true)}
-        onOpenSettings={() => setIsEditModalOpen(true)}
+        onOpenSettings={() => navigate("/settings")}
       />
 
       {/* 2. Bio & Analytics Stats */}
