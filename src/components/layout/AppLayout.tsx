@@ -1,16 +1,18 @@
+import { useEffect, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { TopAppBar } from "./TopAppBar";
 import { BottomNav } from "./BottomNav";
 import { AppLayoutProps } from "./types";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
 import { WelcomeSidebarCard } from "@/components/home/WelcomeSidebarCard";
 import { QuickNavMenu } from "@/components/home/QuickNavMenu";
 import { SidebarFeaturedCommunities } from "@/components/home/SidebarFeaturedCommunities";
 import { X } from "lucide-react";
 import { LeftSidebar } from "./LeftSidebar";
 import { RightSidebar } from "./RightSidebar";
+import { CreatePostModal } from "@/components/home/CreatePostModal";
+import { useApp } from "@/context/AppContext";
 
 export function AppLayout({
   children,
@@ -18,10 +20,16 @@ export function AppLayout({
   pageSubtitle,
   hideTopBar = false,
   hideBottomNav = false,
-  maxWidthClass = "max-w-[1440px]", // Increased max width for 3-panel layout
+  maxWidthClass = "max-w-[1440px]",
 }: AppLayoutProps) {
   const location = useLocation();
+  const { isCreatePostOpen, closeCreatePost } = useApp();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Close create post modal automatically on route change
+  useEffect(() => {
+    closeCreatePost();
+  }, [location.pathname]);
 
   // Determine if we should force hide sidebars on specific routes (e.g. Messages)
   const isMessagesPage = location.pathname.startsWith("/messages");
@@ -125,6 +133,9 @@ export function AppLayout({
           </>
         )}
       </AnimatePresence>
+
+      {/* Global Create Post Modal */}
+      <CreatePostModal isOpen={isCreatePostOpen} onClose={closeCreatePost} />
     </div>
   );
 }

@@ -91,6 +91,9 @@ interface AppContextType {
   addPost: (content: string, image?: string | null, tags?: string[]) => void;
   toggleLikePost: (id: number | string) => void;
   toggleSavePost: (id: number | string) => void;
+  isCreatePostOpen: boolean;
+  openCreatePost: () => void;
+  closeCreatePost: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -166,6 +169,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     );
   };
 
+  const [isCreatePostOpen, setIsCreatePostOpen] = useState(false);
+
+  const openCreatePost = () => setIsCreatePostOpen(true);
+  const closeCreatePost = () => setIsCreatePostOpen(false);
+
   return (
     <AppContext.Provider
       value={{
@@ -175,6 +183,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         addPost,
         toggleLikePost,
         toggleSavePost,
+        isCreatePostOpen,
+        openCreatePost,
+        closeCreatePost,
       }}
     >
       {children}

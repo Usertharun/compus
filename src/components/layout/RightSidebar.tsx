@@ -3,60 +3,53 @@ import { useNavigate } from "react-router-dom";
 import { MapPin, Plus, UserPlus } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { CreatePostModal } from "@/components/home/CreatePostModal";
-
-const ACTIVE_STUDENTS = [
-  { name: "Sarah Chen", location: "Main Library", avatar: "SA", img: "https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah" },
-  { name: "Marcus Johnson", location: "Student Union", avatar: "MJ", img: "https://api.dicebear.com/7.x/avataaars/svg?seed=Marcus" },
-  { name: "Emma Wilson", location: "Engineering Bldg", avatar: "EW", img: "https://api.dicebear.com/7.x/avataaars/svg?seed=Emma" },
-  { name: "David Kim", location: "Coffee Shop", avatar: "DK", img: "https://api.dicebear.com/7.x/avataaars/svg?seed=David" },
-];
-
-const INITIAL_COMMUNITIES = [
-  { name: "Design Club", members: "1.2k", icon: "🎨", joined: false },
-  { name: "Web Devs", members: "850", icon: "💻", joined: true },
-  { name: "Startup Connect", members: "2.1k", icon: "🚀", joined: false },
-  { name: "Photography", members: "540", icon: "📸", joined: false },
-];
+import { useApp } from "@/context/AppContext";
 
 export function RightSidebar() {
-  const navigate = useNavigate();
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [communities, setCommunities] = useState(INITIAL_COMMUNITIES);
+  const { openCreatePost } = useApp();
+  const [communities, setCommunities] = useState([
+    { id: 1, name: "Design Club", members: "1.2k", logo: "🎨", joined: false },
+    { id: 2, name: "Web Devs", members: "850", logo: "💻", joined: true },
+    { id: 3, name: "Startup Connect", members: "2.1k", logo: "🚀", joined: false },
+    { id: 4, name: "Photography", members: "540", logo: "📷", joined: false },
+  ]);
 
-  const toggleJoin = (index: number) => {
-    const newCommunities = [...communities];
-    newCommunities[index].joined = !newCommunities[index].joined;
-    setCommunities(newCommunities);
+  const toggleJoin = (id: number) => {
+    setCommunities((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, joined: !c.joined } : c))
+    );
   };
 
   return (
     <aside className="sticky top-20 h-[calc(100vh-6rem)] w-full hidden lg:flex flex-col gap-6 overflow-y-auto pb-6 scrollbar-hide">
       
-      {/* Active on Campus */}
+      {/* Active Students */}
       <div className="glass-panel rounded-3xl p-5 shadow-lg">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold text-foreground">Active on Campus</h3>
-          <button onClick={() => navigate('/discover')} className="text-xs text-primary font-medium hover:underline cursor-pointer">View All</button>
+          <span className="text-xs text-primary font-medium hover:underline cursor-pointer">View All</span>
         </div>
-        
-        <div className="flex flex-col gap-4">
-          {ACTIVE_STUDENTS.map((student) => (
-            <div key={student.name} onClick={() => navigate('/profile')} className="flex items-center justify-between group cursor-pointer">
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  <Avatar className="h-10 w-10 border border-border">
-                    <AvatarImage src={student.img} />
-                    <AvatarFallback>{student.avatar}</AvatarFallback>
-                  </Avatar>
-                  <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-card"></div>
-                </div>
-                <div>
-                  <div className="font-medium text-sm text-foreground group-hover:text-primary transition-colors">{student.name}</div>
-                  <div className="flex items-center text-xs text-muted-foreground gap-1">
-                    <MapPin className="w-3 h-3" />
-                    {student.location}
-                  </div>
+
+        <div className="flex flex-col gap-3">
+          {[
+            { name: "Sarah Chen", location: "Main Library", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=SarahChen" },
+            { name: "Marcus Johnson", location: "Student Union", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Marcus" },
+            { name: "Emma Wilson", location: "Engineering Bldg", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Emma" },
+            { name: "David Kim", location: "Coffee Shop", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=David" },
+          ].map((student) => (
+            <div key={student.name} className="flex items-center gap-3 p-1.5 rounded-xl hover:bg-secondary/50 transition-colors">
+              <div className="relative">
+                <Avatar className="h-9 w-9">
+                  <AvatarImage src={student.avatar} />
+                  <AvatarFallback>{student.name[0]}</AvatarFallback>
+                </Avatar>
+                <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-card"></div>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-medium text-sm text-foreground truncate">{student.name}</div>
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <MapPin className="w-3 h-3 text-muted-foreground" />
+                  <span className="truncate">{student.location}</span>
                 </div>
               </div>
             </div>
@@ -64,29 +57,30 @@ export function RightSidebar() {
         </div>
       </div>
 
-      {/* Featured Communities */}
+      {/* Featured Orgs */}
       <div className="glass-panel rounded-3xl p-5 shadow-lg">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold text-foreground">Featured Communities</h3>
         </div>
-        
-        <div className="flex flex-col gap-4">
-          {communities.map((community, idx) => (
-            <div key={community.name} className="flex items-center justify-between group">
-              <div onClick={() => navigate('/communities')} className="flex items-center gap-3 cursor-pointer">
-                <div className="w-10 h-10 rounded-xl bg-secondary/50 flex items-center justify-center text-lg">
-                  {community.icon}
+
+        <div className="flex flex-col gap-3">
+          {communities.map((community) => (
+            <div key={community.id} className="flex items-center justify-between gap-2 p-1.5 rounded-xl hover:bg-secondary/50 transition-colors">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-lg shrink-0">
+                  {community.logo}
                 </div>
-                <div>
-                  <div className="font-medium text-sm text-foreground group-hover:text-primary transition-colors">{community.name}</div>
+                <div className="min-w-0">
+                  <div className="font-medium text-sm text-foreground truncate">{community.name}</div>
                   <div className="text-xs text-muted-foreground">{community.members} Members</div>
                 </div>
               </div>
-              <Button 
-                onClick={() => toggleJoin(idx)}
-                variant={community.joined ? "outline" : "secondary"} 
-                size="sm" 
-                className="h-8 rounded-lg text-xs font-medium hover:bg-primary hover:text-primary-foreground cursor-pointer"
+
+              <Button
+                onClick={() => toggleJoin(community.id)}
+                size="sm"
+                variant={community.joined ? "secondary" : "outline"}
+                className="h-8 rounded-xl px-3 text-xs font-semibold cursor-pointer shrink-0"
               >
                 {community.joined ? "Joined" : "Join"}
               </Button>
@@ -99,11 +93,11 @@ export function RightSidebar() {
       <div className="glass-panel rounded-3xl p-5 shadow-lg">
         <h3 className="font-semibold text-foreground mb-4">Quick Actions</h3>
         <div className="flex flex-col gap-2">
-          <Button onClick={() => setIsModalOpen(true)} variant="outline" className="w-full justify-start gap-2 h-10 rounded-xl border-dashed cursor-pointer">
+          <Button onClick={openCreatePost} variant="outline" className="w-full justify-start gap-2 h-10 rounded-xl border-dashed cursor-pointer">
             <Plus className="w-4 h-4" />
             Host Event
           </Button>
-          <Button onClick={() => setIsModalOpen(true)} variant="outline" className="w-full justify-start gap-2 h-10 rounded-xl border-dashed cursor-pointer">
+          <Button onClick={openCreatePost} variant="outline" className="w-full justify-start gap-2 h-10 rounded-xl border-dashed cursor-pointer">
             <Plus className="w-4 h-4" />
             Create Opportunity
           </Button>
@@ -113,8 +107,6 @@ export function RightSidebar() {
           </Button>
         </div>
       </div>
-
-      <CreatePostModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
     </aside>
   );
 }

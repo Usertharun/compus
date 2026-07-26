@@ -30,8 +30,7 @@ const NAV_ITEMS = [
 
 export function LeftSidebar() {
   const location = useLocation();
-  const { user } = useApp();
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const { user, openCreatePost } = useApp();
 
   return (
     <aside className="sticky top-20 h-[calc(100vh-6rem)] w-full hidden lg:flex flex-col gap-6 overflow-y-auto pb-6 scrollbar-hide">
@@ -68,7 +67,7 @@ export function LeftSidebar() {
         </div>
 
         <Button 
-          onClick={() => setIsModalOpen(true)}
+          onClick={openCreatePost}
           className="w-full gap-2 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground shadow-md shadow-primary/20 cursor-pointer" 
           size="lg"
         >
@@ -99,8 +98,6 @@ export function LeftSidebar() {
           );
         })}
       </nav>
-      
-      <CreatePostModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
     </aside>
   );
 }

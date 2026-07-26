@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { FullUserProfile } from "./types";
 import { X, Check, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -16,6 +16,14 @@ export function EditProfileModal({ isOpen, user, onClose, onSave }: EditProfileM
   const [year, setYear] = useState(user.year);
   const [statusText, setStatusText] = useState(user.statusText);
   const [bio, setBio] = useState(user.bio);
+
+  useEffect(() => {
+    setName(user.name);
+    setDepartment(user.department);
+    setYear(user.year);
+    setStatusText(user.statusText);
+    setBio(user.bio);
+  }, [user]);
 
   if (!isOpen) return null;
 
