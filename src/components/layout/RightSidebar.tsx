@@ -21,7 +21,7 @@ export function RightSidebar() {
   };
 
   return (
-    <aside className="sticky top-20 h-[calc(100vh-6rem)] w-full hidden lg:flex flex-col gap-6 overflow-y-auto pb-6 scrollbar-hide">
+    <aside className="sticky top-20 self-start h-[calc(100vh-6rem)] w-full hidden lg:flex flex-col gap-6 overflow-y-auto pb-6 scrollbar-hide">
       
       {/* Active Students */}
       <div className="glass-panel rounded-3xl p-5 shadow-lg">

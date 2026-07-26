@@ -35,7 +35,7 @@ export function AppLayout({
   const isMessagesPage = location.pathname.startsWith("/messages");
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col antialiased selection:bg-indigo-500/20 selection:text-indigo-600 font-sans transition-colors duration-200 relative overflow-x-hidden">
+    <div className="min-h-screen bg-background text-foreground flex flex-col antialiased selection:bg-indigo-500/20 selection:text-indigo-600 font-sans transition-colors duration-200 relative overflow-clip">
       {/* Top App Bar */}
       {!hideTopBar && (
         <TopAppBar 
