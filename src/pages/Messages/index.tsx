@@ -46,7 +46,7 @@ export default function MessagesPage() {
       </div>
 
       {/* Right Panel (70%) */}
-      <div className="flex-1 flex flex-col bg-[#FDFDFD]">
+      <div className="flex-1 flex flex-col bg-background/50">
         <ChatWindow activeId={activeConvId} />
       </div>
     </div>
