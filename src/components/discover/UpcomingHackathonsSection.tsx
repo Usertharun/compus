@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { HackathonItem } from "./types";
+import type { HackathonItem } from "./types";
 import { UPCOMING_HACKATHONS } from "@/data/discoverMockData";
-import { Trophy, Calendar, MapPin, Users, Ticket, Check } from "lucide-react";
+import { Trophy, Calendar, MapPin, Ticket, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 
