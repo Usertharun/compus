@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { CreatePostModal } from "@/components/home/CreatePostModal";
+import { useApp } from "@/context/AppContext";
 
 const NAV_ITEMS = [
   { label: "Home", icon: Home, href: "/campus" },
@@ -29,6 +30,7 @@ const NAV_ITEMS = [
 
 export function LeftSidebar() {
   const location = useLocation();
+  const { user } = useApp();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   return (
@@ -39,19 +41,19 @@ export function LeftSidebar() {
         <div className="flex items-center gap-4 mb-4">
           <div className="relative">
             <Avatar className="h-12 w-12 border-2 border-background shadow-sm">
-              <AvatarImage src="https://api.dicebear.com/7.x/avataaars/svg?seed=Alex" />
-              <AvatarFallback>AL</AvatarFallback>
+              <AvatarImage src={user.avatar} />
+              <AvatarFallback>{user.name.slice(0, 2).toUpperCase()}</AvatarFallback>
             </Avatar>
             <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-card"></div>
           </div>
           <div>
-            <h2 className="font-semibold text-lg leading-tight">Good Morning, Alex!</h2>
-            <p className="text-sm text-muted-foreground">Computer Science, Junior</p>
+            <h2 className="font-semibold text-lg leading-tight">Good Day, {user.name.split(" ")[0]}!</h2>
+            <p className="text-sm text-muted-foreground">{user.major}</p>
           </div>
         </div>
         
         <div className="text-xs text-muted-foreground mb-4 font-medium">
-          Stanford University
+          {user.university}
         </div>
 
         <div className="grid grid-cols-2 gap-3 text-center mb-5">

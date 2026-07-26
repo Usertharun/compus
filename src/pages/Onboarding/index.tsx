@@ -1,36 +1,43 @@
 import { useState } from "react";
-import { Sparkles, BookOpen, Users, Compass, ChevronRight, CheckCircle, ShieldCheck } from "lucide-react";
+import { 
+  Sparkles, 
+  ArrowRight, 
+  Check, 
+  Users, 
+  Briefcase, 
+  GraduationCap, 
+  BookOpen, 
+  Rocket, 
+  ChevronLeft,
+  ChevronRight,
+  CheckCircle,
+  ShieldCheck
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
+import { useApp } from "@/context/AppContext";
 
 const ONBOARDING_STEPS = [
-  {
-    title: "Welcome to COMPUS",
-    subtitle: "Let's set up your digital campus compass.",
-  },
-  {
-    title: "What are you looking for?",
-    subtitle: "Select your primary goals so we can personalize your feed.",
-  },
-  {
-    title: "You're all set!",
-    subtitle: "Your compass is calibrated. Let's explore your campus.",
-  }
+  { id: "welcome", title: "Welcome to COMPUS", subtitle: "Select what you want to achieve on campus" },
+  { id: "profile", title: "Setup Your Profile", subtitle: "Help classmates find and connect with you" },
+  { id: "ready", title: "You're All Set!", subtitle: "Your digital campus workspace is ready" },
 ];
 
-const GOALS = [
-  { id: "mentors", label: "Find Mentors", icon: Users, desc: "Connect with upperclassmen & alumni" },
-  { id: "clubs", label: "Join Clubs", icon: Compass, desc: "Explore student orgs & communities" },
+const GOAL_OPTIONS = [
+  { id: "mentors", label: "Find Mentors", icon: GraduationCap, desc: "Connect with upperclassmen & alumni" },
+  { id: "clubs", label: "Join Student Orgs", icon: Users, desc: "Discover tech, design & sports clubs" },
+  { id: "jobs", label: "Discover Internships", icon: Briefcase, desc: "Apply for campus & tech roles" },
   { id: "hackathons", label: "Hackathons", icon: Sparkles, desc: "Form teams & build projects" },
   { id: "study", label: "Study Partners", icon: BookOpen, desc: "Find peers for your courses" },
 ];
 
 export default function Onboarding() {
+  const { user, updateUser } = useApp();
   const [step, setStep] = useState(0);
-  const [name, setName] = useState("Alex Rivera");
-  const [major, setMajor] = useState("Computer Science");
-  const [gradYear, setGradYear] = useState("2026");
+  const [name, setName] = useState(user.name);
+  const [major, setMajor] = useState(user.major);
+  const [gradYear, setGradYear] = useState(user.gradYear);
   const [selectedGoals, setSelectedGoals] = useState<string[]>(["mentors", "clubs"]);
   const navigate = useNavigate();
 
@@ -38,6 +45,12 @@ export default function Onboarding() {
     if (step < ONBOARDING_STEPS.length - 1) {
       setStep(step + 1);
     } else {
+      updateUser({
+        name: name.trim() || user.name,
+        major: major.trim() || user.major,
+        gradYear: gradYear.trim() || user.gradYear,
+        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(name || user.name)}`,
+      });
       navigate("/campus");
     }
   };
@@ -149,7 +162,7 @@ export default function Onboarding() {
                   animate={{ opacity: 1 }}
                   className="grid grid-cols-1 sm:grid-cols-2 gap-3"
                 >
-                  {GOALS.map((goal) => {
+                  {GOAL_OPTIONS.map((goal) => {
                     const isSelected = selectedGoals.includes(goal.id);
                     return (
                       <motion.button

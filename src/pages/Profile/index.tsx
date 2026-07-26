@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { USER_PROFILE_DATA } from "@/data/profileMockData";
 import { FullUserProfile } from "@/components/profile/types";
 import {
@@ -12,13 +12,33 @@ import {
   EditProfileModal,
 } from "@/components/profile";
 import { motion } from "framer-motion";
+import { useApp } from "@/context/AppContext";
 
 export default function ProfilePage() {
-  const [user, setUser] = useState<FullUserProfile>(USER_PROFILE_DATA);
+  const { user: appUser, updateUser: updateAppUser } = useApp();
+  const [profileData, setProfileData] = useState<FullUserProfile>(USER_PROFILE_DATA);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
+  const displayUser = useMemo(() => {
+    return {
+      ...profileData,
+      name: appUser.name || profileData.name,
+      department: appUser.major || profileData.department,
+      year: appUser.gradYear ? `Class of '${appUser.gradYear.slice(-2)}` : profileData.year,
+      avatar: appUser.avatar || profileData.avatar,
+      bio: appUser.bio || profileData.bio,
+    };
+  }, [profileData, appUser]);
+
   const handleSaveProfile = (updated: Partial<FullUserProfile>) => {
-    setUser((prev) => ({ ...prev, ...updated }));
+    setProfileData((prev) => ({ ...prev, ...updated }));
+    updateAppUser({
+      name: updated.name,
+      major: updated.department,
+      gradYear: updated.year,
+      avatar: updated.avatar,
+      bio: updated.bio,
+    });
   };
 
   return (
@@ -30,33 +50,33 @@ export default function ProfilePage() {
     >
       {/* 1. Header (Cover, Avatar, Name, Dept, Year, Action Buttons) */}
       <ProfileHeader
-        user={user}
+        user={displayUser}
         onEditProfile={() => setIsEditModalOpen(true)}
         onOpenSettings={() => setIsEditModalOpen(true)}
       />
 
       {/* 2. Bio & Analytics Stats */}
-      <ProfileBioSection user={user} />
+      <ProfileBioSection user={displayUser} />
 
       {/* 3. Skills with Progress Bars */}
-      <SkillsSection skills={user.skills} />
+      <SkillsSection skills={displayUser.skills} />
 
       {/* 4. Earned Badges */}
-      <BadgesSection badges={user.badges} />
+      <BadgesSection badges={displayUser.badges} />
 
       {/* 5. Campus Milestones & Achievements (Progress Bars) */}
-      <AchievementsSection achievements={user.achievements} />
+      <AchievementsSection achievements={displayUser.achievements} />
 
       {/* 6. Communities Joined & 7. Upcoming Events */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <CommunitiesJoinedSection communities={user.communities} />
-        <UpcomingEventsSection events={user.events} />
+        <CommunitiesJoinedSection communities={displayUser.communities} />
+        <UpcomingEventsSection events={displayUser.events} />
       </div>
 
       {/* Edit Profile Modal */}
       <EditProfileModal
         isOpen={isEditModalOpen}
-        user={user}
+        user={displayUser}
         onClose={() => setIsEditModalOpen(false)}
         onSave={handleSaveProfile}
       />

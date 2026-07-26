@@ -1,98 +1,15 @@
 import { useState } from "react";
-import { MessageSquare, Heart, Share2, Bookmark, MoreHorizontal, FileText, BarChart2 } from "lucide-react";
+import { MessageSquare, Heart, Share2, Bookmark, MoreHorizontal, BarChart2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-
-interface Post {
-  id: number;
-  author: { name: string; avatar: string; title: string };
-  timestamp: string;
-  content: string;
-  image: string | null;
-  tags: string[];
-  likes: number;
-  comments: number;
-  type: string;
-  liked: boolean;
-  saved: boolean;
-  votedOption?: string | null;
-}
-
-const INITIAL_POSTS: Post[] = [
-  {
-    id: 1,
-    author: { name: "Alex Chen", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Alex", title: "CS, Junior" },
-    timestamp: "2 hours ago",
-    content: "Just finished building my first full-stack app using Next.js and Supabase! It was a steep learning curve but completely worth it. Anyone else working on similar stack for their capstone?",
-    image: null,
-    tags: ["nextjs", "supabase", "webdev"],
-    likes: 24,
-    comments: 5,
-    type: "text",
-    liked: false,
-    saved: false,
-  },
-  {
-    id: 2,
-    author: { name: "Design Club", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Design", title: "Official Community" },
-    timestamp: "5 hours ago",
-    content: "Sneak peek of the new UI components we're working on for the campus portal redesign. What do you think of this color scheme?",
-    image: "https://images.unsplash.com/photo-1558655146-d09347e92766?q=80&w=800&auto=format&fit=crop",
-    tags: ["uiux", "design", "figma"],
-    likes: 156,
-    comments: 32,
-    type: "image",
-    liked: true,
-    saved: true,
-  },
-  {
-    id: 3,
-    author: { name: "Sarah Wilson", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah", title: "Marketing, Senior" },
-    timestamp: "1 day ago",
-    content: "Which email marketing platform do you prefer for student orgs?",
-    image: null,
-    tags: ["marketing", "tools"],
-    likes: 12,
-    comments: 45,
-    type: "poll",
-    liked: false,
-    saved: false,
-    votedOption: null,
-  }
-];
+import { useApp } from "@/context/AppContext";
 
 export function CampusPostFeed() {
-  const [posts, setPosts] = useState(INITIAL_POSTS);
+  const { posts, toggleLikePost, toggleSavePost } = useApp();
+  const [votedPolls, setVotedPolls] = useState<Record<string | number, string>>({});
 
-  const toggleLike = (id: number) => {
-    setPosts(posts.map(post => {
-      if (post.id === id) {
-        return {
-          ...post,
-          liked: !post.liked,
-          likes: post.liked ? post.likes - 1 : post.likes + 1
-        };
-      }
-      return post;
-    }));
-  };
-
-  const toggleSave = (id: number) => {
-    setPosts(posts.map(post => {
-      if (post.id === id) {
-        return { ...post, saved: !post.saved };
-      }
-      return post;
-    }));
-  };
-
-  const votePoll = (postId: number, option: string) => {
-    setPosts(posts.map(post => {
-      if (post.id === postId) {
-        return { ...post, votedOption: option };
-      }
-      return post;
-    }));
+  const handleVote = (postId: string | number, option: string) => {
+    setVotedPolls(prev => ({ ...prev, [postId]: option }));
   };
 
   return (
@@ -134,7 +51,7 @@ export function CampusPostFeed() {
                   return (
                     <Button 
                       key={option} 
-                      onClick={() => votePoll(post.id, option)}
+                      onClick={() => handleVote(post.id, option)}
                       variant={isVoted ? "default" : "outline"} 
                       className="w-full justify-start h-10 bg-card transition-all"
                     >
@@ -162,11 +79,11 @@ export function CampusPostFeed() {
           <div className="flex items-center justify-between pt-4 border-t border-border/50 text-muted-foreground">
             <div className="flex items-center gap-1 sm:gap-4">
               <Button 
-                onClick={() => toggleLike(post.id)}
+                onClick={() => toggleLikePost(post.id)}
                 variant="ghost" 
                 size="sm" 
                 className={cn(
-                  "gap-2 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10",
+                  "gap-2 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 cursor-pointer",
                   post.liked ? "text-rose-500 bg-rose-50 dark:bg-rose-500/10" : "text-muted-foreground"
                 )}
               >
@@ -177,17 +94,17 @@ export function CampusPostFeed() {
                 <MessageSquare className="w-4 h-4" />
                 <span>{post.comments}</span>
               </Button>
-              <Button onClick={() => alert('Link copied to clipboard!')} variant="ghost" size="sm" className="gap-2 text-muted-foreground hover:text-foreground hover:bg-secondary">
+              <Button onClick={() => alert('Link copied to clipboard!')} variant="ghost" size="sm" className="gap-2 text-muted-foreground hover:text-foreground hover:bg-secondary cursor-pointer">
                 <Share2 className="w-4 h-4" />
                 <span className="hidden sm:inline">Share</span>
               </Button>
             </div>
             <Button 
-              onClick={() => toggleSave(post.id)}
+              onClick={() => toggleSavePost(post.id)}
               variant="ghost" 
               size="icon" 
               className={cn(
-                "h-9 w-9 hover:text-primary hover:bg-primary/10",
+                "h-9 w-9 hover:text-primary hover:bg-primary/10 cursor-pointer",
                 post.saved ? "text-primary bg-primary/10" : "text-muted-foreground"
               )}
             >

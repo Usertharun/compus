@@ -14,17 +14,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { UserProfile } from "./types";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
-
-const DEFAULT_USER: UserProfile = {
-  name: "Alex Rivera",
-  email: "arivera@stanford.edu",
-  avatarUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
-  campusName: "Stanford University",
-  majorYear: "CS Class of '26",
-  statusText: "Studying at Green Library 📚",
-};
+import { useApp } from "@/context/AppContext";
 
 export function UserMenuDropdown() {
+  const { user } = useApp();
   const [isOpen, setIsOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(() => {
     return document.documentElement.classList.contains("dark") || localStorage.getItem("theme") === "dark";
@@ -70,14 +63,14 @@ export function UserMenuDropdown() {
       >
         <div className="relative">
           <img
-            src={DEFAULT_USER.avatarUrl}
-            alt={DEFAULT_USER.name}
+            src={user.avatar}
+            alt={user.name}
             className="w-7 h-7 rounded-full object-cover ring-1 ring-border"
           />
           <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-background" />
         </div>
         <span className="hidden md:inline-block text-xs font-semibold text-foreground max-w-[100px] truncate">
-          {DEFAULT_USER.name}
+          {user.name}
         </span>
         <ChevronDown className={cn("w-3.5 h-3.5 text-muted-foreground transition-transform duration-200", isOpen && "rotate-180")} />
       </button>
@@ -100,33 +93,27 @@ export function UserMenuDropdown() {
             <div className="p-4 border-b border-border/60 bg-muted/30">
               <div className="flex items-center gap-3">
                 <img
-                  src={DEFAULT_USER.avatarUrl}
-                  alt={DEFAULT_USER.name}
+                  src={user.avatar}
+                  alt={user.name}
                   className="w-11 h-11 rounded-full object-cover ring-2 ring-primary/20"
                 />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1">
-                    <h4 className="text-sm font-bold text-foreground truncate">{DEFAULT_USER.name}</h4>
+                    <h4 className="text-sm font-bold text-foreground truncate">{user.name}</h4>
                     <ShieldCheck className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
                   </div>
-                  <p className="text-xs text-muted-foreground truncate">{DEFAULT_USER.email}</p>
+                  <p className="text-xs text-muted-foreground truncate">{user.email}</p>
                 </div>
               </div>
 
               {/* Status Badge */}
-              <div className="mt-3 flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-background border border-border/60 text-[11px] text-muted-foreground">
-                <Sparkles className="w-3 h-3 text-amber-500 shrink-0" />
-                <span className="truncate">{DEFAULT_USER.statusText}</span>
-              </div>
-
-              {/* Campus affiliation */}
-              <div className="mt-2 flex items-center justify-between text-[11px] text-muted-foreground font-medium">
-                <span className="flex items-center gap-1">
+              <div className="mt-3 flex items-center justify-between text-[11px] text-muted-foreground font-medium">
+                <span className="flex items-center gap-1 font-semibold text-foreground">
                   <GraduationCap className="w-3.5 h-3.5 text-primary" />
-                  {DEFAULT_USER.campusName}
+                  {user.university}
                 </span>
-                <span className="px-1.5 py-0.5 rounded-md bg-accent font-semibold text-[10px]">
-                  {DEFAULT_USER.majorYear}
+                <span className="px-2 py-0.5 rounded-md bg-accent font-semibold text-[10px]">
+                  {user.major}
                 </span>
               </div>
             </div>
@@ -147,8 +134,9 @@ export function UserMenuDropdown() {
               <button
                 onClick={() => {
                   setIsOpen(false);
+                  navigate("/settings");
                 }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-foreground rounded-xl hover:bg-accent transition-colors"
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-foreground rounded-xl hover:bg-accent transition-colors cursor-pointer"
               >
                 <Settings className="w-4 h-4 text-muted-foreground" />
                 Account Settings
@@ -156,7 +144,7 @@ export function UserMenuDropdown() {
 
               <button
                 onClick={toggleTheme}
-                className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-foreground rounded-xl hover:bg-accent transition-colors"
+                className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-foreground rounded-xl hover:bg-accent transition-colors cursor-pointer"
               >
                 <div className="flex items-center gap-2.5">
                   {isDarkMode ? (
@@ -177,9 +165,10 @@ export function UserMenuDropdown() {
               <button
                 onClick={() => {
                   setIsOpen(false);
+                  localStorage.removeItem("compus_auth");
                   navigate("/login");
                 }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-destructive hover:bg-destructive/10 rounded-xl transition-colors"
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-destructive hover:bg-destructive/10 rounded-xl transition-colors cursor-pointer"
               >
                 <LogOut className="w-4 h-4" />
                 Sign Out

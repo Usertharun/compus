@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Image, Paperclip, Smile, MapPin } from "lucide-react";
-import { STUDENT_PROFILE } from "@/data/homeMockData";
 import { useState } from "react";
+import { useApp } from "@/context/AppContext";
 
 interface CreatePostModalProps {
   isOpen: boolean;
@@ -9,7 +9,15 @@ interface CreatePostModalProps {
 }
 
 export function CreatePostModal({ isOpen, onClose }: CreatePostModalProps) {
+  const { user, addPost } = useApp();
   const [content, setContent] = useState("");
+
+  const handlePostSubmit = () => {
+    if (!content.trim()) return;
+    addPost(content);
+    setContent("");
+    onClose();
+  };
 
   return (
     <AnimatePresence>
@@ -28,13 +36,13 @@ export function CreatePostModal({ isOpen, onClose }: CreatePostModalProps) {
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             className="fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 p-4 sm:p-0"
           >
-            <div className="bg-card w-full rounded-2xl border border-border shadow-xl overflow-hidden flex flex-col">
+            <div className="glass-panel w-full rounded-3xl border border-border shadow-2xl overflow-hidden flex flex-col">
               {/* Header */}
               <div className="flex items-center justify-between p-4 border-b border-border/40">
                 <h3 className="text-lg font-bold">Create Post</h3>
                 <button
                   onClick={onClose}
-                  className="p-1.5 rounded-full hover:bg-accent text-muted-foreground transition-colors"
+                  className="p-1.5 rounded-full hover:bg-accent text-muted-foreground transition-colors cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -44,13 +52,13 @@ export function CreatePostModal({ isOpen, onClose }: CreatePostModalProps) {
               <div className="p-4 space-y-4">
                 <div className="flex items-center gap-3">
                   <img
-                    src={STUDENT_PROFILE.avatar}
-                    alt={STUDENT_PROFILE.name}
-                    className="w-10 h-10 rounded-full object-cover"
+                    src={user.avatar}
+                    alt={user.name}
+                    className="w-10 h-10 rounded-full object-cover border border-border"
                   />
                   <div>
-                    <p className="font-semibold text-sm">{STUDENT_PROFILE.name}</p>
-                    <p className="text-xs text-muted-foreground">Posting to Campus Feed</p>
+                    <p className="font-semibold text-sm">{user.name}</p>
+                    <p className="text-xs text-muted-foreground">{user.major} • {user.university}</p>
                   </div>
                 </div>
 
@@ -82,12 +90,8 @@ export function CreatePostModal({ isOpen, onClose }: CreatePostModalProps) {
 
                 <button
                   disabled={!content.trim()}
-                  onClick={() => {
-                    // Logic to post...
-                    onClose();
-                    setContent("");
-                  }}
-                  className="px-6 py-2 bg-primary text-primary-foreground font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-all"
+                  onClick={handlePostSubmit}
+                  className="px-6 py-2 bg-primary text-primary-foreground font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-all cursor-pointer"
                 >
                   Post
                 </button>
