@@ -74,7 +74,7 @@ export function TopBar({
     }
   };
 
-  const { searchQuery, setSearchQuery } = useApp();
+  const { searchQuery, setSearchQuery, isBackendConnected } = useApp();
   const { scrollY } = useScroll();
   const [hidden, setHidden] = useState(false);
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
@@ -130,6 +130,12 @@ export function TopBar({
                   <span className="font-extrabold tracking-tight text-base text-foreground font-sans">
                     COMPUS
                   </span>
+                  {isBackendConnected && (
+                    <span className="ml-1 px-2 py-0.5 text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded-full flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      LIVE API
+                    </span>
+                  )}
                 </div>
               </div>
             </button>

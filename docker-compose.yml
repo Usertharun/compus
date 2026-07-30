@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  # NestJS Application Service
+  api:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: compus_api
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://compus_user:compus_password@postgres:5432/compus_db?schema=public
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_SECRET=super-secret-compus-access-jwt-key-2026!
+      - JWT_REFRESH_SECRET=super-secret-compus-refresh-jwt-key-2026!
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # PostgreSQL Database Service
+  postgres:
+    image: postgres:16-alpine
+    container_name: compus_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: compus_user
+      POSTGRES_PASSWORD: compus_password
+      POSTGRES_DB: compus_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U compus_user -d compus_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache & Queue Backend
+  redis:
+    image: redis:7-alpine
+    container_name: compus_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  redis_data:

@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { apiService, ApiPost } from "../services/api";
 
 export interface UserProfile {
   name: string;
@@ -32,13 +33,13 @@ export interface PostItem {
 
 const DEFAULT_USER: UserProfile = {
   name: "Alex Rivera",
-  email: "arivera@stanford.edu",
+  email: "alex.chen@srmist.edu.in",
   major: "Computer Science",
   gradYear: "2026",
-  bio: "Building open-source tools & spatial web apps.",
+  bio: "Building open-source tools & campus communication platform.",
   avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Alex",
-  university: "Stanford University",
-  location: "Green Library 📚",
+  university: "SRM Institute of Science and Technology",
+  location: "Campus Central 📚",
 };
 
 const DEFAULT_POSTS: PostItem[] = [
@@ -46,9 +47,9 @@ const DEFAULT_POSTS: PostItem[] = [
     id: 1,
     author: { name: "Alex Rivera", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Alex", title: "CS, Junior" },
     timestamp: "2 hours ago",
-    content: "Just finished building my first full-stack app using Next.js and Supabase! It was a steep learning curve but completely worth it. Anyone else working on similar stack for their capstone?",
+    content: "Welcome to Compus! The enterprise campus communication platform is now live and synchronized with the production PostgreSQL database backend.",
     image: null,
-    tags: ["nextjs", "supabase", "webdev"],
+    tags: ["compus", "backend", "live"],
     likes: 24,
     comments: 5,
     type: "text",
@@ -57,30 +58,16 @@ const DEFAULT_POSTS: PostItem[] = [
   },
   {
     id: 2,
-    author: { name: "Design Club", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Design", title: "Official Community" },
+    author: { name: "Computer Science Society", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=CS", title: "Official Community" },
     timestamp: "5 hours ago",
-    content: "Sneak peek of the new UI components we're working on for the campus portal redesign. What do you think of this color scheme?",
+    content: "Announcing the 2026 Annual Campus Hackathon! Register your teams now in the Events section.",
     image: "https://images.unsplash.com/photo-1558655146-d09347e92766?q=80&w=800&auto=format&fit=crop",
-    tags: ["uiux", "design", "figma"],
+    tags: ["hackathon", "cs", "events"],
     likes: 156,
     comments: 32,
     type: "image",
     liked: true,
     saved: true,
-  },
-  {
-    id: 3,
-    author: { name: "Sarah Wilson", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah", title: "Marketing, Senior" },
-    timestamp: "1 day ago",
-    content: "Which email marketing platform do you prefer for student orgs?",
-    image: null,
-    tags: ["marketing", "tools"],
-    likes: 12,
-    comments: 45,
-    type: "poll",
-    liked: false,
-    saved: false,
-    votedOption: null,
   }
 ];
 
@@ -102,6 +89,7 @@ interface AppContextType {
   isCreateOppOpen: boolean;
   openCreateOpp: () => void;
   closeCreateOpp: () => void;
+  isBackendConnected: boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -123,6 +111,40 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return DEFAULT_POSTS;
   });
 
+  const [isBackendConnected, setIsBackendConnected] = useState<boolean>(false);
+
+  // Sync with live backend API
+  useEffect(() => {
+    async function loadLiveBackendData() {
+      const health = await apiService.getHealth();
+      if (health && health.success) {
+        setIsBackendConnected(true);
+        const livePosts = await apiService.getLatestFeed();
+        if (livePosts && livePosts.length > 0) {
+          const formattedLivePosts: PostItem[] = livePosts.map((p: ApiPost) => ({
+            id: p.id,
+            author: {
+              name: p.author?.profile?.fullName || p.author?.email || "Student",
+              avatar: p.author?.profile?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.id}`,
+              title: `${p.author?.profile?.department || 'Verified Member'}`,
+            },
+            timestamp: new Date(p.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            content: p.content,
+            image: p.mediaUrls && p.mediaUrls.length > 0 ? p.mediaUrls[0] : null,
+            tags: [p.category || 'campus'],
+            likes: p.likeCount || 0,
+            comments: p.commentCount || 0,
+            type: p.mediaUrls && p.mediaUrls.length > 0 ? 'image' : 'text',
+            liked: false,
+            saved: false,
+          }));
+          setPosts(formattedLivePosts);
+        }
+      }
+    }
+    loadLiveBackendData();
+  }, []);
+
   useEffect(() => {
     localStorage.setItem("compus_user_profile", JSON.stringify(user));
   }, [user]);
@@ -135,9 +157,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setUser((prev) => ({ ...prev, ...updated }));
   };
 
-  const addPost = (content: string, image: string | null = null, tags: string[] = ["campus"]) => {
+  const addPost = async (content: string, image: string | null = null, tags: string[] = ["campus"]) => {
     const newPost: PostItem = {
-      id: Date.now(),
+      id: Date.now().toString(),
       author: {
         name: user.name,
         avatar: user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.name}`,
@@ -153,7 +175,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       liked: false,
       saved: false,
     };
+
     setPosts((prev) => [newPost, ...prev]);
+
+    // Send to live REST API if connected
+    if (isBackendConnected) {
+      await apiService.createPost(content, image ? [image] : []);
+    }
   };
 
   const toggleLikePost = (id: number | string) => {
@@ -211,6 +239,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         isCreateOppOpen,
         openCreateOpp,
         closeCreateOpp,
+        isBackendConnected,
       }}
     >
       {children}
