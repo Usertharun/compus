@@ -1,22 +1,11 @@
 # Stage 1: Build & Dependencies
 FROM node:20-slim AS builder
 
-# Force node-gyp & npm to use python3
-ENV PYTHON=/usr/bin/python3
-
-# Install system build dependencies required for native node modules (argon2, bcrypt, node-gyp) & Prisma
+# Install only OpenSSL (needed by Prisma) and CA certificates
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    python3 \
-    python-is-python3 \
-    pkg-config \
     openssl \
     ca-certificates \
-    && ln -sf /usr/bin/python3 /usr/bin/python \
     && rm -rf /var/lib/apt/lists/*
-
-# Configure npm python path for node-gyp
-RUN npm config set python /usr/bin/python3
 
 WORKDIR /app
 
@@ -25,6 +14,7 @@ COPY server/package*.json ./
 COPY server/prisma ./prisma/
 
 # Clean install backend dependencies
+# No native C++ compilation needed — argon2 uses prebuilt Rust NAPI binary
 RUN npm ci
 
 # Copy full backend source files

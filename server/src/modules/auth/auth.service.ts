@@ -13,7 +13,7 @@ import { AppLoggerService } from '@logger/logger.service';
 import { EmailService } from '@modules/email/email.service';
 import { validateCollegeEmail } from '@common/utils/email-validator.util';
 import { User, UserRole, VerificationType } from '@prisma/client';
-import * as argon2 from 'argon2';
+import * as argon2 from '@node-rs/argon2';
 import * as crypto from 'crypto';
 import {
   AuthResponseDto,
