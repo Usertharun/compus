@@ -1,13 +1,22 @@
 # Stage 1: Build & Dependencies
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
+
+# Install system build dependencies required for native node modules (argon2, bcrypt, node-gyp) & Prisma
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    make \
+    g++ \
+    openssl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copy dependency definitions
+# Copy dependency definitions and Prisma schema
 COPY package*.json ./
 COPY prisma ./prisma/
 
-# Install dependencies including devDependencies
+# Clean install dependencies including devDependencies
 RUN npm ci
 
 # Copy source files
@@ -17,8 +26,18 @@ COPY . .
 RUN npx prisma generate
 RUN npm run build
 
+# Prune devDependencies to keep production bundle lean
+RUN npm prune --production
+
 # Stage 2: Production Minimal Runtime
-FROM node:20-alpine AS runner
+FROM node:20-slim AS runner
+
+# Install runtime dependencies (OpenSSL & CA certificates for Neon PostgreSQL SSL)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    openssl \
+    ca-certificates \
+    wget \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -30,12 +49,8 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
 
-# Expose server port
-EXPOSE 4000
-
-# Healthcheck definition
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:4000/api/v1/health || exit 1
+# Expose server port (Railway dynamically injects PORT)
+EXPOSE 3000
 
 # Start production server
 CMD ["node", "dist/src/main"]

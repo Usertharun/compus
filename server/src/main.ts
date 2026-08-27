@@ -16,7 +16,11 @@ async function bootstrap() {
 
   const configService = app.get(ConfigService);
   const port = configService.get<number>('PORT', 3000);
-  const corsOrigins = configService.get<string>('CORS_ORIGINS', '*').split(',');
+  const rawCorsOrigins = configService.get<string>('CORS_ORIGINS', '*');
+  const corsOrigins =
+    rawCorsOrigins === '*'
+      ? '*'
+      : rawCorsOrigins.split(',').map((origin) => origin.trim());
 
   // 1. Security HTTP Headers
   app.use(
@@ -28,7 +32,7 @@ async function bootstrap() {
 
   // 2. CORS Configuration
   app.enableCors({
-    origin: corsOrigins,
+    origin: corsOrigins === '*' ? true : corsOrigins,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
   });
@@ -58,7 +62,8 @@ async function bootstrap() {
   // 6. Enable Lifecycle Graceful Shutdown
   app.enableShutdownHooks();
 
-  await app.listen(port);
+  await app.listen(port, '0.0.0.0');
+
 
   logger.log(`🚀 Compus Enterprise API Server running on port: ${port}`, 'Bootstrap');
   logger.log(`📚 OpenAPI / Swagger documentation: http://localhost:${port}/api/docs`, 'Bootstrap');
