@@ -1,11 +1,15 @@
 # Stage 1: Build & Dependencies
 FROM node:20-slim AS builder
 
+# Set Python environment variable for node-gyp to guarantee python3 discovery
+ENV PYTHON=/usr/bin/python3
+
 # Install system build dependencies required for native node modules (argon2, bcrypt, node-gyp) & Prisma
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
     python3 \
-    make \
-    g++ \
+    python-is-python3 \
+    pkg-config \
     openssl \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
