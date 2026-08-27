@@ -20,15 +20,15 @@ RUN npm config set python /usr/bin/python3
 
 WORKDIR /app
 
-# Copy dependency definitions and Prisma schema
-COPY package*.json ./
-COPY prisma ./prisma/
+# Copy dependency definitions and Prisma schema from server directory
+COPY server/package*.json ./
+COPY server/prisma ./prisma/
 
-# Clean install dependencies including devDependencies
+# Clean install backend dependencies
 RUN npm ci
 
-# Copy source files
-COPY . .
+# Copy full backend source files
+COPY server/ ./
 
 # Generate Prisma Client and compile NestJS application
 RUN npx prisma generate
