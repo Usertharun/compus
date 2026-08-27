@@ -23,6 +23,8 @@
     "prisma:seed": "ts-node prisma/seed.ts"
   },
   "dependencies": {
+    "@neon/config": "^1.0.5",
+    "@neon/env": "^1.1.4",
     "@nestjs/axios": "^4.0.1",
     "@nestjs/bullmq": "^11.0.2",
     "@nestjs/common": "^11.0.1",

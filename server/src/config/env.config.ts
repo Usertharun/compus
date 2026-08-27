@@ -21,8 +21,20 @@ export class EnvironmentVariables {
   API_PREFIX: string = 'api/v1';
 
   @IsString()
+  @IsOptional()
+  NEON_ORG_ID?: string;
+
+  @IsString()
+  @IsOptional()
+  NEON_PROJECT_ID?: string;
+
+  @IsString()
   @IsNotEmpty()
   DATABASE_URL: string;
+
+  @IsString()
+  @IsOptional()
+  DATABASE_URL_UNPOOLED?: string;
 
   @IsString()
   @IsOptional()
