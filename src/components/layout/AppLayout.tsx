@@ -5,9 +5,6 @@ import { TopAppBar } from "./TopAppBar";
 import { BottomNav } from "./BottomNav";
 import { AppLayoutProps } from "./types";
 import { cn } from "@/lib/utils";
-import { WelcomeSidebarCard } from "@/components/home/WelcomeSidebarCard";
-import { QuickNavMenu } from "@/components/home/QuickNavMenu";
-import { SidebarFeaturedCommunities } from "@/components/home/SidebarFeaturedCommunities";
 import { X } from "lucide-react";
 import { LeftSidebar } from "./LeftSidebar";
 import { RightSidebar } from "./RightSidebar";
@@ -37,10 +34,11 @@ export function AppLayout({
     closeCreatePost();
     closeHostEvent();
     closeCreateOpp();
+    setIsMobileMenuOpen(false);
   }, [location.pathname]);
 
-  // Determine if we should force hide sidebars on specific routes (e.g. Messages)
   const isMessagesPage = location.pathname.startsWith("/messages");
+  const isCampusPage = location.pathname === "/" || location.pathname.startsWith("/campus");
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col antialiased selection:bg-indigo-500/20 selection:text-indigo-600 font-sans transition-colors duration-200 relative overflow-clip">
@@ -58,13 +56,13 @@ export function AppLayout({
         <div
           className={cn(
             "mx-auto px-4 sm:px-6 lg:px-8 py-6",
-            "pb-28", // Bottom padding to account for floating nav on all screen sizes
+            "pb-24 lg:pb-8", // Mobile reserves space for bottom nav; desktop stays compact
             maxWidthClass
           )}
         >
           {isMessagesPage ? (
-            // Full width for specific pages like Messages (adjusted height so bottom nav doesn't cover composer)
-            <div className="w-full h-[calc(100vh-11.5rem)]">
+            // Full width for Messages page
+            <div className="w-full h-[calc(100vh-11rem)]">
               <AnimatePresence mode="wait">
                 <motion.div
                   key={location.pathname}
@@ -78,10 +76,10 @@ export function AppLayout({
                 </motion.div>
               </AnimatePresence>
             </div>
-          ) : (
-            // 3-Panel Layout
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr_2.5fr_1.2fr] xl:grid-cols-[20%_55%_25%] gap-6 xl:gap-8 items-start">
-              <LeftSidebar />
+          ) : isCampusPage ? (
+            // 3-Column Feed layout: Nav | Feed | Campus Pulse
+            <div className="grid grid-cols-1 lg:grid-cols-[250px_minmax(0,1fr)_300px] xl:grid-cols-[260px_minmax(0,1fr)_320px] gap-6 xl:gap-8 items-start">
+              <LeftSidebar mobile />
               
               <div className="w-full min-w-0">
                 <AnimatePresence mode="wait">
@@ -100,11 +98,30 @@ export function AppLayout({
 
               <RightSidebar />
             </div>
+          ) : (
+            // 2-Column Dedicated Page Workspace
+            <div className="grid grid-cols-1 lg:grid-cols-[250px_minmax(0,1fr)] xl:grid-cols-[260px_minmax(0,1fr)] gap-6 xl:gap-10 items-start max-w-[1440px] mx-auto">
+              <LeftSidebar />
+              <div className="w-full min-w-0">
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={location.pathname}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    transition={{ duration: 0.2, ease: "easeOut" }}
+                    className="w-full"
+                  >
+                    {children || <Outlet />}
+                  </motion.div>
+                </AnimatePresence>
+              </div>
+            </div>
           )}
         </div>
       </main>
 
-      {/* Floating Bottom Navigation */}
+      {/* Floating Bottom Navigation (Mobile Only) */}
       {!hideBottomNav && <BottomNav />}
 
       {/* Mobile Sidebar Drawer */}
@@ -129,14 +146,12 @@ export function AppLayout({
                 <span className="font-extrabold tracking-tight text-xl text-foreground font-sans">COMPUS</span>
                 <button 
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="p-2 -mr-2 text-muted-foreground hover:text-foreground rounded-xl hover:bg-secondary transition-colors"
+                  className="p-2 -mr-2 text-muted-foreground hover:text-foreground rounded-xl hover:bg-secondary transition-colors cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
-              <WelcomeSidebarCard />
-              <QuickNavMenu />
-              <SidebarFeaturedCommunities />
+              <LeftSidebar />
             </motion.div>
           </>
         )}

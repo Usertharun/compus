@@ -1,9 +1,9 @@
 /**
  * Compus REST API Client Service
- * Connects the React Frontend to the NestJS Production Backend (http://localhost:3000/api/v1)
+ * Connects the React Frontend to the NestJS Production Backend
  */
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api/v1';
+export const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api/v1';
 
 export interface ApiPost {
   id: string;
@@ -25,7 +25,27 @@ export interface ApiPost {
   };
 }
 
+export interface AuthResponse {
+  accessToken: string;
+  refreshToken?: string;
+  user: {
+    id: string;
+    email: string;
+    role: string;
+    profile?: {
+      name?: string;
+      bio?: string;
+      avatarUrl?: string;
+      department?: string;
+    };
+  };
+}
+
 export const apiService = {
+  getApiUrl() {
+    return API_BASE;
+  },
+
   async getHealth() {
     try {
       const res = await fetch(`${API_BASE}/health`);
@@ -33,6 +53,76 @@ export const apiService = {
       return await res.json();
     } catch {
       return null;
+    }
+  },
+
+  async login(email: string, password: string): Promise<AuthResponse | null> {
+    try {
+      const res = await fetch(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => null);
+        throw new Error(errorData?.message || 'Invalid email or password');
+      }
+      const json = await res.json();
+      return json.data || json;
+    } catch (err: any) {
+      throw err;
+    }
+  },
+
+  async requestOtp(email: string): Promise<{ success: boolean; message: string }> {
+    try {
+      const res = await fetch(`${API_BASE}/auth/request-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => null);
+        throw new Error(errorData?.message || 'Failed to send OTP verification code');
+      }
+      return await res.json();
+    } catch (err: any) {
+      throw err;
+    }
+  },
+
+  async verifyOtp(email: string, otp: string): Promise<{ valid: boolean }> {
+    try {
+      const res = await fetch(`${API_BASE}/auth/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, otp }),
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => null);
+        throw new Error(errorData?.message || 'Invalid or expired OTP code');
+      }
+      return await res.json();
+    } catch (err: any) {
+      throw err;
+    }
+  },
+
+  async registerWithOtp(email: string, password: string, otp: string): Promise<AuthResponse | null> {
+    try {
+      const res = await fetch(`${API_BASE}/auth/register-with-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, otp }),
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => null);
+        throw new Error(errorData?.message || 'Registration failed');
+      }
+      const json = await res.json();
+      return json.data || json;
+    } catch (err: any) {
+      throw err;
     }
   },
 
