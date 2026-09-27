@@ -12,6 +12,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { MessagingService } from './messaging.service';
 import { MessageType } from '@prisma/client';
+import { isCampusEmail } from '@common/utils/email-validator.util';
 import { SendMessageDto } from './dto/messaging.dto';
 import { AppLoggerService } from '@logger/logger.service';
 
@@ -48,6 +49,7 @@ export class MessagingGateway implements OnGatewayConnection, OnGatewayDisconnec
 
       const secret = this.configService.get<string>('JWT_ACCESS_SECRET');
       const payload = this.jwtService.verify(token, { secret });
+      if (!isCampusEmail(payload.email)) { socket.disconnect(); return; }
       const userId = payload.sub;
 
       socket.data.userId = userId;

@@ -14,7 +14,7 @@ This document provides step-by-step instructions for deploying the **Compus** pl
 1. Create a PostgreSQL project on [Neon.tech](https://neon.tech).
 2. Obtain the pooled connection string:
    ```env
-   DATABASE_URL="postgresql://user:password@ep-compus-poolerer.neon.tech/compus?sslmode=require"
+   DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/DATABASE"
    ```
 3. Run Prisma database migrations from local CLI:
    ```bash
@@ -39,7 +39,7 @@ This document provides step-by-step instructions for deploying the **Compus** pl
    ```env
    NODE_ENV=production
    PORT=4000
-   DATABASE_URL=postgresql://user:password@ep-compus.neon.tech/compus?sslmode=require
+   DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/DATABASE
    REDIS_HOST=your-redis-host.railway.app
    REDIS_PORT=6379
    JWT_ACCESS_SECRET=your-32-char-access-secret-key

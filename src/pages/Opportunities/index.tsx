@@ -32,10 +32,9 @@ interface AppliedItem {
 }
 
 export default function OpportunitiesPage() {
-  const { openCreateOpp, user } = useApp();
+  const { openCreateOpp, user, opportunities, toggleSaveOpportunity } = useApp();
   const toast = useToast();
   const [selectedType, setSelectedType] = useState("All");
-  const [opportunities, setOpportunities] = useState(OPPORTUNITIES_DATA);
   const [appliedOpp, setAppliedOpp] = useState<any | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [appliedItems, setAppliedItems] = useState<AppliedItem[]>([
@@ -56,16 +55,12 @@ export default function OpportunitiesPage() {
   ]);
   const [noteInput, setNoteInput] = useState("");
 
-  const toggleBookmark = (id: string, title: string) => {
-    setOpportunities((prev) =>
-      prev.map((opp) => {
-        if (opp.id === id) {
-          const nextState = !opp.isSaved;
-          toast.success(nextState ? `Saved ${title} to bookmarks!` : `Removed ${title} from saved`);
-          return { ...opp, isSaved: nextState };
-        }
-        return opp;
-      })
+  const toggleBookmark = (id: string, title: string, currentStatus?: boolean) => {
+    toggleSaveOpportunity(id);
+    toast.success(
+      !currentStatus
+        ? `Saved ${title} to your bookmarks! 🔖`
+        : `Removed ${title} from saved bookmarks`
     );
   };
 
@@ -290,7 +285,7 @@ export default function OpportunitiesPage() {
                 </div>
 
                 <button
-                  onClick={() => toggleBookmark(opp.id, opp.title)}
+                  onClick={() => toggleBookmark(opp.id, opp.title, opp.isSaved)}
                   className={cn(
                     "p-2 rounded-xl border transition-colors cursor-pointer",
                     opp.isSaved

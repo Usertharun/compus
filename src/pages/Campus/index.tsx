@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { CampusHeroBanner } from "@/components/home/CampusHeroBanner";
 import { CampusPostFeed } from "@/components/home/CampusPostFeed";
 import { useApp } from "@/context/AppContext";
 import { motion, AnimatePresence } from "framer-motion";
@@ -36,7 +37,10 @@ export default function CampusHome() {
   return (
     <div className="flex flex-col gap-6 w-full max-w-3xl mx-auto xl:max-w-none pb-12">
       
-      {/* 1. Quick Post Composer Card */}
+      {/* 1. Natural Campus Greeting & Hero Section */}
+      <CampusHeroBanner />
+
+      {/* 2. Interactive Post Composer Card */}
       <motion.div 
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -49,7 +53,7 @@ export default function CampusHome() {
           </Avatar>
 
           <button
-            onClick={openCreatePost}
+            onClick={() => openCreatePost("general")}
             className="flex-1 text-left px-4 py-3 rounded-2xl bg-secondary/40 hover:bg-secondary/70 border border-border/40 text-xs sm:text-sm text-muted-foreground transition-all cursor-pointer truncate"
           >
             What's on your mind, {user.name.split(" ")[0]}? Share an update, project, or question...
@@ -59,7 +63,7 @@ export default function CampusHome() {
         {/* Action Shortcut Buttons */}
         <div className="flex items-center justify-between gap-1 mt-3 pt-3 border-t border-border/40 overflow-x-auto scrollbar-hide">
           <button
-            onClick={openCreatePost}
+            onClick={() => openCreatePost("discussions")}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-secondary/50 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors cursor-pointer shrink-0"
           >
             <MessageSquare className="w-4 h-4 text-indigo-500" />
@@ -67,7 +71,7 @@ export default function CampusHome() {
           </button>
 
           <button
-            onClick={openCreatePost}
+            onClick={() => openCreatePost("projects")}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-secondary/50 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors cursor-pointer shrink-0"
           >
             <Lightbulb className="w-4 h-4 text-amber-500" />
@@ -75,7 +79,7 @@ export default function CampusHome() {
           </button>
 
           <button
-            onClick={openCreatePost}
+            onClick={() => openCreatePost("questions")}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-secondary/50 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors cursor-pointer shrink-0"
           >
             <HelpCircle className="w-4 h-4 text-sky-500" />
@@ -83,11 +87,11 @@ export default function CampusHome() {
           </button>
 
           <button
-            onClick={openCreatePost}
+            onClick={() => openCreatePost("general", true)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-secondary/50 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors cursor-pointer shrink-0"
           >
             <ImageIcon className="w-4 h-4 text-emerald-500" />
-            <span>Media</span>
+            <span>Photo / Media</span>
           </button>
         </div>
       </motion.div>

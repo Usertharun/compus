@@ -24,30 +24,21 @@ import { useToast } from "@/context/ToastContext";
 const CATEGORIES = ["All", "Hackathons", "Workshops", "Keynotes", "Socials", "My RSVPs"];
 
 export default function EventsPage() {
-  const { openHostEvent, user } = useApp();
+  const { openHostEvent, user, events, toggleRegisterEvent } = useApp();
   const toast = useToast();
   const [selectedCategory, setSelectedCategory] = useState("All");
-  const [events, setEvents] = useState(EVENTS_DATA);
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [selectedTicket, setSelectedTicket] = useState<any | null>(null);
 
   const registeredCount = events.filter((e) => e.isRegistered).length;
 
-  const toggleRegister = (id: string, title: string) => {
-    setEvents((prev) =>
-      prev.map((e) => {
-        if (e.id === id) {
-          const nextState = !e.isRegistered;
-          toast.success(nextState ? `RSVP confirmed for ${title}!` : `Cancelled RSVP for ${title}`);
-          return {
-            ...e,
-            isRegistered: nextState,
-            attendeesCount: nextState ? (e.attendeesCount || 100) + 1 : (e.attendeesCount || 100) - 1,
-          };
-        }
-        return e;
-      })
+  const handleToggleRegister = (id: string, title: string, currentStatus?: boolean) => {
+    toggleRegisterEvent(id);
+    toast.success(
+      !currentStatus
+        ? `RSVP confirmed for ${title}! Admission pass generated.`
+        : `Cancelled RSVP for ${title}`
     );
   };
 
@@ -304,7 +295,7 @@ export default function EventsPage() {
                     )}
 
                     <button
-                      onClick={() => toggleRegister(event.id, event.title)}
+                      onClick={() => handleToggleRegister(event.id, event.title, event.isRegistered)}
                       className={cn(
                         "px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all duration-200 cursor-pointer",
                         event.isRegistered
@@ -358,7 +349,7 @@ export default function EventsPage() {
 
               <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
                 <button
-                  onClick={() => toggleRegister(event.id, event.title)}
+                  onClick={() => handleToggleRegister(event.id, event.title, event.isRegistered)}
                   className={cn(
                     "px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer",
                     event.isRegistered

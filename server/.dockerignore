@@ -12,3 +12,6 @@ yarn-error.log*
 .idea
 .vscode
 test
+
+**/.env
+**/.env.*

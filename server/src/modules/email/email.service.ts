@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import { AppLoggerService } from '@logger/logger.service';
@@ -11,22 +11,33 @@ export class EmailService {
     private readonly configService: ConfigService,
     private readonly logger: AppLoggerService,
   ) {
-    const host = this.configService.get<string>('SMTP_HOST', 'localhost');
-    const port = this.configService.get<number>('SMTP_PORT', 1025); // Default to Mailhog/Ethereal in dev
+    const host = this.configService.get<string>('SMTP_HOST');
+    const port = Number(this.configService.get<number>('SMTP_PORT', 465));
     const user = this.configService.get<string>('SMTP_USER');
     const pass = this.configService.get<string>('SMTP_PASS');
 
     this.transporter = nodemailer.createTransport({
       host,
       port,
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 15000,
       secure: port === 465,
+      requireTLS: port !== 465,
       auth: user && pass ? { user, pass } : undefined,
     });
   }
 
+  assertConfigured(): void {
+    if (!this.configService.get<string>('SMTP_HOST') || !this.configService.get<string>('SMTP_FROM') || (['smtp.resend.com', 'smtp.gmail.com'].includes(this.configService.get<string>('SMTP_HOST') || '') && (!this.configService.get<string>('SMTP_PASS') || !this.configService.get<string>('SMTP_USER')))) {
+      throw new ServiceUnavailableException('Email delivery is not available yet. Please try again later.');
+    }
+  }
+
   async sendOtpEmail(email: string, otp: string): Promise<void> {
+    this.assertConfigured();
     const mailOptions = {
-      from: '"Compus Platform" <no-reply@compus.edu>',
+      from: this.configService.get<string>('SMTP_FROM'),
       to: email,
       subject: 'Compus - Verification OTP Code',
       html: `
@@ -47,18 +58,15 @@ export class EmailService {
     try {
       await this.transporter.sendMail(mailOptions);
       this.logger.log(`📧 OTP email dispatched successfully to: ${email}`, 'EmailService');
-    } catch (error) {
-      this.logger.warn(
-        `⚠️ Mail dispatch failed (fallback to dev logging): ${error instanceof Error ? error.message : String(error)}`,
-        'EmailService',
-      );
-      this.logger.log(`[DEV OTP LOG]: Verification Code for ${email} is: ${otp}`, 'EmailService');
+    } catch {
+      this.logger.warn('Verification email delivery failed', 'EmailService');
+      throw new ServiceUnavailableException('Unable to deliver your verification code. Please try again later.');
     }
   }
 
   async sendWelcomeEmail(email: string, name: string): Promise<void> {
     const mailOptions = {
-      from: '"Compus Platform" <no-reply@compus.edu>',
+      from: this.configService.get<string>('SMTP_FROM'),
       to: email,
       subject: 'Welcome to Compus!',
       html: `
@@ -73,14 +81,16 @@ export class EmailService {
     try {
       await this.transporter.sendMail(mailOptions);
     } catch (error) {
-      this.logger.warn(`Welcome email log: ${error instanceof Error ? error.message : String(error)}`, 'EmailService');
+      this.logger.warn('Welcome email delivery failed', 'EmailService');
     }
   }
 
   async sendPasswordResetEmail(email: string, resetToken: string): Promise<void> {
-    const resetUrl = `http://localhost:5173/reset-password?token=${resetToken}`;
+    this.assertConfigured();
+    const resetUrl = new URL('/reset-password', this.configService.get<string>('APP_URL', 'http://localhost:5173'));
+    resetUrl.searchParams.set('token', resetToken);
     const mailOptions = {
-      from: '"Compus Security" <no-reply@compus.edu>',
+      from: this.configService.get<string>('SMTP_FROM'),
       to: email,
       subject: 'Compus - Password Reset Instructions',
       html: `
@@ -96,7 +106,8 @@ export class EmailService {
     try {
       await this.transporter.sendMail(mailOptions);
     } catch (error) {
-      this.logger.warn(`Password reset email log: ${error instanceof Error ? error.message : String(error)}`, 'EmailService');
+      this.logger.warn('Password reset email delivery failed', 'EmailService');
+      throw new ServiceUnavailableException('Unable to send the reset link. Please try again later.');
     }
   }
 }

@@ -1,76 +1,120 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Bookmark, Trash2, ExternalLink, Calendar, Briefcase, MessageSquare, Heart, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import { useApp } from "@/context/AppContext";
+import { useToast } from "@/context/ToastContext";
+import { useNavigate } from "react-router-dom";
+
+interface UnifiedSavedItem {
+  id: string;
+  rawId: string | number;
+  category: "posts" | "opportunities" | "events";
+  typeLabel: string;
+  title: string;
+  author: string;
+  authorAvatar: string;
+  content: string;
+  image?: string | null;
+  date?: string;
+  location?: string;
+  compensation?: string;
+  dateSaved: string;
+  likes?: number;
+}
 
 const SAVED_TABS = [
   { id: "all", label: "All Items" },
   { id: "posts", label: "Saved Posts" },
   { id: "opportunities", label: "Opportunities" },
-  { id: "events", label: "Events" },
-];
-
-const INITIAL_SAVED_ITEMS = [
-  {
-    id: "p1",
-    category: "posts",
-    typeLabel: "Post",
-    title: "UI Components for Campus Portal Redesign",
-    author: "Design Club",
-    authorAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Design",
-    content: "Sneak peek of the new UI components we're working on for the campus portal redesign. What do you think of this color scheme?",
-    image: "https://images.unsplash.com/photo-1558655146-d09347e92766?q=80&w=800&auto=format&fit=crop",
-    dateSaved: "Saved 2 hours ago",
-    likes: 156,
-  },
-  {
-    id: "o1",
-    category: "opportunities",
-    typeLabel: "Internship",
-    title: "Software Engineer Intern - Summer 2026",
-    author: "Stripe",
-    authorAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Stripe",
-    content: "Building core payments infrastructure and global developer APIs. Open for CS and ECE undergrads.",
-    location: "San Francisco, CA / Remote",
-    dateSaved: "Saved yesterday",
-    compensation: "$55/hr",
-  },
-  {
-    id: "e1",
-    category: "events",
-    typeLabel: "Hackathon",
-    title: "Stanford AI & Web3 Innovation Hackathon",
-    author: "ACM Student Chapter",
-    authorAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=ACM",
-    content: "48-hour sprint building intelligent agents and spatial apps. $15,000 in prizes and VC office hours.",
-    date: "Oct 18-20 • Huang Engineering Center",
-    dateSaved: "Saved 3 days ago",
-  },
-  {
-    id: "p2",
-    category: "posts",
-    typeLabel: "Discussion",
-    title: "Full-stack Next.js & Supabase Architecture Tips",
-    author: "Alex Chen",
-    authorAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Alex",
-    content: "Just finished building my first full-stack app using Next.js and Supabase! Here are the 5 lessons I learned.",
-    dateSaved: "Saved 5 days ago",
-    likes: 24,
-  }
+  { id: "events", label: "Registered Events" },
 ];
 
 export default function Saved() {
+  const { posts, toggleSavePost, opportunities, toggleSaveOpportunity, events, toggleRegisterEvent } = useApp();
+  const toast = useToast();
+  const navigate = useNavigate();
   const [activeFilter, setActiveFilter] = useState("all");
-  const [items, setItems] = useState(INITIAL_SAVED_ITEMS);
 
-  const removeItem = (id: string) => {
-    setItems((prev) => prev.filter((item) => item.id !== id));
+  // Dynamically derive saved items from AppContext state
+  const savedPosts: UnifiedSavedItem[] = useMemo(() => {
+    return posts
+      .filter((p) => p.saved)
+      .map((p) => ({
+        id: `post-${p.id}`,
+        rawId: p.id,
+        category: "posts" as const,
+        typeLabel: p.type === "poll" ? "Campus Poll" : "Feed Post",
+        title: p.content.slice(0, 75) + (p.content.length > 75 ? "..." : ""),
+        author: p.author.name,
+        authorAvatar: p.author.avatar,
+        content: p.content,
+        image: p.image,
+        dateSaved: p.timestamp,
+        likes: p.likes,
+      }));
+  }, [posts]);
+
+  const savedOpportunities: UnifiedSavedItem[] = useMemo(() => {
+    return opportunities
+      .filter((o) => o.isSaved)
+      .map((o) => ({
+        id: `opp-${o.id}`,
+        rawId: o.id,
+        category: "opportunities" as const,
+        typeLabel: o.type,
+        title: o.title,
+        author: o.company,
+        authorAvatar: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=150&auto=format&fit=crop&q=80",
+        content: o.description || "University campus partner opportunity.",
+        location: o.location,
+        dateSaved: o.deadline ? `Deadline: ${o.deadline}` : "Ongoing",
+        compensation: o.stipendOrPrize,
+      }));
+  }, [opportunities]);
+
+  const registeredEvents: UnifiedSavedItem[] = useMemo(() => {
+    return events
+      .filter((e) => e.isRegistered)
+      .map((e) => ({
+        id: `evt-${e.id}`,
+        rawId: e.id,
+        category: "events" as const,
+        typeLabel: e.category || "Event",
+        title: e.title,
+        author: e.host,
+        authorAvatar: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=150",
+        content: `Venue: ${e.venue} • Time: ${e.time || 'TBD'}`,
+        image: e.image,
+        date: e.date,
+        dateSaved: "Registered Pass",
+      }));
+  }, [events]);
+
+  const allItems: UnifiedSavedItem[] = useMemo(() => {
+    return [...savedPosts, ...savedOpportunities, ...registeredEvents];
+  }, [savedPosts, savedOpportunities, registeredEvents]);
+
+  const handleRemove = (item: UnifiedSavedItem) => {
+    if (item.category === "posts") {
+      toggleSavePost(item.rawId);
+      toast.info("Post removed from saved bookmarks");
+    } else if (item.category === "opportunities") {
+      toggleSaveOpportunity(String(item.rawId));
+      toast.info("Opportunity removed from saved bookmarks");
+    } else if (item.category === "events") {
+      toggleRegisterEvent(String(item.rawId));
+      toast.info("Event RSVP cancelled");
+    }
   };
 
-  const filteredItems = items.filter((item) => {
-    if (activeFilter === "all") return true;
-    return item.category === activeFilter;
-  });
+  const filteredItems = useMemo(() => {
+    if (activeFilter === "all") return allItems;
+    if (activeFilter === "posts") return savedPosts;
+    if (activeFilter === "opportunities") return savedOpportunities;
+    if (activeFilter === "events") return registeredEvents;
+    return allItems;
+  }, [activeFilter, allItems, savedPosts, savedOpportunities, registeredEvents]);
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto pb-12">
@@ -78,9 +122,9 @@ export default function Saved() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground font-sans flex items-center gap-3">
-            <span>Saved Bookmarks</span>
+            <span>Saved Bookmarks & Passes</span>
             <span className="text-xs px-3 py-1 rounded-full glass-pill text-primary font-bold">
-              {items.length} Saved
+              {allItems.length} Saved
             </span>
           </h1>
           <p className="text-sm text-muted-foreground font-medium mt-1">
@@ -123,6 +167,12 @@ export default function Saved() {
           <p className="text-xs max-w-sm mx-auto">
             Click the bookmark icon on posts or opportunities across your campus feed to save them here!
           </p>
+          <button
+            onClick={() => navigate("/campus")}
+            className="mt-3 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:opacity-90 cursor-pointer"
+          >
+            Browse Campus Feed
+          </button>
         </div>
       ) : (
         <div className="space-y-4">
@@ -156,7 +206,7 @@ export default function Saved() {
                   </div>
 
                   <button
-                    onClick={() => removeItem(item.id)}
+                    onClick={() => handleRemove(item)}
                     className="p-2 rounded-xl text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer"
                     title="Remove from saved"
                   >

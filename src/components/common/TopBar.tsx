@@ -75,27 +75,10 @@ export function TopBar({
   };
 
   const { searchQuery, setSearchQuery, isBackendConnected } = useApp();
-  const { scrollY } = useScroll();
-  const [hidden, setHidden] = useState(false);
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
 
-  useMotionValueEvent(scrollY, "change", (latest) => {
-    const previous = scrollY.getPrevious() || 0;
-    if (latest > previous && latest > 150) {
-      setHidden(true);
-    } else {
-      setHidden(false);
-    }
-  });
-
   return (
-    <motion.header
-      variants={{
-        visible: { y: 0, opacity: 1 },
-        hidden: { y: -100, opacity: 0 },
-      }}
-      animate={hidden ? "hidden" : "visible"}
-      transition={{ duration: 0.3, ease: "easeInOut" }}
+    <header
       className={cn(
         "sticky top-0 z-40 w-full backdrop-blur-2xl bg-background/80",
         "border-b border-border/50 shadow-xs transition-colors duration-200",
@@ -214,7 +197,7 @@ export function TopBar({
           </div>
         </div>
       </div>
-    </motion.header>
+    </header>
   );
 }
 

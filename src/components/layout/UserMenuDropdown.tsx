@@ -1,3 +1,4 @@
+import { useAuth } from "@/context/AuthContext";
 import { useState, useRef, useEffect } from "react";
 import { 
   User, 
@@ -18,6 +19,7 @@ import { useApp } from "@/context/AppContext";
 
 export function UserMenuDropdown() {
   const { user } = useApp();
+  const { logout } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(() => {
     return document.documentElement.classList.contains("dark") || localStorage.getItem("theme") === "dark";
@@ -165,8 +167,7 @@ export function UserMenuDropdown() {
               <button
                 onClick={() => {
                   setIsOpen(false);
-                  localStorage.removeItem("compus_auth");
-                  navigate("/login");
+                  void logout().catch(() => undefined);
                 }}
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-destructive hover:bg-destructive/10 rounded-xl transition-colors cursor-pointer"
               >

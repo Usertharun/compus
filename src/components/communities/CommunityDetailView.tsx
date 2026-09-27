@@ -11,10 +11,14 @@ import {
   Share2, 
   Sparkles,
   MapPin,
-  Clock
+  Clock,
+  MessageCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
+import { useToast } from "@/context/ToastContext";
+import { useApp } from "@/context/AppContext";
+import { useNavigate } from "react-router-dom";
 
 interface CommunityDetailViewProps {
   community: CommunityItem;
@@ -22,8 +26,12 @@ interface CommunityDetailViewProps {
 }
 
 export function CommunityDetailView({ community, onBack }: CommunityDetailViewProps) {
+  const toast = useToast();
+  const { startChatWithUser } = useApp();
+  const navigate = useNavigate();
   const [isJoined, setIsJoined] = useState(community.isJoined || false);
   const [memberCount, setMemberCount] = useState(community.memberCount);
+  const [rsvpedEvents, setRsvpedEvents] = useState<Record<string, boolean>>({});
   const [posts, setPosts] = useState<CommunityPost[]>(community.recentPosts);
   const [newPostContent, setNewPostContent] = useState("");
   const [activeTab, setActiveTab] = useState<"posts" | "events" | "members">("posts");
@@ -32,6 +40,28 @@ export function CommunityDetailView({ community, onBack }: CommunityDetailViewPr
     const nextState = !isJoined;
     setIsJoined(nextState);
     setMemberCount((prev) => (nextState ? prev + 1 : prev - 1));
+    if (nextState) {
+      toast.success(`Welcome to ${community.name}! 🎉`);
+    } else {
+      toast.info(`Left ${community.name}`);
+    }
+  };
+
+  const handleShare = () => {
+    navigator.clipboard.writeText(window.location.href);
+    toast.success("Community invitation link copied to clipboard!");
+  };
+
+  const toggleRsvp = (evtId: string, title: string) => {
+    setRsvpedEvents((prev) => {
+      const next = !prev[evtId];
+      if (next) {
+        toast.success(`RSVP confirmed for ${title}! Check Saved Passes.`);
+      } else {
+        toast.info(`RSVP cancelled for ${title}.`);
+      }
+      return { ...prev, [evtId]: next };
+    });
   };
 
   const toggleLike = (postId: string) => {
@@ -83,7 +113,11 @@ export function CommunityDetailView({ community, onBack }: CommunityDetailViewPr
         >
           <ArrowLeft className="w-4 h-4" /> Back to Communities
         </button>
-        <button className="p-2 rounded-xl bg-card border border-border/80 text-muted-foreground hover:text-foreground transition-colors">
+        <button
+          onClick={handleShare}
+          className="p-2 rounded-xl bg-card border border-border/80 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+          title="Share Community"
+        >
           <Share2 className="w-4 h-4" />
         </button>
       </div>
@@ -268,8 +302,16 @@ export function CommunityDetailView({ community, onBack }: CommunityDetailViewPr
                     <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5 text-muted-foreground" /> {evt.location}</span>
                   </div>
                 </div>
-                <button className="px-4 py-2 rounded-xl bg-emerald-600 text-white font-bold text-xs self-start sm:self-center hover:bg-emerald-500 shadow-xs transition-colors">
-                  RSVP Event
+                <button
+                  onClick={() => toggleRsvp(evt.id, evt.title)}
+                  className={cn(
+                    "px-4 py-2 rounded-xl font-bold text-xs self-start sm:self-center shadow-xs transition-colors cursor-pointer",
+                    rsvpedEvents[evt.id]
+                      ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
+                      : "bg-emerald-600 text-white hover:bg-emerald-500"
+                  )}
+                >
+                  {rsvpedEvents[evt.id] ? "RSVP Confirmed ✓" : "RSVP Event"}
                 </button>
               </div>
             ))
@@ -281,13 +323,29 @@ export function CommunityDetailView({ community, onBack }: CommunityDetailViewPr
       {activeTab === "members" && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {community.featuredMembers.map((member) => (
-            <div key={member.id} className="p-4 rounded-2xl bg-card border border-border/70 flex items-center gap-3">
-              <img src={member.avatar} alt={member.name} className="w-12 h-12 rounded-full object-cover ring-2 ring-primary/20" />
-              <div>
-                <h4 className="font-bold text-xs sm:text-sm text-foreground">{member.name}</h4>
-                <p className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold">{member.role}</p>
-                <p className="text-[11px] text-muted-foreground">{member.major}</p>
+            <div key={member.id} className="p-4 rounded-2xl bg-card border border-border/70 flex items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-center gap-3">
+                <img src={member.avatar} alt={member.name} className="w-12 h-12 rounded-full object-cover ring-2 ring-primary/20" />
+                <div>
+                  <h4 className="font-bold text-xs sm:text-sm text-foreground">{member.name}</h4>
+                  <p className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold">{member.role}</p>
+                  <p className="text-[11px] text-muted-foreground">{member.major}</p>
+                </div>
               </div>
+              <button
+                onClick={() => {
+                  startChatWithUser({
+                    name: member.name,
+                    avatar: member.avatar,
+                    isOnline: true,
+                  });
+                  navigate("/messages");
+                }}
+                className="p-2.5 rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground transition-colors cursor-pointer shrink-0"
+                title={`Message ${member.name}`}
+              >
+                <MessageCircle className="w-4 h-4" />
+              </button>
             </div>
           ))}
         </div>

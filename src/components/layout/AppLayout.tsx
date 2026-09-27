@@ -5,9 +5,9 @@ import { TopAppBar } from "./TopAppBar";
 import { BottomNav } from "./BottomNav";
 import { AppLayoutProps } from "./types";
 import { cn } from "@/lib/utils";
-import { X } from "lucide-react";
 import { LeftSidebar } from "./LeftSidebar";
 import { RightSidebar } from "./RightSidebar";
+import { MobileNavDrawer } from "./MobileNavDrawer";
 import { CreatePostModal } from "@/components/home/CreatePostModal";
 import { HostEventModal } from "@/components/events/HostEventModal";
 import { CreateOpportunityModal } from "@/components/opportunities/CreateOpportunityModal";
@@ -24,6 +24,7 @@ export function AppLayout({
   const location = useLocation();
   const { 
     isCreatePostOpen, closeCreatePost,
+    createPostCategory, createPostMediaOpen,
     isHostEventOpen, closeHostEvent,
     isCreateOppOpen, closeCreateOpp
   } = useApp();
@@ -41,7 +42,7 @@ export function AppLayout({
   const isCampusPage = location.pathname === "/" || location.pathname.startsWith("/campus");
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col antialiased selection:bg-indigo-500/20 selection:text-indigo-600 font-sans transition-colors duration-200 relative overflow-clip">
+    <div className="min-h-screen bg-background text-foreground flex flex-col antialiased selection:bg-indigo-500/20 selection:text-indigo-600 font-sans transition-colors duration-200 relative">
       {/* Top App Bar */}
       {!hideTopBar && (
         <TopAppBar 
@@ -55,31 +56,34 @@ export function AppLayout({
       <main className="flex-1 w-full relative">
         <div
           className={cn(
-            "mx-auto px-4 sm:px-6 lg:px-8 py-6",
-            "pb-24 lg:pb-8", // Mobile reserves space for bottom nav; desktop stays compact
+            "mx-auto px-4 sm:px-6 lg:px-8",
+            isMessagesPage ? "py-2 pb-20 sm:pb-24 lg:py-4 lg:pb-6" : "py-6 pb-24 lg:pb-8",
             maxWidthClass
           )}
         >
           {isMessagesPage ? (
-            // Full width for Messages page
-            <div className="w-full h-[calc(100vh-11rem)]">
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={location.pathname}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
-                  transition={{ duration: 0.2, ease: "easeOut" }}
-                  className="w-full h-full"
-                >
-                  {children || <Outlet />}
-                </motion.div>
-              </AnimatePresence>
+            // Dedicated Messages Workspace with desktop sidebar (Golden Proportion: 280px nav : remainder workspace)
+            <div className="grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)] gap-7 xl:gap-9 items-start">
+              <LeftSidebar />
+              <div className="w-full h-[calc(100dvh-9.5rem)] sm:h-[calc(100vh-10rem)] lg:h-[calc(100vh-7.5rem)]">
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={location.pathname}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    transition={{ duration: 0.2, ease: "easeOut" }}
+                    className="w-full h-full"
+                  >
+                    {children || <Outlet />}
+                  </motion.div>
+                </AnimatePresence>
+              </div>
             </div>
           ) : isCampusPage ? (
-            // 3-Column Feed layout: Nav | Feed | Campus Pulse
-            <div className="grid grid-cols-1 lg:grid-cols-[250px_minmax(0,1fr)_300px] xl:grid-cols-[260px_minmax(0,1fr)_320px] gap-6 xl:gap-8 items-start">
-              <LeftSidebar mobile />
+            // 3-Column Feed layout: Golden Ratio Proportion (280px Nav : ~680px Feed : 340px Pulse/Connect)
+            <div className="grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)_330px] xl:grid-cols-[300px_minmax(0,1fr)_350px] gap-7 xl:gap-9 items-start">
+              <LeftSidebar />
               
               <div className="w-full min-w-0">
                 <AnimatePresence mode="wait">
@@ -99,8 +103,8 @@ export function AppLayout({
               <RightSidebar />
             </div>
           ) : (
-            // 2-Column Dedicated Page Workspace
-            <div className="grid grid-cols-1 lg:grid-cols-[250px_minmax(0,1fr)] xl:grid-cols-[260px_minmax(0,1fr)] gap-6 xl:gap-10 items-start max-w-[1440px] mx-auto">
+            // 2-Column Dedicated Page Workspace (Golden Proportion)
+            <div className="grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)] gap-7 xl:gap-9 items-start max-w-[1440px] mx-auto">
               <LeftSidebar />
               <div className="w-full min-w-0">
                 <AnimatePresence mode="wait">
@@ -140,25 +144,21 @@ export function AppLayout({
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="fixed inset-y-0 left-0 z-[101] w-[85%] max-w-sm bg-background border-r border-border shadow-2xl p-4 overflow-y-auto lg:hidden flex flex-col gap-5 pb-24"
+              className="fixed inset-y-0 left-0 z-[101] w-[85%] max-w-sm bg-background border-r border-border shadow-2xl p-5 overflow-y-auto lg:hidden flex flex-col pb-10"
             >
-              <div className="flex items-center justify-between">
-                <span className="font-extrabold tracking-tight text-xl text-foreground font-sans">COMPUS</span>
-                <button 
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="p-2 -mr-2 text-muted-foreground hover:text-foreground rounded-xl hover:bg-secondary transition-colors cursor-pointer"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <LeftSidebar />
+              <MobileNavDrawer onClose={() => setIsMobileMenuOpen(false)} />
             </motion.div>
           </>
         )}
       </AnimatePresence>
 
       {/* Global Modals */}
-      <CreatePostModal isOpen={isCreatePostOpen} onClose={closeCreatePost} />
+      <CreatePostModal 
+        isOpen={isCreatePostOpen} 
+        onClose={closeCreatePost} 
+        initialCategory={createPostCategory} 
+        initialMediaOpen={createPostMediaOpen} 
+      />
       <HostEventModal isOpen={isHostEventOpen} onClose={closeHostEvent} />
       <CreateOpportunityModal isOpen={isCreateOppOpen} onClose={closeCreateOpp} />
     </div>

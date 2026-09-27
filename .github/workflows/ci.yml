@@ -1,49 +1,61 @@
-name: Compus Backend CI/CD Pipeline
-
+name: Compus validation
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main, develop ]
-
+    branches: [main, develop]
 jobs:
-  lint-and-build:
-    name: Lint, Validate & Build Backend
+  frontend:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout Code Repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js Environment
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - name: Check authentication UI
+        run: npx eslint src/services/api.ts src/services/http.ts src/context/AuthContext.tsx src/routes/AppRouter.tsx src/pages/Login/index.tsx src/pages/PasswordRecovery/index.tsx src/pages/Onboarding/index.tsx src/App.tsx
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: compus_test
+          POSTGRES_USER: compus
+          POSTGRES_PASSWORD: test-only-password
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7
+        ports: ['6379:6379']
+        options: --health-cmd 'redis-cli ping' --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://compus:test-only-password@localhost:5432/compus_test
+      DATABASE_URL_UNPOOLED: postgresql://compus:test-only-password@localhost:5432/compus_test
+      JWT_SECRET: ci-only-access-secret-not-for-production
+      JWT_REFRESH_SECRET: ci-only-refresh-secret-not-for-production
+      REDIS_HOST: localhost
+      REDIS_PORT: 6379
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
           cache-dependency-path: server/package-lock.json
-
-      - name: Install Backend Dependencies
-        run: |
-          cd server
-          npm ci
-
-      - name: Validate Prisma Schema & Generate Client
-        run: |
-          cd server
-          npx prisma validate
-          npx prisma generate
-
-      - name: Lint Source Code
-        run: |
-          cd server
-          npm run lint --if-present
-
-      - name: Compile TypeScript Application
-        run: |
-          cd server
-          npm run build
-
-      - name: Docker Build Check
-        run: |
-          cd server
-          docker build -t compus-backend:ci .
+      - run: npm ci
+      - run: npx prisma validate
+      - run: npx prisma generate
+      - run: npx prisma migrate deploy
+      - run: npm run build
+      - run: npm test -- --runInBand
+      - run: npm run test:e2e -- --runInBand
+      - run: docker build -t compus-backend:ci .

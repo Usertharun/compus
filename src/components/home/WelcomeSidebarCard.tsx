@@ -57,7 +57,7 @@ export function WelcomeSidebarCard() {
 
       {/* Create Post CTA */}
       <button 
-        onClick={openCreatePost}
+        onClick={() => openCreatePost()}
         className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground font-bold text-sm py-2.5 rounded-xl hover:opacity-90 transition-opacity active:scale-[0.98] shadow-sm cursor-pointer"
       >
         <PlusCircle className="w-4 h-4" />

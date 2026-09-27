@@ -70,6 +70,34 @@ export class EnvironmentVariables {
 
   @IsString()
   @IsOptional()
+  APP_URL: string = 'http://localhost:5173';
+
+  @IsString()
+  @IsOptional()
+  SMTP_HOST?: string;
+
+  @IsInt()
+  @IsOptional()
+  SMTP_PORT: number = 587;
+
+  @IsString()
+  @IsOptional()
+  SMTP_USER?: string;
+
+  @IsString()
+  @IsOptional()
+  SMTP_PASS?: string;
+
+  @IsString()
+  @IsOptional()
+  SMTP_FROM?: string;
+
+  @IsString()
+  @IsOptional()
+  REDIS_URL?: string;
+
+  @IsString()
+  @IsOptional()
   SENTRY_DSN?: string;
 
   @IsString()
@@ -87,8 +115,20 @@ export function validateEnvironment(config: Record<string, unknown>): Environmen
   });
 
   if (errors.length > 0) {
-    throw new Error(`❌ Environment Configuration Validation Error:\n${errors.toString()}`);
+    throw new Error(`❌ Environment Configuration Validation Error:\n${errors.map(error => error.property + ': ' + Object.values(error.constraints || {}).join(', ')).join('\n')}`);
   }
 
+  if (validatedConfig.NODE_ENV === Environment.Production) {
+    for (const key of ['JWT_SECRET', 'JWT_REFRESH_SECRET'] as const) {
+      if (validatedConfig[key].length < 32 || /replace|change.?me|example/i.test(validatedConfig[key])) throw new Error(key + ' must be a unique random secret of at least 32 characters');
+    }
+    if (validatedConfig.JWT_SECRET === validatedConfig.JWT_REFRESH_SECRET) throw new Error('JWT secrets must be different');
+    for (const origin of [validatedConfig.APP_URL, ...validatedConfig.CORS_ORIGINS.split(',')]) {
+      let url: URL;
+      try { url = new URL(origin.trim()); } catch { throw new Error('APP_URL and CORS_ORIGINS must contain explicit HTTPS origins'); }
+      if (url.protocol !== 'https:' || url.hostname === 'localhost' || url.pathname !== '/' || url.search || url.hash || url.username || url.password) throw new Error('APP_URL and CORS_ORIGINS must contain explicit HTTPS origins');
+    }
+    if (!validatedConfig.DATABASE_URL_UNPOOLED) throw new Error('DATABASE_URL_UNPOOLED is required for migrations');
+  }
   return validatedConfig;
 }

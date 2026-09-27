@@ -16,7 +16,7 @@ import { Roles } from '@common/decorators/roles.decorator';
 import { CurrentUser } from '@common/decorators/current-user.decorator';
 import { UserRole } from '@prisma/client';
 import { UsersService } from './users.service';
-import { UpdateProfileDto, UpdateUserDto } from './dto/users.dto';
+import { CompleteOnboardingDto, UpdateProfileDto, UpdateUserDto } from './dto/users.dto';
 import { PaginationQueryDto } from '@common/dto/pagination.dto';
 
 @ApiTags('Users')
@@ -53,7 +53,7 @@ export class UsersController {
 
   @Post('onboarding/complete')
   @ApiOperation({ summary: 'Mark onboarding flow completed for active user' })
-  async completeOnboarding(@CurrentUser('id') userId: string) {
-    return this.usersService.completeOnboarding(userId);
+  async completeOnboarding(@CurrentUser('id') userId: string, @Body() dto: CompleteOnboardingDto) {
+    return this.usersService.completeOnboarding(userId, dto);
   }
 }

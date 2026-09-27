@@ -1,5 +1,29 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsArray, IsOptional, IsString, IsUrl } from 'class-validator';
+import { ArrayMaxSize, ArrayUnique, IsArray, IsIn, IsNotEmpty, IsOptional, IsString, IsUrl, Matches, MaxLength } from 'class-validator';
+import { Transform } from 'class-transformer';
+
+export class CompleteOnboardingDto {
+  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  name: string;
+
+  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(150)
+  department: string;
+
+  @Matches(/^20\d{2}$/)
+  year: string;
+
+  @IsArray()
+  @ArrayMaxSize(5)
+  @ArrayUnique()
+  @IsIn(['mentors', 'clubs', 'jobs', 'hackathons', 'study'], { each: true })
+  goals: string[];
+}
 
 export class UpdateUserDto {
   @ApiPropertyOptional({ example: 'Alex Chen' })

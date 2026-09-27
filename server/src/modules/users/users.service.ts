@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { UsersRepository } from './repositories/users.repository';
-import { UpdateProfileDto, UpdateUserDto } from './dto/users.dto';
+import { CompleteOnboardingDto, UpdateProfileDto, UpdateUserDto } from './dto/users.dto';
+import { PrismaService } from '@database/prisma.service';
 import { PaginatedResponseDto, PaginationQueryDto } from '@common/dto/pagination.dto';
 import { AppLoggerService } from '@logger/logger.service';
 import { User } from '@prisma/client';
@@ -10,6 +11,7 @@ export class UsersService {
   constructor(
     private readonly usersRepository: UsersRepository,
     private readonly logger: AppLoggerService,
+    private readonly prisma: PrismaService,
   ) {}
 
   private sanitizeUser(user: User) {
@@ -57,13 +59,18 @@ export class UsersService {
     return profile;
   }
 
-  async completeOnboarding(userId: string) {
-    await this.findOne(userId);
-
-    const updated = await this.usersRepository.update(userId, {
-      onboardingCompleted: true,
+  async completeOnboarding(userId: string, dto: CompleteOnboardingDto) {
+    const labels: Record<string, string> = { mentors: 'Find Mentors', clubs: 'Join Student Orgs', jobs: 'Discover Internships', hackathons: 'Hackathons', study: 'Study Partners' };
+    return this.prisma.$transaction(async tx => {
+      const profile = await tx.profile.update({ where: { userId }, data: { name: dto.name, department: dto.department, year: dto.year } });
+      // Only replace onboarding interests, preserving unrelated profile interests.
+      await tx.userInterest.deleteMany({ where: { profileId: profile.id, interest: { name: { in: Object.values(labels) } } } });
+      for (const goal of dto.goals) {
+        const interest = await tx.interest.upsert({ where: { name: labels[goal] }, update: {}, create: { name: labels[goal] } });
+        await tx.userInterest.create({ data: { profileId: profile.id, interestId: interest.id } });
+      }
+      const user = await tx.user.update({ where: { id: userId }, data: { onboardingCompleted: true }, include: { profile: true } });
+      return { id: user.id, email: user.email, role: user.role, name: profile.name, onboardingCompleted: user.onboardingCompleted, profile: user.profile };
     });
-
-    return this.sanitizeUser(updated);
   }
 }

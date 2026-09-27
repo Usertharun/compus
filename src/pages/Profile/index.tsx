@@ -1,3 +1,4 @@
+import { useAuth } from "@/context/AuthContext";
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { USER_PROFILE_DATA } from "@/data/profileMockData";
@@ -17,9 +18,18 @@ import { useApp } from "@/context/AppContext";
 
 export default function ProfilePage() {
   const navigate = useNavigate();
+  const { user: account } = useAuth();
   const { user: appUser, updateUser: updateAppUser } = useApp();
-  const [profileData, setProfileData] = useState<FullUserProfile>(USER_PROFILE_DATA);
+  const [profileData, setProfileData] = useState<FullUserProfile>(() => {
+    const saved = localStorage.getItem("compus_profile_extended:" + account?.id);
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) { /* fallback */ }
+    }
+    return USER_PROFILE_DATA;
+  });
+
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editModalTab, setEditModalTab] = useState<"info" | "photos" | "links">("info");
 
   const displayUser = useMemo(() => {
     return {
@@ -28,19 +38,41 @@ export default function ProfilePage() {
       department: appUser.major || profileData.department,
       year: appUser.gradYear ? `Class of '${appUser.gradYear.slice(-2)}` : profileData.year,
       avatar: appUser.avatar || profileData.avatar,
+      banner: appUser.banner || profileData.banner,
       bio: appUser.bio || profileData.bio,
+      githubUrl: appUser.githubUrl !== undefined ? appUser.githubUrl : profileData.githubUrl,
+      linkedinUrl: appUser.linkedinUrl !== undefined ? appUser.linkedinUrl : profileData.linkedinUrl,
+      portfolioUrl: appUser.portfolioUrl !== undefined ? appUser.portfolioUrl : profileData.portfolioUrl,
     };
   }, [profileData, appUser]);
 
   const handleSaveProfile = (updated: Partial<FullUserProfile>) => {
-    setProfileData((prev) => ({ ...prev, ...updated }));
+    setProfileData((prev) => {
+      const next = { ...prev, ...updated };
+      localStorage.setItem("compus_profile_extended:" + account?.id, JSON.stringify(next));
+      return next;
+    });
+
     updateAppUser({
       name: updated.name,
       major: updated.department,
       gradYear: updated.year,
       avatar: updated.avatar,
+      banner: updated.banner,
       bio: updated.bio,
+      githubUrl: updated.githubUrl,
+      linkedinUrl: updated.linkedinUrl,
+      portfolioUrl: updated.portfolioUrl,
     });
+  };
+
+  const handleDirectPhotoUpload = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      handleSaveProfile({ avatar: dataUrl });
+    };
+    reader.readAsDataURL(file);
   };
 
   return (
@@ -48,13 +80,17 @@ export default function ProfilePage() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.3 }}
-      className="space-y-8 max-w-7xl mx-auto"
+      className="space-y-8 max-w-7xl mx-auto pb-12"
     >
-      {/* 1. Header (Cover, Avatar, Name, Dept, Year, Action Buttons) */}
+      {/* 1. Header (Cover, Avatar, Name, Dept, Year, Action Buttons & Social Links) */}
       <ProfileHeader
         user={displayUser}
-        onEditProfile={() => setIsEditModalOpen(true)}
+        onEditProfile={(tab) => {
+          setEditModalTab(tab || "info");
+          setIsEditModalOpen(true);
+        }}
         onOpenSettings={() => navigate("/settings")}
+        onDirectPhotoUpload={handleDirectPhotoUpload}
       />
 
       {/* 2. Bio & Analytics Stats */}
@@ -79,6 +115,7 @@ export default function ProfilePage() {
       <EditProfileModal
         isOpen={isEditModalOpen}
         user={displayUser}
+        defaultTab={editModalTab}
         onClose={() => setIsEditModalOpen(false)}
         onSave={handleSaveProfile}
       />

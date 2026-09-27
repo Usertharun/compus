@@ -8,11 +8,10 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '@database/prisma.service';
-import { RedisService } from '@redis/redis.service';
 import { AppLoggerService } from '@logger/logger.service';
 import { EmailService } from '@modules/email/email.service';
-import { validateCollegeEmail } from '@common/utils/email-validator.util';
-import { User, UserRole, VerificationType } from '@prisma/client';
+import { isCampusEmail, validateCollegeEmail } from '@common/utils/email-validator.util';
+import { Prisma, User, UserRole, VerificationType } from '@prisma/client';
 import * as argon2 from '@node-rs/argon2';
 import * as crypto from 'crypto';
 import {
@@ -32,13 +31,13 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
-    private readonly redisService: RedisService,
     private readonly emailService: EmailService,
     private readonly logger: AppLoggerService,
   ) {}
 
   async requestRegistrationOtp(dto: RequestOtpDto): Promise<{ message: string }> {
     const email = validateCollegeEmail(dto.email);
+    this.emailService.assertConfigured();
 
     const existingUser = await this.prisma.user.findUnique({
       where: { email },
@@ -48,8 +47,9 @@ export class AuthService {
       throw new ConflictException('A verified account with this college email address already exists.');
     }
 
-    // Generate 6-digit cryptographically secure OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const recent = await this.prisma.emailVerification.findFirst({ where: { email, type: VerificationType.REGISTRATION, createdAt: { gt: new Date(Date.now() - 60000) } } });
+    if (recent) throw new BadRequestException('Please wait one minute before requesting another code.');
+    const otp = crypto.randomInt(100000, 1000000).toString();
     const otpHash = await argon2.hash(otp);
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiry
 
@@ -58,7 +58,7 @@ export class AuthService {
       where: { email, type: VerificationType.REGISTRATION },
     });
 
-    await this.prisma.emailVerification.create({
+    const verification = await this.prisma.emailVerification.create({
       data: {
         email,
         otpHash,
@@ -67,130 +67,64 @@ export class AuthService {
       },
     });
 
-    await this.emailService.sendOtpEmail(email, otp);
+    try { await this.emailService.sendOtpEmail(email, otp); }
+    catch (error) {
+      await this.prisma.emailVerification.deleteMany({ where: { id: verification.id } });
+      throw error;
+    }
     this.logger.log(`Generated OTP for college email: ${email}`, 'AuthService');
 
     return { message: 'Verification OTP sent to your college email address' };
   }
 
-  async verifyOtp(dto: VerifyOtpDto): Promise<{ verified: boolean; message: string }> {
-    const email = validateCollegeEmail(dto.email);
-
+  private async checkRegistrationOtp(email: string, otp: string) {
     const verification = await this.prisma.emailVerification.findFirst({
-      where: {
-        email,
-        type: VerificationType.REGISTRATION,
-        isUsed: false,
-        expiresAt: { gt: new Date() },
-      },
+      where: { email, type: VerificationType.REGISTRATION, isUsed: false, expiresAt: { gt: new Date() } },
       orderBy: { createdAt: 'desc' },
     });
-
-    if (!verification) {
-      throw new BadRequestException('OTP code is invalid or has expired. Please request a new code.');
-    }
-
-    if (verification.attempts >= 3) {
-      throw new BadRequestException('Maximum OTP attempt threshold exceeded. Request a new OTP.');
-    }
-
-    const isValid = await argon2.verify(verification.otpHash, dto.otp);
-
-    if (!isValid) {
-      await this.prisma.emailVerification.update({
-        where: { id: verification.id },
-        data: { attempts: verification.attempts + 1 },
-      });
-      throw new BadRequestException('Invalid OTP code. Please check your email.');
-    }
-
-    return { verified: true, message: 'OTP verified successfully. Proceed to account creation.' };
+    if (!verification) throw new BadRequestException('The verification code is invalid or expired. Request a new code.');
+    // Reserve an attempt atomically before comparing the hash, including direct registration calls.
+    const attempt = await this.prisma.emailVerification.updateMany({
+      where: { id: verification.id, attempts: { lt: 3 }, isUsed: false, expiresAt: { gt: new Date() } },
+      data: { attempts: { increment: 1 } },
+    });
+    if (attempt.count !== 1) throw new BadRequestException('Too many verification attempts. Request a new code.');
+    if (!await argon2.verify(verification.otpHash, otp)) throw new BadRequestException('Invalid verification code.');
+    return verification;
   }
 
-  async registerWithOtp(
-    dto: RegisterWithOtpDto,
-    userAgent?: string,
-    ipAddress?: string,
-  ): Promise<AuthResponseDto> {
+  async verifyOtp(dto: VerifyOtpDto) {
+    await this.checkRegistrationOtp(validateCollegeEmail(dto.email), dto.otp);
+    return { verified: true, message: 'Code verified. Complete registration before it expires.' };
+  }
+
+  async registerWithOtp(dto: RegisterWithOtpDto, userAgent?: string, ipAddress?: string): Promise<AuthResponseDto> {
     const email = validateCollegeEmail(dto.email);
-
-    const verification = await this.prisma.emailVerification.findFirst({
-      where: {
-        email,
-        type: VerificationType.REGISTRATION,
-        isUsed: false,
-        expiresAt: { gt: new Date() },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    if (!verification) {
-      throw new BadRequestException('Valid OTP verification is required before registration.');
-    }
-
-    const isValidOtp = await argon2.verify(verification.otpHash, dto.otp);
-    if (!isValidOtp) {
-      throw new BadRequestException('Invalid OTP verification code.');
-    }
-
-    // Mark OTP used
-    await this.prisma.emailVerification.update({
-      where: { id: verification.id },
-      data: { isUsed: true },
-    });
-
-    // Hash password with Argon2
+    const verification = await this.checkRegistrationOtp(email, dto.otp);
     const passwordHash = await argon2.hash(dto.password);
-
-    // Create User & Profile
-    const user = await this.prisma.user.create({
-      data: {
-        email,
-        passwordHash,
-        role: UserRole.VERIFIED_USER,
-        isVerified: true,
-        onboardingCompleted: false,
-        profile: {
-          create: {
-            name: dto.name,
-            registerNumber: dto.registerNumber,
-            department: dto.department,
-            year: dto.year,
-            section: dto.section,
-          },
-        },
-        passwordHistories: {
-          create: { passwordHash },
-        },
-      },
-      include: { profile: true },
-    });
-
-    // Assign default student permissions (PBAC)
-    const defaultPermissions = [
-      'canCreateEvent',
-      'canUploadNotes',
-      'canModerateCommunity',
-    ];
-
-    const perms = await this.prisma.permission.findMany({
-      where: { key: { in: defaultPermissions } },
-    });
-
-    if (perms.length > 0) {
-      await this.prisma.userPermission.createMany({
-        data: perms.map((p) => ({
-          userId: user.id,
-          permissionId: p.id,
-        })),
-        skipDuplicates: true,
+    try {
+      const result = await this.prisma.$transaction(async tx => {
+        const consumed = await tx.emailVerification.updateMany({
+          where: { id: verification.id, isUsed: false, expiresAt: { gt: new Date() } }, data: { isUsed: true },
+        });
+        if (consumed.count !== 1) throw new BadRequestException('This code has already been used or expired.');
+        const user = await tx.user.create({
+          data: { email, passwordHash, role: UserRole.VERIFIED_USER, isVerified: true, onboardingCompleted: false,
+            profile: { create: { name: dto.name.trim(), registerNumber: dto.registerNumber, department: dto.department, year: dto.year, section: dto.section } },
+            passwordHistories: { create: { passwordHash } },
+          }, include: { profile: true },
+        });
+        const perms = await tx.permission.findMany({ where: { key: { in: ['canCreateEvent', 'canUploadNotes'] } } });
+        if (perms.length) await tx.userPermission.createMany({ data: perms.map(p => ({ userId: user.id, permissionId: p.id })), skipDuplicates: true });
+        return this.generateAuthTokens(user, userAgent, ipAddress, false, tx);
       });
+      // A welcome email failure must not invalidate an already-created account.
+      void this.emailService.sendWelcomeEmail(email, dto.name).catch(() => this.logger.warn('Welcome email could not be delivered', 'AuthService'));
+      return result;
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') throw new ConflictException('An account with this email already exists. Please sign in.');
+      throw error;
     }
-
-    await this.emailService.sendWelcomeEmail(email, dto.name);
-    this.logger.log(`✅ Registered new account with college email: ${user.id} (${email})`, 'AuthService');
-
-    return this.generateAuthTokens(user, userAgent, ipAddress);
   }
 
   async login(
@@ -198,14 +132,14 @@ export class AuthService {
     userAgent?: string,
     ipAddress?: string,
   ): Promise<AuthResponseDto> {
-    const email = dto.email.trim().toLowerCase();
+    const email = validateCollegeEmail(dto.email);
 
     const user = await this.prisma.user.findUnique({
       where: { email },
       include: { profile: true },
     });
 
-    if (!user || user.deletedAt || !user.isActive) {
+    if (!user || user.deletedAt || !user.isActive || !user.isVerified) {
       throw new UnauthorizedException('Invalid email address or password credentials');
     }
 
@@ -221,75 +155,39 @@ export class AuthService {
 
     this.logger.log(`🔑 Argon2 Login successful for user: ${user.id}`, 'AuthService');
 
-    return this.generateAuthTokens(user, userAgent, ipAddress, dto.rememberMe);
+    return this.prisma.$transaction(tx => this.generateAuthTokens(user, userAgent, ipAddress, dto.rememberMe, tx));
   }
 
-  async refreshToken(
-    refreshToken: string,
-    userAgent?: string,
-    ipAddress?: string,
-  ): Promise<AuthResponseDto> {
-    try {
-      const payload = this.jwtService.verify(refreshToken, {
-        secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
-      });
-
-      const tokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
-
-      const storedToken = await this.prisma.refreshToken.findUnique({
-        where: { tokenHash },
-      });
-
-      if (!storedToken || storedToken.isRevoked || storedToken.expiresAt < new Date()) {
-        throw new UnauthorizedException('Refresh token is invalid, expired, or revoked');
-      }
-
-      // Revoke old refresh token
-      await this.prisma.refreshToken.update({
-        where: { id: storedToken.id },
-        data: { isRevoked: true },
-      });
-
-      const user = await this.prisma.user.findUnique({
-        where: { id: payload.sub },
-        include: { profile: true },
-      });
-
-      if (!user || !user.isActive) {
-        throw new UnauthorizedException('User account is disabled or no longer exists');
-      }
-
-      return this.generateAuthTokens(user, userAgent, ipAddress);
-    } catch {
-      throw new UnauthorizedException('Invalid or expired refresh token');
-    }
-  }
-
-  async logout(userId: string, authHeader?: string, sessionId?: string): Promise<{ message: string }> {
-    if (authHeader) {
-      const token = authHeader.replace('Bearer ', '');
-      const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-      await this.redisService.blacklistToken(tokenHash, 900);
-    }
-
-    if (sessionId) {
-      await this.prisma.session.update({
-        where: { id: sessionId },
-        data: { isRevoked: true },
-      });
-    }
-
-    await this.prisma.refreshToken.updateMany({
-      where: { userId, isRevoked: false },
-      data: { isRevoked: true },
+  async refreshToken(refreshToken: string, userAgent?: string, ipAddress?: string): Promise<AuthResponseDto> {
+    let payload: { sub: string };
+    try { payload = this.jwtService.verify(refreshToken, { secret: this.configService.get<string>('JWT_REFRESH_SECRET') }); }
+    catch { throw new UnauthorizedException('Invalid or expired refresh token'); }
+    const tokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
+    return this.prisma.$transaction(async tx => {
+      const stored = await tx.refreshToken.findUnique({ where: { tokenHash }, include: { session: true } });
+      if (!stored || stored.userId !== payload.sub || stored.isRevoked || stored.expiresAt <= new Date() || !stored.session || stored.session.isRevoked || stored.session.expiresAt <= new Date()) throw new UnauthorizedException('Session expired. Please sign in again.');
+      const user = await tx.user.findUnique({ where: { id: payload.sub }, include: { profile: true } });
+      if (!user || !user.isActive || !user.isVerified || user.deletedAt || !isCampusEmail(user.email)) throw new UnauthorizedException('Account is unavailable.');
+      const consumed = await tx.refreshToken.updateMany({ where: { id: stored.id, isRevoked: false }, data: { isRevoked: true } });
+      if (consumed.count !== 1) throw new UnauthorizedException('Refresh token has already been used.');
+      await tx.session.update({ where: { id: stored.session.id }, data: { isRevoked: true } });
+      return this.generateAuthTokens(user, userAgent, ipAddress, false, tx);
     });
+  }
 
-    return { message: 'Logged out successfully' };
+  async logout(userId: string): Promise<{ message: string }> {
+    await this.prisma.$transaction([
+      this.prisma.session.updateMany({ where: { userId, isRevoked: false }, data: { isRevoked: true } }),
+      this.prisma.refreshToken.updateMany({ where: { userId, isRevoked: false }, data: { isRevoked: true } }),
+    ]);
+    return { message: 'Signed out of all sessions.' };
   }
 
   async forgotPassword(dto: ForgotPasswordDto): Promise<{ message: string }> {
+    const email = validateCollegeEmail(dto.email);
+    this.emailService.assertConfigured();
     const user = await this.prisma.user.findUnique({
-      where: { email: dto.email.trim().toLowerCase() },
+      where: { email },
     });
 
     if (user && user.isActive) {
@@ -319,7 +217,7 @@ export class AuthService {
       include: { user: true },
     });
 
-    if (!resetRecord || resetRecord.isUsed || resetRecord.expiresAt < new Date()) {
+    if (!resetRecord || resetRecord.isUsed || resetRecord.expiresAt < new Date() || !isCampusEmail(resetRecord.user.email) || !resetRecord.user.isActive || resetRecord.user.deletedAt) {
       throw new BadRequestException('Password reset token is invalid or has expired.');
     }
 
@@ -328,27 +226,16 @@ export class AuthService {
 
     const newPasswordHash = await argon2.hash(dto.newPassword);
 
-    await this.prisma.$transaction([
-      this.prisma.user.update({
-        where: { id: resetRecord.userId },
-        data: { passwordHash: newPasswordHash },
-      }),
-      this.prisma.passwordResetToken.update({
-        where: { id: resetRecord.id },
-        data: { isUsed: true },
-      }),
-      this.prisma.passwordHistory.create({
-        data: {
-          userId: resetRecord.userId,
-          passwordHash: newPasswordHash,
-        },
-      }),
-      // Revoke all sessions on password reset
-      this.prisma.session.updateMany({
-        where: { userId: resetRecord.userId, isRevoked: false },
-        data: { isRevoked: true },
-      }),
-    ]);
+    await this.prisma.$transaction(async tx => {
+      const consumed = await tx.passwordResetToken.updateMany({
+        where: { id: resetRecord.id, isUsed: false, expiresAt: { gt: new Date() } }, data: { isUsed: true },
+      });
+      if (consumed.count !== 1) throw new BadRequestException('Password reset token has already been used or expired.');
+      await tx.user.update({ where: { id: resetRecord.userId }, data: { passwordHash: newPasswordHash } });
+      await tx.passwordHistory.create({ data: { userId: resetRecord.userId, passwordHash: newPasswordHash } });
+      await tx.refreshToken.updateMany({ where: { userId: resetRecord.userId, isRevoked: false }, data: { isRevoked: true } });
+      await tx.session.updateMany({ where: { userId: resetRecord.userId, isRevoked: false }, data: { isRevoked: true } });
+    });
 
     return { message: 'Password reset completed successfully. Please log in with your new password.' };
   }
@@ -407,9 +294,10 @@ export class AuthService {
     userAgent?: string,
     ipAddress?: string,
     rememberMe = false,
+    db: Prisma.TransactionClient = this.prisma,
   ): Promise<AuthResponseDto> {
     // Fetch User PBAC Permissions
-    const userPermissions = await this.prisma.userPermission.findMany({
+    const userPermissions = await db.userPermission.findMany({
       where: { userId: user.id },
       include: { permission: true },
     });
@@ -420,6 +308,7 @@ export class AuthService {
       sub: user.id,
       email: user.email,
       role: user.role,
+      jti: crypto.randomUUID(),
     };
 
     const accessToken = this.jwtService.sign(payload, {
@@ -443,7 +332,7 @@ export class AuthService {
     expiresAt.setDate(expiresAt.getDate() + (rememberMe ? 30 : 7));
 
     // Create Device Session
-    const session = await this.prisma.session.create({
+    const session = await db.session.create({
       data: {
         userId: user.id,
         tokenHash: sessionTokenHash,
@@ -454,7 +343,7 @@ export class AuthService {
       },
     });
 
-    await this.prisma.refreshToken.create({
+    await db.refreshToken.create({
       data: {
         userId: user.id,
         sessionId: session.id,

@@ -12,6 +12,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { NotificationItem } from "./types";
 import { cn } from "@/lib/utils";
+import { useNavigate } from "react-router-dom";
 
 const INITIAL_NOTIFICATIONS: NotificationItem[] = [
   {
@@ -49,6 +50,7 @@ const INITIAL_NOTIFICATIONS: NotificationItem[] = [
 ];
 
 export function NotificationDropdown() {
+  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -160,14 +162,21 @@ export function NotificationDropdown() {
                 </div>
               ) : (
                 notifications.map((item) => (
-                  <div
-                    key={item.id}
-                    onClick={() => markAsRead(item.id)}
-                    className={cn(
-                      "p-3.5 flex gap-3 text-left transition-colors cursor-pointer group hover:bg-accent/50",
-                      item.unread ? "bg-accent/20" : "opacity-80"
-                    )}
-                  >
+                    <div
+                      key={item.id}
+                      onClick={() => {
+                        markAsRead(item.id);
+                        setIsOpen(false);
+                        if (item.type === "event") navigate("/events");
+                        else if (item.type === "community") navigate("/communities");
+                        else if (item.type === "message") navigate("/messages");
+                        else navigate("/campus");
+                      }}
+                      className={cn(
+                        "p-3.5 flex gap-3 text-left transition-colors cursor-pointer group hover:bg-accent/50",
+                        item.unread ? "bg-accent/20" : "opacity-80"
+                      )}
+                    >
                     <div className="mt-0.5 p-2 rounded-xl bg-background border border-border/60 shadow-xs group-hover:border-border">
                       {getIcon(item.type)}
                     </div>

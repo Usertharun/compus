@@ -16,7 +16,7 @@ async function bootstrap() {
 
   const configService = app.get(ConfigService);
   const port = configService.get<number>('PORT', 3000);
-  const rawCorsOrigins = configService.get<string>('CORS_ORIGINS', '*');
+  const rawCorsOrigins = configService.get<string>('CORS_ORIGINS', 'http://localhost:5173');
   const corsOrigins =
     rawCorsOrigins === '*'
       ? '*'
@@ -32,7 +32,7 @@ async function bootstrap() {
 
   // 2. CORS Configuration
   app.enableCors({
-    origin: corsOrigins === '*' ? true : corsOrigins,
+    origin: corsOrigins === '*' ? [] : corsOrigins,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
   });

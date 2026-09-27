@@ -1,384 +1,81 @@
-import { useState } from "react";
-import { Sparkles, ArrowRight, GraduationCap, Lock, Mail, Eye, EyeOff, CheckCircle2, ShieldCheck, KeyRound } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { motion, AnimatePresence } from "framer-motion";
-import { useNavigate } from "react-router-dom";
-import { useApp } from "@/context/AppContext";
-import { apiService } from "@/services/api";
+import { useState } from 'react';
+import { Navigate, Link } from 'react-router-dom';
+import { Sparkles, ArrowRight, Eye, EyeOff, LoaderCircle } from 'lucide-react';
+import { apiService } from '@/services/api';
+import { useAuth } from '@/context/AuthContext';
 
 export default function Login() {
-  const navigate = useNavigate();
-  const { updateUser } = useApp();
-  const [mode, setMode] = useState<"login" | "signup">("login");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const { user, acceptSession } = useAuth();
+  const [mode, setMode] = useState<'login' | 'signup'>('login');
+  const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
-  const [error, setError] = useState("");
+  const [otp, setOtp] = useState('');
+  const [verifying, setVerifying] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  if (user) return <Navigate to={user.onboardingCompleted ? '/campus' : '/onboarding'} replace />;
 
-  // Verification state
-  const [showVerification, setShowVerification] = useState(false);
-  const [otpCode, setOtpCode] = useState(["1", "2", "3", "4"]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email.trim() || !password.trim()) {
-      setError("Please fill in all fields.");
-      return;
-    }
-    
-    setError("");
-    setIsLoading(true);
-
-    if (mode === "signup") {
-      try {
-        await apiService.requestOtp(email.trim());
-      } catch (err: any) {
-        console.warn("Backend OTP dispatch:", err?.message);
-      }
-      setIsLoading(false);
-      setShowVerification(true);
-      return;
-    }
-
-    // Login mode
+  async function sendCode() {
+    await apiService.requestOtp(email.trim().toLowerCase());
+    setVerifying(true); setOtp(''); setNotice('Check your university inbox for a six-digit code. It expires in 10 minutes.');
+  }
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    if (busy) return;
+    if (!/^[a-z0-9._%+-]+@srmist\.edu\.in$/i.test(email.trim())) { setError('Use your SRM email address ending in @srmist.edu.in.'); return; }
+    setBusy(true); setError(''); setNotice('');
     try {
-      const authData = await apiService.login(email.trim(), password.trim());
-      setIsLoading(false);
-      setIsSuccess(true);
-      localStorage.setItem("compus_auth", "true");
-      if (authData?.accessToken) {
-        localStorage.setItem("compus_access_token", authData.accessToken);
+      if (mode === 'signup' && !verifying) await sendCode();
+      else {
+        const response = mode === 'login'
+          ? await apiService.login(email.trim().toLowerCase(), password)
+          : await apiService.registerWithOtp(email.trim().toLowerCase(), password, otp, name.trim());
+        await acceptSession(response);
       }
-      updateUser({
-        email: authData?.user?.email || email,
-        name: authData?.user?.profile?.name || email.split("@")[0].replace(".", " ").replace(/^./, c => c.toUpperCase()),
-      });
-      setTimeout(() => {
-        navigate("/campus");
-      }, 600);
-    } catch (err: any) {
-      console.warn("Live login response/error:", err);
-      // If error is specific credential failure from active backend, display it
-      if (err.message && !err.message.includes("Failed to fetch") && !err.message.includes("NetworkError")) {
-        setIsLoading(false);
-        setError(err.message || "Invalid email or password");
-        return;
-      }
-
-      // If backend is not reached yet (e.g. running standalone before cloud API configured), fallback to client auth
-      setIsLoading(false);
-      setIsSuccess(true);
-      localStorage.setItem("compus_auth", "true");
-      updateUser({
-        email,
-        name: email.split("@")[0].replace(".", " ").replace(/^./, c => c.toUpperCase()),
-      });
-      setTimeout(() => {
-        navigate("/campus");
-      }, 600);
-    }
-  };
-
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const code = otpCode.join("");
-    if (code.length < 4) {
-      setError("Please enter the verification code.");
-      return;
-    }
-
-    setIsLoading(true);
-    setError("");
-
-    try {
-      const authData = await apiService.registerWithOtp(email.trim(), password.trim(), code);
-      setIsLoading(false);
-      setIsSuccess(true);
-      localStorage.setItem("compus_auth", "true");
-      if (authData?.accessToken) {
-        localStorage.setItem("compus_access_token", authData.accessToken);
-      }
-      updateUser({
-        email: authData?.user?.email || email,
-        name: authData?.user?.profile?.name || email.split("@")[0].replace(".", " ").replace(/^./, c => c.toUpperCase()),
-      });
-      setTimeout(() => {
-        navigate("/onboarding");
-      }, 600);
-    } catch (err: any) {
-      // If fallback test code 1234 or network error
-      if (code === "1234" || err.message?.includes("Failed to fetch")) {
-        setIsLoading(false);
-        setIsSuccess(true);
-        localStorage.setItem("compus_auth", "true");
-        updateUser({
-          email,
-          name: email.split("@")[0].replace(".", " ").replace(/^./, c => c.toUpperCase()),
-        });
-        setTimeout(() => {
-          navigate("/onboarding");
-        }, 600);
-        return;
-      }
-      setIsLoading(false);
-      setError(err.message || "Invalid OTP code");
-    }
-  };
-
-  return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 sm:p-6 relative overflow-hidden selection:bg-indigo-500/20">
-      {/* Main Glass Card */}
-      <motion.div 
-        initial={{ opacity: 0, y: 25, scale: 0.96 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.5, ease: "easeOut" }}
-        className="w-full max-w-md relative z-10"
-      >
-        <div className="glass-panel rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl">
-          
-          {/* Header & Logo */}
-          <div className="flex flex-col items-center text-center space-y-3">
-            <motion.div 
-              whileHover={{ rotate: 10, scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/25 cursor-pointer"
-            >
-              <Sparkles className="w-7 h-7 fill-white/20" />
-            </motion.div>
-
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground font-sans">
-                COMPUS
-              </h1>
-              <p className="text-xs sm:text-sm text-muted-foreground font-medium mt-1">
-                Your digital campus ecosystem
-              </p>
-            </div>
+    } catch (err) { setError(err instanceof Error ? err.message : 'Unable to sign in. Please try again.'); }
+    finally { setBusy(false); }
+  }
+  async function resend() {
+    setBusy(true); setError(''); setNotice('');
+    try { await sendCode(); }
+    catch (err) { setError(err instanceof Error ? err.message : 'Unable to resend your code.'); }
+    finally { setBusy(false); }
+  }
+  const inputClass = 'w-full px-4 py-3 rounded-xl bg-secondary/30 border border-border/50 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40';
+  return <main className="min-h-screen bg-background text-foreground flex items-center justify-center p-4 sm:p-6">
+    <section className="glass-panel rounded-3xl p-6 sm:p-8 shadow-2xl w-full max-w-md space-y-6" aria-labelledby="login-title">
+      <div className="text-center space-y-2">
+        <Sparkles className="w-12 h-12 p-2 rounded-2xl bg-primary text-primary-foreground mx-auto" />
+        <h1 id="login-title" className="text-3xl font-extrabold">COMPUS</h1>
+        <p className="text-sm text-muted-foreground">Your digital campus ecosystem</p>
+      </div>
+      {!verifying && <div className="flex rounded-2xl bg-secondary/40 p-1">
+        {(['login', 'signup'] as const).map(value => <button key={value} disabled={busy} onClick={() => { setMode(value); setError(''); setNotice(''); }} aria-pressed={mode === value} className={`flex-1 py-2.5 rounded-xl text-sm font-bold ${mode === value ? 'bg-background shadow-sm' : 'text-muted-foreground'}`}>{value === 'login' ? 'Sign In' : 'Create Account'}</button>)}
+      </div>}
+      <form onSubmit={submit} className="space-y-4" aria-busy={busy}>
+        {error && <p role="alert" className="p-3 rounded-xl bg-destructive/10 text-destructive text-sm">{error}</p>}
+        {notice && <p role="status" className="text-sm text-muted-foreground">{notice}</p>}
+        {verifying ? <>
+          <h2 className="font-bold text-lg">Verify your email</h2>
+          <p className="text-sm text-muted-foreground">Enter the code sent to {email}.</p>
+          <label htmlFor="otp" className="block text-sm font-medium">Verification code</label>
+          <input id="otp" className={`${inputClass} text-center tracking-widest`} inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} autoFocus />
+        </> : <>
+          {mode === 'signup' && <div className="space-y-1.5"><label htmlFor="full-name" className="text-sm font-medium">Full name</label><input id="full-name" autoComplete="name" required maxLength={100} value={name} onChange={e => setName(e.target.value)} className={inputClass} /></div>}
+          <div className="space-y-1.5"><label htmlFor="email" className="text-sm font-medium">SRM email</label><input id="email" type="email" autoComplete="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="you@srmist.edu.in" className={inputClass} /></div>
+          <div className="space-y-1.5">
+            <div className="flex justify-between"><label htmlFor="password" className="text-sm font-medium">Password</label>{mode === 'login' && <Link to="/forgot-password" className="text-sm text-primary">Forgot password?</Link>}</div>
+            <div className="relative"><input id="password" type={showPassword ? 'text' : 'password'} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} required minLength={mode === 'signup' ? 8 : undefined} pattern={mode === 'signup' ? '(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{8,}' : undefined} value={password} onChange={e => setPassword(e.target.value)} className={`${inputClass} pr-12`} /><button type="button" aria-label={showPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-3">{showPassword ? <EyeOff size={20}/> : <Eye size={20}/>}</button></div>
+            {mode === 'signup' && <p className="text-xs text-muted-foreground">Use at least 8 characters, with uppercase, lowercase, a number and a symbol.</p>}
           </div>
-
-          {/* Glass Bubble Mode Switcher */}
-          <div className="flex items-center glass-pill p-1 rounded-2xl relative">
-            <button
-              onClick={() => { setMode("login"); setError(""); }}
-              className={cn(
-                "flex-1 py-2.5 rounded-xl text-xs font-bold transition-colors duration-200 cursor-pointer relative z-10",
-                mode === "login" ? "text-foreground" : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {mode === "login" && (
-                <motion.div
-                  layoutId="loginTabBubble"
-                  className="absolute inset-0 bg-background/90 dark:bg-card/90 rounded-xl shadow-sm border border-border/50"
-                  transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                />
-              )}
-              <span className="relative z-20">Sign In</span>
-            </button>
-            <button
-              onClick={() => { setMode("signup"); setError(""); }}
-              className={cn(
-                "flex-1 py-2.5 rounded-xl text-xs font-bold transition-colors duration-200 cursor-pointer relative z-10",
-                mode === "signup" ? "text-foreground" : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {mode === "signup" && (
-                <motion.div
-                  layoutId="loginTabBubble"
-                  className="absolute inset-0 bg-background/90 dark:bg-card/90 rounded-xl shadow-sm border border-border/50"
-                  transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                />
-              )}
-              <span className="relative z-20">Create Account</span>
-            </button>
-          </div>
-
-          {/* Verification Form Step */}
-          {showVerification ? (
-            <motion.form
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              onSubmit={handleVerifyOtp}
-              className="space-y-5 py-2"
-            >
-              <div className="text-center space-y-1">
-                <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center mx-auto mb-2">
-                  <ShieldCheck className="w-6 h-6" />
-                </div>
-                <h2 className="text-lg font-bold text-foreground">Verify Your Email</h2>
-                <p className="text-xs text-muted-foreground">
-                  We sent a 4-digit code to <span className="font-semibold text-foreground">{email || "your university email"}</span>.
-                </p>
-                <span className="inline-block mt-1 px-2.5 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[11px] font-bold">
-                  Demo Code: 1234
-                </span>
-              </div>
-
-              {error && (
-                <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-medium text-center">
-                  {error}
-                </div>
-              )}
-
-              <div className="flex justify-center gap-2">
-                {otpCode.map((digit, idx) => (
-                  <input
-                    key={idx}
-                    type="text"
-                    maxLength={1}
-                    value={digit}
-                    onChange={(e) => {
-                      const newCode = [...otpCode];
-                      newCode[idx] = e.target.value;
-                      setOtpCode(newCode);
-                    }}
-                    className="w-12 h-12 rounded-xl text-center font-bold text-lg bg-secondary/30 border border-border/50 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                  />
-                ))}
-              </div>
-
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-bold text-sm shadow-md hover:opacity-90 transition-all flex items-center justify-center gap-2 cursor-pointer"
-              >
-                {isLoading ? (
-                  <div className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                ) : isSuccess ? (
-                  <>
-                    <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-                    <span>Verified! Redirecting...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Verify & Continue</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </>
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setShowVerification(false)}
-                className="w-full text-center text-xs text-muted-foreground hover:text-foreground font-medium"
-              >
-                Back to Sign Up
-              </button>
-            </motion.form>
-          ) : (
-            /* Form */
-            <AnimatePresence mode="wait">
-            <motion.form 
-              key={mode}
-              initial={{ opacity: 0, x: mode === "login" ? -15 : 15 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: mode === "login" ? 15 : -15 }}
-              transition={{ duration: 0.2 }}
-              onSubmit={handleSubmit} 
-              className="space-y-4"
-            >
-              {error && (
-                <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-medium text-center">
-                  {error}
-                </div>
-              )}
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-muted-foreground px-1">University Email</label>
-                <div className="relative flex items-center">
-                  <Mail className="w-4 h-4 absolute left-3.5 text-muted-foreground pointer-events-none" />
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="alex@stanford.edu"
-                    className="w-full pl-10 pr-4 py-3 rounded-xl text-sm bg-secondary/30 border border-border/50 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 transition-colors"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <div className="flex justify-between items-center px-1">
-                  <label className="text-xs font-bold text-muted-foreground">Password</label>
-                  {mode === "login" && (
-                    <button type="button" className="text-[11px] text-primary font-medium hover:underline">
-                      Forgot?
-                    </button>
-                  )}
-                </div>
-                <div className="relative flex items-center">
-                  <Lock className="w-4 h-4 absolute left-3.5 text-muted-foreground pointer-events-none" />
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full pl-10 pr-10 py-3 rounded-xl text-sm bg-secondary/30 border border-border/50 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 transition-colors"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3.5 text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={isLoading || isSuccess}
-                className={cn(
-                  "w-full py-3.5 px-6 rounded-xl flex items-center justify-center gap-2",
-                  "bg-primary text-primary-foreground font-bold text-sm",
-                  "hover:opacity-90 transition-all active:scale-[0.98] shadow-md shadow-primary/20 cursor-pointer",
-                  (isLoading || isSuccess) && "opacity-80"
-                )}
-              >
-                {isLoading ? (
-                  <div className="w-5 h-5 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
-                ) : isSuccess ? (
-                  <motion.div initial={{ scale: 0.5 }} animate={{ scale: 1 }} className="flex items-center gap-2">
-                    <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-                    <span>{mode === "login" ? "Welcome Back!" : "Account Created!"}</span>
-                  </motion.div>
-                ) : (
-                  <>
-                    <span>{mode === "login" ? "Sign In to Campus" : "Get Started"}</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </>
-                )}
-              </button>
-
-              {mode === "login" && (
-                <div className="pt-1 text-center">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEmail("alex.chen@srmist.edu.in");
-                      setPassword("StudentArgon2Pass123!");
-                      setError("");
-                    }}
-                    className="text-[11px] text-muted-foreground hover:text-primary transition-colors underline decoration-dotted underline-offset-4 cursor-pointer"
-                  >
-                    Auto-fill verified student demo account
-                  </button>
-                </div>
-              )}
-            </motion.form>
-          </AnimatePresence>
-          )}
-
-          {/* Footer Note */}
-          <div className="pt-2 text-center border-t border-border/40">
-            <p className="text-[11px] text-muted-foreground flex items-center justify-center gap-1.5 font-medium">
-              <GraduationCap className="w-3.5 h-3.5 text-primary" />
-              Verified for University Students & Alumni
-            </p>
-          </div>
-        </div>
-      </motion.div>
-    </div>
-  );
+        </>}
+        <button disabled={busy} className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-bold flex items-center justify-center gap-2 disabled:opacity-60">{busy ? <><LoaderCircle className="animate-spin" size={18}/>Please wait…</> : <>{verifying ? 'Verify & create account' : mode === 'login' ? 'Sign In to Campus' : 'Send verification code'}<ArrowRight size={18}/></>}</button>
+        {verifying && <div className="flex justify-between text-sm"><button type="button" disabled={busy} onClick={() => { setVerifying(false); setOtp(''); setError(''); setNotice(''); }}>Change details</button><button type="button" disabled={busy} onClick={resend} className="text-primary">Resend code</button></div>}
+      </form>
+      <p className="text-xs text-muted-foreground text-center">Only @srmist.edu.in email addresses can access Compus</p>
+    </section>
+  </main>;
 }

@@ -1,191 +1,50 @@
-/**
- * Compus REST API Client Service
- * Connects the React Frontend to the NestJS Production Backend
- */
-
-export const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://compus-production.up.railway.app/api/v1';
-
+import { createHttpClient, type Tokens } from './http';
+export { ApiError } from './http';
+export const API_BASE = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:3000/api/v1' : '');
+const SESSION_KEY = 'compus_session';
+export const sessionStore = {
+  read(): Tokens | null {
+    try {
+      const value = JSON.parse(sessionStorage.getItem(SESSION_KEY) || 'null');
+      return value?.accessToken && value?.refreshToken ? value : null;
+    } catch { return null; }
+  },
+  write(tokens: Tokens) {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify({ accessToken: tokens.accessToken, refreshToken: tokens.refreshToken }));
+  },
+  clear() {
+    sessionStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem('compus_auth');
+    localStorage.removeItem('compus_access_token');
+    window.dispatchEvent(new Event('compus:session-ended'));
+  },
+};
+const http = createHttpClient(API_BASE, sessionStore);
+export interface AuthUser {
+  id: string; email: string; role: string; name: string; onboardingCompleted: boolean;
+  profile?: { name: string; department?: string; year?: string; bio?: string; avatarUrl?: string; bannerUrl?: string; campusLocation?: string; githubUrl?: string; linkedinUrl?: string; portfolioUrl?: string };
+}
+export interface AuthResponse extends Tokens { user: AuthUser }
 export interface ApiPost {
-  id: string;
-  content: string;
-  mediaUrls?: string[];
-  category?: string;
-  likeCount: number;
-  commentCount: number;
-  createdAt: string;
-  author: {
-    id: string;
-    email: string;
-    profile?: {
-      fullName?: string;
-      username?: string;
-      avatarUrl?: string;
-      department?: string;
-    };
-  };
+  id: string; content: string; mediaUrls?: string[]; category?: string;
+  likeCount: number; commentCount: number; createdAt: string;
+  author: { id: string; email: string; profile?: { fullName?: string; name?: string; username?: string; avatarUrl?: string; department?: string } };
 }
-
-export interface AuthResponse {
-  accessToken: string;
-  refreshToken?: string;
-  user: {
-    id: string;
-    email: string;
-    role: string;
-    profile?: {
-      name?: string;
-      bio?: string;
-      avatarUrl?: string;
-      department?: string;
-    };
-  };
-}
-
+const post = <T>(path: string, data: unknown, authenticated = false) => http.request<T>(path, { method: 'POST', body: JSON.stringify(data) }, authenticated);
 export const apiService = {
-  getApiUrl() {
-    return API_BASE;
-  },
-
-  async getHealth() {
-    try {
-      const res = await fetch(`${API_BASE}/health`);
-      if (!res.ok) return null;
-      return await res.json();
-    } catch {
-      return null;
-    }
-  },
-
-  async login(email: string, password: string): Promise<AuthResponse | null> {
-    try {
-      const res = await fetch(`${API_BASE}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => null);
-        throw new Error(errorData?.message || 'Invalid email or password');
-      }
-      const json = await res.json();
-      return json.data || json;
-    } catch (err: any) {
-      throw err;
-    }
-  },
-
-  async requestOtp(email: string): Promise<{ success: boolean; message: string }> {
-    try {
-      const res = await fetch(`${API_BASE}/auth/request-otp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => null);
-        throw new Error(errorData?.message || 'Failed to send OTP verification code');
-      }
-      return await res.json();
-    } catch (err: any) {
-      throw err;
-    }
-  },
-
-  async verifyOtp(email: string, otp: string): Promise<{ valid: boolean }> {
-    try {
-      const res = await fetch(`${API_BASE}/auth/verify-otp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, otp }),
-      });
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => null);
-        throw new Error(errorData?.message || 'Invalid or expired OTP code');
-      }
-      return await res.json();
-    } catch (err: any) {
-      throw err;
-    }
-  },
-
-  async registerWithOtp(email: string, password: string, otp: string): Promise<AuthResponse | null> {
-    try {
-      const res = await fetch(`${API_BASE}/auth/register-with-otp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, otp }),
-      });
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => null);
-        throw new Error(errorData?.message || 'Registration failed');
-      }
-      const json = await res.json();
-      return json.data || json;
-    } catch (err: any) {
-      throw err;
-    }
-  },
-
+  getApiUrl: () => API_BASE,
+  getHealth: () => http.request<{ status: string }>('/health'),
+  login: (email: string, password: string) => post<AuthResponse>('/auth/login', { email, password }),
+  requestOtp: (email: string) => post<{ message: string }>('/auth/request-otp', { email }),
+  registerWithOtp: (email: string, password: string, otp: string, name: string) => post<AuthResponse>('/auth/register-with-otp', { email, password, otp, name }),
+  getMe: () => http.request<AuthUser>('/auth/me', {}, true),
+  logout: () => post<{ message: string }>('/auth/logout', {}, true),
+  completeOnboarding: (data: { name: string; department: string; year: string; goals: string[] }) => post<AuthUser>('/users/onboarding/complete', data, true),
+  forgotPassword: (email: string) => post<{ message: string }>('/auth/forgot-password', { email }),
+  resetPassword: (token: string, newPassword: string) => post<{ message: string }>('/auth/reset-password', { token, newPassword }),
   async getLatestFeed(): Promise<ApiPost[]> {
-    try {
-      const res = await fetch(`${API_BASE}/feed/latest`);
-      if (!res.ok) return [];
-      const json = await res.json();
-      return json.data || json || [];
-    } catch {
-      return [];
-    }
+    const result = await http.request<{ items: ApiPost[] }>('/feed/latest');
+    return result.items;
   },
-
-  async createPost(content: string, mediaUrls: string[] = []): Promise<ApiPost | null> {
-    try {
-      const token = localStorage.getItem('compus_access_token');
-      const res = await fetch(`${API_BASE}/feed/create`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({ content, mediaUrls }),
-      });
-      if (!res.ok) return null;
-      const json = await res.json();
-      return json.data || json;
-    } catch {
-      return null;
-    }
-  },
-
-  async getDiscovery() {
-    try {
-      const res = await fetch(`${API_BASE}/search/discovery`);
-      if (!res.ok) return null;
-      const json = await res.json();
-      return json.data || json;
-    } catch {
-      return null;
-    }
-  },
-
-  async getOpportunities() {
-    try {
-      const res = await fetch(`${API_BASE}/opportunities/latest`);
-      if (!res.ok) return [];
-      const json = await res.json();
-      return json.data || json || [];
-    } catch {
-      return [];
-    }
-  },
-
-  async getEvents() {
-    try {
-      const res = await fetch(`${API_BASE}/events/upcoming`);
-      if (!res.ok) return [];
-      const json = await res.json();
-      return json.data || json || [];
-    } catch {
-      return [];
-    }
-  }
+  createPost: (content: string, mediaUrls: string[] = []) => post<ApiPost>('/feed/posts', { content, media: mediaUrls.map(url => ({ url, type: 'IMAGE' })) }, true),
 };

@@ -1,3 +1,4 @@
+import { useAuth } from "@/context/AuthContext";
 import { useState } from "react";
 import { 
   User, 
@@ -27,6 +28,7 @@ const SETTINGS_TABS = [
 export default function Settings() {
   const navigate = useNavigate();
   const { user, updateUser } = useApp();
+  const { logout } = useAuth();
   const toast = useToast();
 
   const [activeTab, setActiveTab] = useState("account");
@@ -81,10 +83,8 @@ export default function Settings() {
     setTimeout(() => setIsSaved(false), 2000);
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("compus_auth");
-    toast.info("Logged out successfully");
-    navigate("/login");
+  const handleLogout = async () => {
+    try { await logout(); } catch { /* Local session is cleared even if the server is unavailable. */ }
   };
 
   return (

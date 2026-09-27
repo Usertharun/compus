@@ -1,12 +1,11 @@
 import { validateCollegeEmail } from '../src/common/utils/email-validator.util';
-import * as argon2 from 'argon2';
+import * as argon2 from '@node-rs/argon2';
 
 describe('College Email Validator & Argon2 Security Tests', () => {
   describe('validateCollegeEmail', () => {
-    it('should allow valid college emails ending in .edu.in or .edu', () => {
+    it('accepts only SRM emails and normalizes case and surrounding whitespace', () => {
       expect(validateCollegeEmail('student@srmist.edu.in')).toBe('student@srmist.edu.in');
-      expect(validateCollegeEmail('john.doe@mit.edu')).toBe('john.doe@mit.edu');
-      expect(validateCollegeEmail('scholar@cambridge.ac.uk')).toBe('scholar@cambridge.ac.uk');
+      expect(validateCollegeEmail(' STUDENT@SRMIST.EDU.IN ')).toBe('student@srmist.edu.in');
     });
 
     it('should reject commercial email domains (gmail, yahoo, outlook, etc.)', () => {
@@ -19,6 +18,10 @@ describe('College Email Validator & Argon2 Security Tests', () => {
       expect(() => validateCollegeEmail('user@10minutemail.com')).toThrow();
       expect(() => validateCollegeEmail('user@mailinator.com')).toThrow();
     });
+  });
+
+  it.each(['student@mit.edu', 'student@sub.srmist.edu.in', 'student@srmist.edu.in.evil.com', 'student@srmist.edu.in@evil.com', 'student@fakesrmist.edu.in'])('rejects non-SRM and lookalike addresses: %s', email => {
+    expect(() => validateCollegeEmail(email)).toThrow('@srmist.edu.in');
   });
 
   describe('Argon2 Password Hashing', () => {

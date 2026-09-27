@@ -13,6 +13,7 @@ import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagg
 import { Public } from '@common/decorators/public.decorator';
 import { CurrentUser } from '@common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '@common/guards/jwt-auth.guard';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import {
   AuthResponseDto,
@@ -32,6 +33,7 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Public()
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
   @Post('request-otp')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Validate college email domain and dispatch registration OTP code' })
@@ -48,6 +50,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('register-with-otp')
   @ApiOperation({ summary: 'Complete account registration using verified OTP and Argon2 password' })
   @ApiResponse({ status: 201, type: AuthResponseDto })
@@ -60,6 +63,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Authenticate using College Email and Argon2 Password' })
@@ -86,6 +90,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Request password reset email instructions' })
@@ -122,7 +127,7 @@ export class AuthController {
     @CurrentUser('id') userId: string,
     @Headers('authorization') authHeader: string,
   ): Promise<{ message: string }> {
-    return this.authService.logout(userId, authHeader);
+    return this.authService.logout(userId);
   }
 
   @Get('me')

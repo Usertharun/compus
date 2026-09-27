@@ -9,7 +9,7 @@ interface CreateOpportunityModalProps {
 }
 
 export function CreateOpportunityModal({ isOpen, onClose }: CreateOpportunityModalProps) {
-  const { user } = useApp();
+  const { user, addOpportunity } = useApp();
   const [title, setTitle] = useState("");
   const [company, setCompany] = useState("");
   const [type, setType] = useState("Internship");
@@ -23,6 +23,18 @@ export function CreateOpportunityModal({ isOpen, onClose }: CreateOpportunityMod
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !company.trim()) return;
+
+    addOpportunity({
+      title: title.trim(),
+      company: company.trim(),
+      deadline: "Open until filled",
+      type: type as any,
+      stipendOrPrize: compensation.trim() || "Competitive Stipend",
+      location: location.trim() || "Campus / Remote",
+      description: description.trim() || "Collaborate with university researchers and engineering teams.",
+      tags: [type, "Campus", "2026"],
+      badgeColor: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
+    });
 
     setIsSuccess(true);
     setTimeout(() => {

@@ -18,12 +18,12 @@ Neon PostgreSQL automatically maintains continuous WAL archiving and point-in-ti
 ### B. Manual Logical Backup (`pg_dump`)
 Run a daily logical dump for off-site backup storage:
 ```bash
-pg_dump "postgresql://user:password@ep-compus.neon.tech/compus?sslmode=require" -Fc -f compus_backup_$(date +%Y%m%d).dump
+pg_dump "postgresql://USER:PASSWORD@HOST:5432/DATABASE" -Fc -f compus_backup_$(date +%Y%m%d).dump
 ```
 
 To restore from dump:
 ```bash
-pg_restore -d "postgresql://user:password@ep-compus.neon.tech/compus?sslmode=require" --clean compus_backup_20260729.dump
+pg_restore -d "postgresql://USER:PASSWORD@HOST:5432/DATABASE" --clean compus_backup_20260729.dump
 ```
 
 ---

@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsBoolean,
@@ -7,6 +8,7 @@ import {
   IsString,
   Matches,
   MinLength,
+  MaxLength,
 } from 'class-validator';
 
 export class RequestOtpDto {
@@ -24,7 +26,7 @@ export class VerifyOtpDto {
 
   @ApiProperty({ example: '123456', description: '6-digit OTP code' })
   @IsString()
-  @MinLength(6)
+  @Matches(/^\d{6}$/, { message: 'Enter the six-digit verification code' })
   otp: string;
 }
 
@@ -36,13 +38,13 @@ export class RegisterWithOtpDto {
 
   @ApiProperty({ example: '123456' })
   @IsString()
-  @IsNotEmpty()
+  @Matches(/^\d{6}$/, { message: 'Enter the six-digit verification code' })
   otp: string;
 
   @ApiProperty({ example: 'Argon2SecurePassword123!' })
   @IsString()
   @MinLength(8, { message: 'Password must be at least 8 characters long' })
-  @Matches(/((?=.*\d)|(?=.*\W+))(?![.\n])(?=.*[A-Z])(?=.*[a-z]).*$/, {
+  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/, {
     message: 'Password must contain uppercase, lowercase, number, and special character',
   })
   password: string;
@@ -50,6 +52,8 @@ export class RegisterWithOtpDto {
   @ApiProperty({ example: 'Alex Chen' })
   @IsString()
   @IsNotEmpty()
+  @MaxLength(100)
+  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
   name: string;
 
   @ApiPropertyOptional({ example: 'RA2111003010001' })
@@ -113,7 +117,7 @@ export class ResetPasswordDto {
   @ApiProperty({ example: 'NewArgon2Password123!' })
   @IsString()
   @MinLength(8)
-  @Matches(/((?=.*\d)|(?=.*\W+))(?![.\n])(?=.*[A-Z])(?=.*[a-z]).*$/, {
+  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/, {
     message: 'Password must contain uppercase, lowercase, number, and special character',
   })
   newPassword: string;
@@ -128,7 +132,7 @@ export class ChangePasswordDto {
   @ApiProperty({ example: 'NewPassword123!' })
   @IsString()
   @MinLength(8)
-  @Matches(/((?=.*\d)|(?=.*\W+))(?![.\n])(?=.*[A-Z])(?=.*[a-z]).*$/, {
+  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/, {
     message: 'Password must contain uppercase, lowercase, number, and special character',
   })
   newPassword: string;

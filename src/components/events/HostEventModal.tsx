@@ -9,7 +9,7 @@ interface HostEventModalProps {
 }
 
 export function HostEventModal({ isOpen, onClose }: HostEventModalProps) {
-  const { user } = useApp();
+  const { user, addEvent } = useApp();
   const [title, setTitle] = useState("");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
@@ -23,6 +23,16 @@ export function HostEventModal({ isOpen, onClose }: HostEventModalProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !date.trim()) return;
+
+    addEvent({
+      title: title.trim(),
+      date: date.trim(),
+      time: time.trim() || "6:00 PM - 8:00 PM",
+      venue: location.trim() || "Main Campus Auditorium",
+      host: user.name,
+      category,
+      image: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=600&auto=format&fit=crop&q=80",
+    });
 
     setIsSuccess(true);
     setTimeout(() => {

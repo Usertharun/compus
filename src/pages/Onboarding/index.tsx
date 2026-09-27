@@ -1,14 +1,10 @@
 import { useState } from "react";
 import { 
-  Sparkles, 
-  ArrowRight, 
-  Check, 
+  Sparkles,
   Users, 
   Briefcase, 
   GraduationCap, 
   BookOpen, 
-  Rocket, 
-  ChevronLeft,
   ChevronRight,
   CheckCircle,
   ShieldCheck
@@ -18,10 +14,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "@/context/AppContext";
 
+import { useAuth } from "@/context/AuthContext";
+
 const ONBOARDING_STEPS = [
-  { id: "welcome", title: "Welcome to COMPUS", subtitle: "Select what you want to achieve on campus" },
-  { id: "profile", title: "Setup Your Profile", subtitle: "Help classmates find and connect with you" },
-  { id: "ready", title: "You're All Set!", subtitle: "Your digital campus workspace is ready" },
+  { id: "welcome", title: "Setup Your Profile", subtitle: "Help classmates find and connect with you" },
+  { id: "profile", title: "Your Campus Goals", subtitle: "Select what you want to achieve on campus" },
+  { id: "ready", title: "Ready to join?", subtitle: "Save your profile to enter campus" },
 ];
 
 const GOAL_OPTIONS = [
@@ -33,26 +31,28 @@ const GOAL_OPTIONS = [
 ];
 
 export default function Onboarding() {
-  const { user, updateUser } = useApp();
+  const { user } = useApp();
+  const { completeOnboarding } = useAuth();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
   const [step, setStep] = useState(0);
   const [name, setName] = useState(user.name);
   const [major, setMajor] = useState(user.major);
-  const [gradYear, setGradYear] = useState(user.gradYear);
+  const [gradYear, setGradYear] = useState(user.gradYear || String(new Date().getFullYear()));
   const [selectedGoals, setSelectedGoals] = useState<string[]>(["mentors", "clubs"]);
   const navigate = useNavigate();
 
-  const handleNext = () => {
-    if (step < ONBOARDING_STEPS.length - 1) {
-      setStep(step + 1);
-    } else {
-      updateUser({
-        name: name.trim() || user.name,
-        major: major.trim() || user.major,
-        gradYear: gradYear.trim() || user.gradYear,
-        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(name || user.name)}`,
-      });
-      navigate("/campus");
-    }
+  const handleNext = async () => {
+    if (busy) return;
+    if (!name.trim() || !major.trim()) { setError("Enter your name and major to continue."); return; }
+    setError("");
+    if (step < ONBOARDING_STEPS.length - 1) { setStep(step + 1); return; }
+    setBusy(true);
+    try {
+      await completeOnboarding({ name: name.trim(), department: major.trim(), year: gradYear, goals: selectedGoals });
+      navigate("/campus", { replace: true });
+    } catch (err) { setError(err instanceof Error ? err.message : "Unable to save your profile. Please try again."); }
+    finally { setBusy(false); }
   };
 
   const toggleGoal = (id: string) => {
@@ -146,10 +146,7 @@ export default function Onboarding() {
                         onChange={(e) => setGradYear(e.target.value)}
                         className="w-full px-4 py-3 rounded-xl bg-secondary/30 border border-border/50 text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 transition-colors"
                       >
-                        <option value="2025">2025</option>
-                        <option value="2026">2026</option>
-                        <option value="2027">2027</option>
-                        <option value="2028">2028</option>
+                        {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 2 + i).map(year => <option key={year} value={year}>{year}</option>)}
                       </select>
                     </div>
                   </div>
@@ -213,21 +210,24 @@ export default function Onboarding() {
                   <div>
                     <h3 className="font-bold text-lg text-foreground">Welcome aboard, {name}!</h3>
                     <p className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto">
-                      We've tailored your {major} feed with your selected preferences.
+                      Your profile and selected goals will be saved when you enter campus.
                     </p>
                   </div>
                 </motion.div>
               )}
             </div>
 
+            {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+            {step > 0 && <button disabled={busy} onClick={() => setStep(step - 1)} className="text-sm text-primary">Back</button>}
             {/* Controls */}
             <motion.button
               whileHover={{ scale: 1.01 }}
               whileTap={{ scale: 0.99 }}
               onClick={handleNext}
+              disabled={busy}
               className="w-full py-3.5 rounded-xl bg-primary text-primary-foreground font-bold text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-all shadow-md shadow-primary/20 cursor-pointer"
             >
-              <span>{step === ONBOARDING_STEPS.length - 1 ? "Enter Campus Network" : "Continue"}</span>
+              <span>{busy ? "Saving your profile…" : step === ONBOARDING_STEPS.length - 1 ? "Enter Campus Network" : "Continue"}</span>
               <ChevronRight className="w-4 h-4" />
             </motion.button>
           </motion.div>

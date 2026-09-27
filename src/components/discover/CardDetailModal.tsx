@@ -1,8 +1,10 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Coffee, UserPlus, Sparkles, Trophy, Calendar, MapPin, ExternalLink, ShieldCheck } from "lucide-react";
+import { X, Coffee, UserPlus, Sparkles, Trophy, Calendar, MapPin, ExternalLink, ShieldCheck, MessageSquare } from "lucide-react";
 import { SeniorMentor, PeerStudent, DiscoverCommunity, HackathonItem, DiscoverOpportunity } from "./types";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/context/ToastContext";
+import { useApp } from "@/context/AppContext";
+import { useNavigate } from "react-router-dom";
 
 type DetailItem = SeniorMentor | PeerStudent | DiscoverCommunity | HackathonItem | DiscoverOpportunity;
 
@@ -13,6 +15,8 @@ interface CardDetailModalProps {
 
 export function CardDetailModal({ item, onClose }: CardDetailModalProps) {
   const toast = useToast();
+  const { startChatWithUser } = useApp();
+  const navigate = useNavigate();
   if (!item) return null;
 
   const isSenior = "companyTag" in item;
@@ -75,8 +79,10 @@ export function CardDetailModal({ item, onClose }: CardDetailModalProps) {
               <div className="pt-2 flex gap-3">
                 <button 
                   onClick={() => {
-                    toast.success(`Coffee chat invitation sent to ${item.name}! ☕`);
+                    startChatWithUser({ name: item.name, avatar: item.avatar, isOnline: true });
+                    toast.success(`Coffee chat invitation sent to ${item.name}! Opening chat... ☕`);
                     onClose();
+                    navigate("/messages");
                   }} 
                   className="flex-1 py-3 rounded-2xl bg-indigo-600 text-white font-bold text-xs flex items-center justify-center gap-2 hover:bg-indigo-500 shadow-md cursor-pointer"
                 >
@@ -114,12 +120,14 @@ export function CardDetailModal({ item, onClose }: CardDetailModalProps) {
               <div className="pt-2 flex gap-3">
                 <button 
                   onClick={() => {
-                    toast.success(`Connection request sent to ${item.name}!`);
+                    startChatWithUser({ name: item.name, avatar: item.avatar, isOnline: true });
+                    toast.success(`Connection request accepted! Opening chat with ${item.name}...`);
                     onClose();
+                    navigate("/messages");
                   }} 
                   className="flex-1 py-3 rounded-2xl bg-cyan-600 text-white font-bold text-xs flex items-center justify-center gap-2 hover:bg-cyan-500 shadow-md cursor-pointer"
                 >
-                  <UserPlus className="w-4 h-4" /> Send Connection Request
+                  <MessageSquare className="w-4 h-4" /> Message Collaborator
                 </button>
               </div>
             </div>

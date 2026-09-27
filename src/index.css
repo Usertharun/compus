@@ -173,9 +173,27 @@
 }
 
 /* Custom Scrollbar Utilities */
+@utility scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@utility no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.scrollbar-hide::-webkit-scrollbar,
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+.scrollbar-hide,
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
