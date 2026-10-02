@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { ConvoInfo } from "./ChatWindow";
 
 interface ConversationListProps {
+  loading?: boolean;
   conversations: Array<
     ConvoInfo & { lastMessage: string; timestamp: string; unread?: number }
   >;
@@ -17,6 +18,7 @@ export function ConversationList({
   conversations,
   activeId,
   onSelect,
+  loading = false,
 }: ConversationListProps) {
   const [filter, setFilter] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
@@ -79,7 +81,7 @@ export function ConversationList({
 
       {/* Conversations List */}
       <div className="flex-1 overflow-y-auto scrollbar-hide">
-        {filteredList.length === 0 ? (
+        {loading ? <p role="status" className="p-8 text-center text-xs text-muted-foreground">Loading conversations…</p> : filteredList.length === 0 ? (
           <div className="py-12 text-center text-xs text-muted-foreground px-4 space-y-1">
             <p className="font-semibold text-foreground">
               No conversations found

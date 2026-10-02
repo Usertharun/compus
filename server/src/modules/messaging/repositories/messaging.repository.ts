@@ -142,7 +142,19 @@ export class MessagingRepository extends BaseAbstractRepository<Conversation> {
   }
 
   async createDirectConversation(userAId: string, userBId: string) {
-    return this.prisma.conversation.create({
+    return this.prisma.$transaction(async tx => {
+      // Lock the pair in a stable order so simultaneous requests reuse one chat.
+      await tx.$queryRaw`SELECT id FROM users WHERE id IN (${userAId}, ${userBId}) ORDER BY id FOR UPDATE`;
+      const existing = await tx.conversation.findFirst({
+        where: { type: ConversationType.ONE_TO_ONE, deletedAt: null, AND: [
+          { participants: { some: { userId: userAId } } },
+          { participants: { some: { userId: userBId } } },
+          { participants: { every: { userId: { in: [userAId, userBId] } } } },
+        ] },
+        include: this.conversationIncludeSelect(),
+      });
+      if (existing) return existing;
+      return tx.conversation.create({
       data: {
         type: ConversationType.ONE_TO_ONE,
         isGroup: false,
@@ -155,6 +167,7 @@ export class MessagingRepository extends BaseAbstractRepository<Conversation> {
       },
       include: this.conversationIncludeSelect(),
     });
+    }, { maxWait: 10000, timeout: 20000 });
   }
 
   async createGroupConversation(

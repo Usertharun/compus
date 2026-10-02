@@ -40,7 +40,7 @@ export class MessagingService {
     const targetUser = await this.prisma.user.findUnique({
       where: { id: dto.targetUserId },
     });
-    if (!targetUser || !targetUser.isActive || !targetUser.isVerified) {
+    if (!targetUser || targetUser.deletedAt || !targetUser.isActive || !targetUser.isVerified) {
       throw new NotFoundException("Target student user not found");
     }
 

@@ -219,9 +219,14 @@ async function main() {
       "ACCEPTED",
     );
     console.log("PASS real applications and owner-only review");
-    const convo = await messaging.getOrCreateDirectConversation(owner, {
-      targetUserId: student,
-    });
+    const directResults = await Promise.all([
+      messaging.getOrCreateDirectConversation(owner, { targetUserId: student }),
+      messaging.getOrCreateDirectConversation(owner, { targetUserId: student }),
+      messaging.getOrCreateDirectConversation(student, { targetUserId: owner }),
+    ]);
+    directResults.forEach(c => { if (!conversationIds.includes(c.id)) conversationIds.push(c.id); });
+    assert.equal(new Set(directResults.map(c => c.id)).size, 1);
+    const convo = directResults[0];
     conversationIds.push(convo.id);
     const message = await messaging.sendMessage(owner, convo.id, {
       content: "Persistent QA message",

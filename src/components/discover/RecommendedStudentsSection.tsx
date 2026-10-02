@@ -103,7 +103,7 @@ export function RecommendedStudentsSection({
               {/* Footer: Mutual Friends & Connect CTA */}
               <div className="pt-3 border-t border-border/50 flex items-center justify-between gap-2">
                 <span className="text-[11px] text-muted-foreground truncate max-w-[130px]">
-                  Mutual: {peer.mutualFriends.join(", ")}
+                  {peer.mutualFriends.length > 0 ? 'Mutual: ' + peer.mutualFriends.join(', ') : ''}
                 </span>
 
                 <button
@@ -118,11 +118,11 @@ export function RecommendedStudentsSection({
                   {peer.isConnected ? (
                     <>
                       <Check className="w-3.5 h-3.5 text-emerald-500" />{" "}
-                      Connected
+                      Following
                     </>
                   ) : (
                     <>
-                      <UserPlus className="w-3.5 h-3.5" /> Connect
+                      <UserPlus className="w-3.5 h-3.5" /> Follow
                     </>
                   )}
                 </button>

@@ -18,6 +18,8 @@ export default function MessagesPage() {
   const toast = useToast();
   const [params] = useSearchParams();
   const [conversations, setConversations] = useState<ConversationCard[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [activeConvId, setActiveConvId] = useState(
     params.get("conversation") || "",
   );
@@ -40,12 +42,14 @@ export default function MessagesPage() {
       };
     });
     setConversations(cards);
+    setLoading(false);
+    setLoadError('');
   }, [user?.id]);
   useEffect(() => {
     let mounted = true;
     const refresh = () => {
       if (mounted && document.visibilityState === "visible")
-        void load().catch((error) => toast.error(error.message));
+        void load().catch((error) => { if (mounted) { setLoadError(error.message); setLoading(false); } });
     };
     refresh();
     const interval = window.setInterval(refresh, 15000);
@@ -81,8 +85,13 @@ export default function MessagesPage() {
           (isMobileDetailOpen ? "hidden md:flex" : "flex")
         }
       >
+        {loadError && <div role="alert" className="p-4 text-xs text-destructive border-b border-border">
+          <p>{loadError}</p>
+          <button className="mt-2 underline" onClick={() => { setLoading(true); void load().catch(error => { setLoadError(error.message); setLoading(false); }); }}>Retry messages</button>
+        </div>}
         <ConversationList
           conversations={conversations}
+          loading={loading}
           activeId={activeConvId}
           onSelect={(id) => {
             setActiveConvId(id);
