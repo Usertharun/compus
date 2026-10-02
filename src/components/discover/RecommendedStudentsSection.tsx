@@ -1,7 +1,7 @@
-import { useState } from "react";
+
 import { PeerStudent } from "./types";
-import { RECOMMENDED_STUDENTS } from "@/data/discoverMockData";
-import { UserPlus, Check, Sparkles, Target, Users } from "lucide-react";
+import { useDiscoveryData } from "@/hooks/useDiscoveryData";
+import { UserPlus, Check, Target, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -10,18 +10,24 @@ interface RecommendedStudentsSectionProps {
   selectedSkill?: string | null;
 }
 
-export function RecommendedStudentsSection({ onCardClick, selectedSkill }: RecommendedStudentsSectionProps) {
-  const [students, setStudents] = useState<PeerStudent[]>(RECOMMENDED_STUDENTS);
+export function RecommendedStudentsSection({
+  onCardClick,
+  selectedSkill,
+}: RecommendedStudentsSectionProps) {
+  const { RECOMMENDED_STUDENTS, toggleFollow } = useDiscoveryData();
+  const students = RECOMMENDED_STUDENTS;
 
   const toggleConnect = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setStudents((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, isConnected: !s.isConnected } : s))
-    );
+    void toggleFollow(id);
   };
 
   const filtered = selectedSkill
-    ? students.filter((s) => s.skills.some((sk) => sk.toLowerCase().includes(selectedSkill.toLowerCase())))
+    ? students.filter((s) =>
+        [s.name, s.major, ...s.skills].some((sk) =>
+          sk.toLowerCase().includes(selectedSkill.toLowerCase()),
+        ),
+      )
     : students;
 
   if (filtered.length === 0) return null;
@@ -34,7 +40,9 @@ export function RecommendedStudentsSection({ onCardClick, selectedSkill }: Recom
             <Users className="w-5 h-5 text-cyan-500" />
             Recommended Students & Project Collaborators
           </h2>
-          <p className="text-xs text-muted-foreground">Find hackathon teammates, co-founders, and study partners</p>
+          <p className="text-xs text-muted-foreground">
+            Find hackathon teammates, co-founders, and study partners
+          </p>
         </div>
       </div>
 
@@ -52,7 +60,7 @@ export function RecommendedStudentsSection({ onCardClick, selectedSkill }: Recom
               className={cn(
                 "p-5 rounded-2xl bg-card border border-border/70 shadow-xs space-y-4 group",
                 "hover:-translate-y-1 hover:shadow-xl hover:shadow-cyan-500/5 hover:border-border",
-                "transition-all duration-300 cursor-pointer flex flex-col justify-between"
+                "transition-all duration-300 cursor-pointer flex flex-col justify-between",
               )}
             >
               <div className="space-y-3">
@@ -67,7 +75,9 @@ export function RecommendedStudentsSection({ onCardClick, selectedSkill }: Recom
                     <h3 className="font-bold text-sm text-foreground truncate group-hover:text-primary transition-colors">
                       {peer.name}
                     </h3>
-                    <p className="text-xs text-muted-foreground">{peer.major} · {peer.year}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {peer.major} · {peer.year}
+                    </p>
                   </div>
                 </div>
 
@@ -102,12 +112,13 @@ export function RecommendedStudentsSection({ onCardClick, selectedSkill }: Recom
                     "px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all duration-200 cursor-pointer",
                     peer.isConnected
                       ? "bg-accent text-foreground border border-border"
-                      : "bg-cyan-600 text-white hover:bg-cyan-500 shadow-xs active:scale-95"
+                      : "bg-cyan-600 text-white hover:bg-cyan-500 shadow-xs active:scale-95",
                   )}
                 >
                   {peer.isConnected ? (
                     <>
-                      <Check className="w-3.5 h-3.5 text-emerald-500" /> Connected
+                      <Check className="w-3.5 h-3.5 text-emerald-500" />{" "}
+                      Connected
                     </>
                   ) : (
                     <>

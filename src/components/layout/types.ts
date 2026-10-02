@@ -18,6 +18,7 @@ export interface UserProfile {
 }
 
 export interface NotificationItem {
+  link?: string;
   id: string;
   title: string;
   description: string;

@@ -1,188 +1,147 @@
+import { useDialogAccessibility } from "@/hooks/useDialogAccessibility";
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { X, Briefcase, MapPin, DollarSign, Building, Sparkles } from "lucide-react";
+import { X, Briefcase } from "lucide-react";
 import { useApp } from "@/context/AppContext";
-
-interface CreateOpportunityModalProps {
+import { useToast } from "@/context/ToastContext";
+import type { CampusOpportunity } from "@/data/opportunitiesData";
+export function CreateOpportunityModal({
+  isOpen,
+  onClose,
+}: {
   isOpen: boolean;
   onClose: () => void;
-}
-
-export function CreateOpportunityModal({ isOpen, onClose }: CreateOpportunityModalProps) {
-  const { user, addOpportunity } = useApp();
-  const [title, setTitle] = useState("");
-  const [company, setCompany] = useState("");
-  const [type, setType] = useState("Internship");
-  const [compensation, setCompensation] = useState("");
-  const [location, setLocation] = useState("Remote / Hybrid");
-  const [description, setDescription] = useState("");
-  const [isSuccess, setIsSuccess] = useState(false);
-
+}) {
+  const { addOpportunity } = useApp();
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  useDialogAccessibility(isOpen, () => {
+    if (!busy) onClose();
+  });
   if (!isOpen) return null;
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title.trim() || !company.trim()) return;
-
-    addOpportunity({
-      title: title.trim(),
-      company: company.trim(),
-      deadline: "Open until filled",
-      type: type as any,
-      stipendOrPrize: compensation.trim() || "Competitive Stipend",
-      location: location.trim() || "Campus / Remote",
-      description: description.trim() || "Collaborate with university researchers and engineering teams.",
-      tags: [type, "Campus", "2026"],
-      badgeColor: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
-    });
-
-    setIsSuccess(true);
-    setTimeout(() => {
-      setIsSuccess(false);
-      setTitle("");
-      setCompany("");
-      setCompensation("");
-      setDescription("");
-      onClose();
-    }, 1200);
-  };
-
+  const field =
+    "w-full mt-1 rounded-xl border border-border bg-secondary/30 px-3 py-2.5 text-sm";
   return (
-    <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 15 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 15 }}
-          onClick={(e) => e.stopPropagation()}
-          className="w-full max-w-lg rounded-3xl glass-panel p-6 shadow-2xl space-y-5"
+    <div
+      className="fixed inset-0 z-[110] bg-black/60 backdrop-blur-sm p-4 flex items-center justify-center"
+      onClick={() => !busy && onClose()}
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="opportunity-title"
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-lg max-h-[90dvh] overflow-y-auto rounded-3xl border border-border bg-card p-6 shadow-2xl"
+      >
+        <header className="flex items-center justify-between mb-5">
+          <h2 id="opportunity-title" className="font-bold flex gap-2">
+            <Briefcase className="w-5 h-5" />
+            Post a campus opportunity
+          </h2>
+          <button aria-label="Close" disabled={busy} onClick={onClose}>
+            <X />
+          </button>
+        </header>
+        <form
+          className="space-y-4"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (busy) return;
+            const f = new FormData(e.currentTarget);
+            setBusy(true);
+            const saved = await addOpportunity({
+              title: String(f.get("title")).trim(),
+              company: String(f.get("company")).trim(),
+              type: String(f.get("category")) as CampusOpportunity["type"],
+              location: String(f.get("location")).trim(),
+              description: String(f.get("description")).trim(),
+              stipendOrPrize: String(f.get("stipend")).trim(),
+              applicationUrl: String(f.get("url")).trim() || undefined,
+              deadline: String(f.get("deadline")),
+              tags: [],
+            });
+            setBusy(false);
+            if (saved) {
+              toast.success("Opportunity published.");
+              onClose();
+            }
+          }}
         >
-          {/* Header */}
-          <div className="flex items-center justify-between border-b border-border/50 pb-3">
-            <h3 className="font-extrabold text-lg text-foreground flex items-center gap-2">
-              <Briefcase className="w-5 h-5 text-emerald-500" />
-              Post Campus Opportunity
-            </h3>
-            <button onClick={onClose} className="p-1.5 rounded-full hover:bg-accent text-muted-foreground transition-colors cursor-pointer">
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-
-          {isSuccess ? (
-            <div className="py-8 text-center space-y-3">
-              <div className="w-14 h-14 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center mx-auto">
-                <Sparkles className="w-7 h-7" />
-              </div>
-              <h4 className="font-bold text-xl text-foreground">Opportunity Posted Live!</h4>
-              <p className="text-xs text-muted-foreground max-w-xs mx-auto">
-                Your posting <span className="font-semibold text-foreground">"{title}"</span> at <span className="font-semibold text-foreground">{company}</span> is now live on the Opportunities board.
-              </p>
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-muted-foreground px-1">Role / Position Title</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Frontend Engineer Intern - Summer 2026"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl text-sm bg-secondary/30 border border-border/50 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-muted-foreground px-1">Organization / Company</label>
-                  <div className="relative flex items-center">
-                    <Building className="w-4 h-4 absolute left-3 text-muted-foreground pointer-events-none" />
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. Stripe / AI Lab"
-                      value={company}
-                      onChange={(e) => setCompany(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2.5 rounded-xl text-xs bg-secondary/30 border border-border/50 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-muted-foreground px-1">Type</label>
-                  <select
-                    value={type}
-                    onChange={(e) => setType(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl text-xs bg-secondary/30 border border-border/50 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                  >
-                    <option value="Internship">Internship</option>
-                    <option value="Research">Research Assistant</option>
-                    <option value="Project">Project Collaborator</option>
-                    <option value="Part-time">Part-Time Role</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-muted-foreground px-1">Compensation / Pay</label>
-                  <div className="relative flex items-center">
-                    <DollarSign className="w-4 h-4 absolute left-3 text-muted-foreground pointer-events-none" />
-                    <input
-                      type="text"
-                      placeholder="e.g. $45/hr or Stipend"
-                      value={compensation}
-                      onChange={(e) => setCompensation(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2.5 rounded-xl text-xs bg-secondary/30 border border-border/50 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-muted-foreground px-1">Location</label>
-                  <div className="relative flex items-center">
-                    <MapPin className="w-4 h-4 absolute left-3 text-muted-foreground pointer-events-none" />
-                    <input
-                      type="text"
-                      placeholder="e.g. San Francisco, CA / Remote"
-                      value={location}
-                      onChange={(e) => setLocation(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2.5 rounded-xl text-xs bg-secondary/30 border border-border/50 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-muted-foreground px-1">Requirements & Details</label>
-                <textarea
-                  rows={3}
-                  placeholder="Describe responsibilities, required skills, and application instructions..."
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl text-xs bg-secondary/30 border border-border/50 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none"
-                />
-              </div>
-
-              <div className="pt-2 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-muted-foreground hover:bg-secondary transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md transition-all cursor-pointer"
-                >
-                  Post Opportunity
-                </button>
-              </div>
-            </form>
-          )}
-        </motion.div>
-      </div>
-    </AnimatePresence>
+          <label className="block text-sm">
+            Role title
+            <input
+              autoFocus
+              name="title"
+              required
+              maxLength={200}
+              className={field}
+            />
+          </label>
+          <label className="block text-sm">
+            Organization or team
+            <input name="company" required maxLength={200} className={field} />
+          </label>
+          <label className="block text-sm">
+            Type
+            <select name="category" className={field}>
+              {[
+                "Internship",
+                "Research",
+                "Grant",
+                "Club Role",
+                "Project",
+                "Part-time",
+              ].map((c) => (
+                <option key={c}>{c}</option>
+              ))}
+            </select>
+          </label>
+          <label className="block text-sm">
+            Location
+            <input
+              name="location"
+              required
+              placeholder="Campus, remote, or city"
+              className={field}
+            />
+          </label>
+          <label className="block text-sm">
+            Compensation (optional)
+            <input name="stipend" className={field} />
+          </label>
+          <label className="block text-sm">
+            Deadline (optional, local time)
+            <input name="deadline" type="datetime-local" className={field} />
+          </label>
+          <label className="block text-sm">
+            External application link (optional)
+            <input
+              name="url"
+              type="url"
+              placeholder="https://…"
+              className={field}
+            />
+            <span className="text-xs text-muted-foreground">
+              Leave blank to receive applications inside Compus.
+            </span>
+          </label>
+          <label className="block text-sm">
+            Requirements and details
+            <textarea
+              name="description"
+              required
+              rows={4}
+              maxLength={10000}
+              className={field}
+            />
+          </label>
+          <button
+            disabled={busy}
+            className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-bold disabled:opacity-50"
+          >
+            {busy ? "Publishing…" : "Publish opportunity"}
+          </button>
+        </form>
+      </section>
+    </div>
   );
 }

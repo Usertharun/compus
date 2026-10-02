@@ -1,38 +1,40 @@
-import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
-import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
-import { EventEmitterModule } from '@nestjs/event-emitter';
+import { Module } from "@nestjs/common";
+import { ConfigModule } from "@nestjs/config";
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
+import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
+import { EventEmitterModule } from "@nestjs/event-emitter";
 
-import { validateEnvironment } from './config/env.config';
-import { PrismaModule } from './database/prisma.module';
-import { LoggerModule } from './logger/logger.module';
-import { RedisModule } from './redis/redis.module';
-import { QueuesModule } from './queues/queues.module';
-import { SentryService } from './sentry/sentry.service';
+import { validateEnvironment } from "./config/env.config";
+import { PrismaModule } from "./database/prisma.module";
+import { LoggerModule } from "./logger/logger.module";
+import { RedisModule } from "./redis/redis.module";
+import { QueuesModule } from "./queues/queues.module";
+import { SentryService } from "./sentry/sentry.service";
 
-import { AuthModule } from './modules/auth/auth.module';
-import { UsersModule } from './modules/users/users.module';
-import { HealthModule } from './modules/health/health.module';
-import { EmailModule } from './modules/email/email.module';
-import { PermissionsModule } from './modules/permissions/permissions.module';
-import { SessionsModule } from './modules/sessions/sessions.module';
-import { ProfileModule } from './modules/profile/profile.module';
-import { SocialModule } from './modules/social/social.module';
-import { FeedModule } from './modules/feed/feed.module';
-import { CommunitiesModule } from './modules/communities/communities.module';
-import { EventsModule } from './modules/events/events.module';
-import { OpportunitiesModule } from './modules/opportunities/opportunities.module';
-import { MessagingModule } from './modules/messaging/messaging.module';
-import { NotificationsModule } from './modules/notifications/notifications.module';
-import { SearchModule } from './modules/search/search.module';
-import { AdminModule } from './modules/admin/admin.module';
+import { AuthModule } from "./modules/auth/auth.module";
+import { UsersModule } from "./modules/users/users.module";
+import { HealthModule } from "./modules/health/health.module";
+import { EmailModule } from "./modules/email/email.module";
+import { PermissionsModule } from "./modules/permissions/permissions.module";
+import { SessionsModule } from "./modules/sessions/sessions.module";
+import { ProfileModule } from "./modules/profile/profile.module";
+import { SocialModule } from "./modules/social/social.module";
+import { FeedModule } from "./modules/feed/feed.module";
+import { CommunitiesModule } from "./modules/communities/communities.module";
+import { EventsModule } from "./modules/events/events.module";
+import { OpportunitiesModule } from "./modules/opportunities/opportunities.module";
+import { MessagingModule } from "./modules/messaging/messaging.module";
+import { NotificationsModule } from "./modules/notifications/notifications.module";
+import { SearchModule } from "./modules/search/search.module";
+import { AdminModule } from "./modules/admin/admin.module";
+import { UploadsModule } from "./modules/uploads/uploads.module";
+import { FeedbackModule } from "./modules/feedback/feedback.module";
 
-import { GlobalHttpExceptionFilter } from './common/filters/http-exception.filter';
-import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
-import { TransformInterceptor } from './common/interceptors/transform.interceptor';
-import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
-import { RolesGuard } from './common/guards/roles.guard';
+import { GlobalHttpExceptionFilter } from "./common/filters/http-exception.filter";
+import { LoggingInterceptor } from "./common/interceptors/logging.interceptor";
+import { TransformInterceptor } from "./common/interceptors/transform.interceptor";
+import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
+import { RolesGuard } from "./common/guards/roles.guard";
 
 @Module({
   imports: [
@@ -70,6 +72,8 @@ import { RolesGuard } from './common/guards/roles.guard';
     NotificationsModule,
     SearchModule,
     AdminModule,
+    UploadsModule,
+    FeedbackModule,
     HealthModule,
   ],
   providers: [

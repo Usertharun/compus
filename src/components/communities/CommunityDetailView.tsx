@@ -1,355 +1,492 @@
-import { useState } from "react";
-import { CommunityItem, CommunityPost } from "./types";
-import { 
-  ArrowLeft, 
-  Users, 
-  Check, 
-  Plus, 
-  Calendar, 
-  MessageSquare, 
-  Heart, 
-  Share2, 
-  Sparkles,
-  MapPin,
-  Clock,
-  MessageCircle
-} from "lucide-react";
-import { cn } from "@/lib/utils";
-import { motion } from "framer-motion";
-import { useToast } from "@/context/ToastContext";
-import { useApp } from "@/context/AppContext";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-
-interface CommunityDetailViewProps {
+import { apiRequest } from "@/services/api";
+import {
+  avatar,
+  formatDate,
+  type Community,
+  type Post,
+  type Page,
+} from "@/services/models";
+import { useApp } from "@/context/AppContext";
+import { useToast } from "@/context/ToastContext";
+import type { CommunityItem } from "./types";
+import { ArrowLeft, Heart, Share2, Send, Users } from "lucide-react";
+interface JoinRequest {
+  id: string;
+  message?: string;
+  user: { profile?: { name: string }; email: string };
+}
+export function CommunityDetailView({
+  community,
+  onBack,
+}: {
   community: CommunityItem;
   onBack: () => void;
-}
-
-export function CommunityDetailView({ community, onBack }: CommunityDetailViewProps) {
+}) {
   const toast = useToast();
-  const { startChatWithUser } = useApp();
   const navigate = useNavigate();
-  const [isJoined, setIsJoined] = useState(community.isJoined || false);
-  const [memberCount, setMemberCount] = useState(community.memberCount);
-  const [rsvpedEvents, setRsvpedEvents] = useState<Record<string, boolean>>({});
-  const [posts, setPosts] = useState<CommunityPost[]>(community.recentPosts);
-  const [newPostContent, setNewPostContent] = useState("");
-  const [activeTab, setActiveTab] = useState<"posts" | "events" | "members">("posts");
-
-  const toggleJoin = () => {
-    const nextState = !isJoined;
-    setIsJoined(nextState);
-    setMemberCount((prev) => (nextState ? prev + 1 : prev - 1));
-    if (nextState) {
-      toast.success(`Welcome to ${community.name}! 🎉`);
-    } else {
-      toast.info(`Left ${community.name}`);
+  const { user, startChatWithUser, refreshData } = useApp();
+  const [detail, setDetail] = useState<Community | null>(null);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [requests, setRequests] = useState<JoinRequest[]>([]);
+  const [tab, setTab] = useState("posts");
+  const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [draft, setDraft] = useState("");
+  const [cursor, setCursor] = useState<string | null>(null);
+  const load = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const d = await apiRequest<Community>(
+        "/communities/" + encodeURIComponent(community.slug || community.id),
+      );
+      setDetail(d);
+      const p = await apiRequest<Page<Post>>(
+        "/communities/" + community.id + "/feed?limit=20",
+      );
+      setPosts(p.items);
+      setCursor(p.nextCursor || null);
+      if (d.userRole === "OWNER" || d.userRole === "MODERATOR")
+        setRequests(
+          await apiRequest<JoinRequest[]>("/communities/" + d.id + "/requests"),
+        );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unable to load community.");
+    } finally {
+      setLoading(false);
     }
   };
-
-  const handleShare = () => {
-    navigator.clipboard.writeText(window.location.href);
-    toast.success("Community invitation link copied to clipboard!");
+  useEffect(() => {
+    void load();
+  }, [community.id]);
+  const run = async (path: string, method: string, data?: unknown) => {
+    if (busy) return false;
+    setBusy(true);
+    try {
+      await apiRequest(path, method, data);
+      await load();
+      void refreshData();
+      return true;
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Unable to save changes.");
+      return false;
+    } finally {
+      setBusy(false);
+    }
   };
-
-  const toggleRsvp = (evtId: string, title: string) => {
-    setRsvpedEvents((prev) => {
-      const next = !prev[evtId];
-      if (next) {
-        toast.success(`RSVP confirmed for ${title}! Check Saved Passes.`);
-      } else {
-        toast.info(`RSVP cancelled for ${title}.`);
-      }
-      return { ...prev, [evtId]: next };
-    });
-  };
-
-  const toggleLike = (postId: string) => {
-    setPosts((prev) =>
-      prev.map((p) =>
-        p.id === postId
-          ? {
-              ...p,
-              isLiked: !p.isLiked,
-              likesCount: p.isLiked ? p.likesCount - 1 : p.likesCount + 1,
-            }
-          : p
-      )
-    );
-  };
-
-  const handleCreatePost = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newPostContent.trim()) return;
-
-    const newPost: CommunityPost = {
-      id: `p-${Date.now()}`,
-      authorName: "Alex Rivera",
-      authorAvatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100",
-      authorRole: "Member",
-      timeAgo: "Just now",
-      content: newPostContent,
-      likesCount: 0,
-      commentsCount: 0,
-    };
-
-    setPosts([newPost, ...posts]);
-    setNewPostContent("");
-  };
-
+  const joined = !!detail?.userRole;
+  const manager =
+    detail?.userRole === "OWNER" || detail?.userRole === "MODERATOR";
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -10 }}
-      transition={{ duration: 0.25 }}
-      className="space-y-6 max-w-5xl mx-auto"
-    >
-      {/* Top Navigation Bar */}
-      <div className="flex items-center justify-between">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-card border border-border/80 text-xs font-bold text-foreground hover:bg-accent transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" /> Back to Communities
+    <div className="space-y-6 pb-12">
+      <div className="flex justify-between">
+        <button onClick={onBack} className="flex gap-2 text-sm items-center">
+          <ArrowLeft className="w-4 h-4" />
+          Back to communities
         </button>
         <button
-          onClick={handleShare}
-          className="p-2 rounded-xl bg-card border border-border/80 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-          title="Share Community"
+          aria-label="Share community"
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(
+                window.location.origin +
+                  "/communities?community=" +
+                  encodeURIComponent(community.slug || ""),
+              );
+              toast.success("Community link copied.");
+            } catch {
+              toast.error("Unable to copy the community link.");
+            }
+          }}
         >
-          <Share2 className="w-4 h-4" />
+          <Share2 className="w-5 h-5" />
         </button>
       </div>
-
-      {/* Banner & Header */}
-      <div className="rounded-3xl bg-card border border-border/80 overflow-hidden shadow-lg">
-        <div className={cn("h-48 sm:h-56 w-full bg-gradient-to-r relative p-6 flex items-end", community.bannerGradient)}>
-          <div className="absolute top-4 left-4">
-            <span className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-black/50 text-white backdrop-blur-md border border-white/20">
-              {community.category}
+      <header className="rounded-3xl border border-border bg-card overflow-hidden">
+        <div
+          className="h-32 bg-gradient-to-r from-indigo-600 to-purple-600"
+          style={
+            detail?.bannerUrl
+              ? {
+                  backgroundImage: `url(${detail.bannerUrl})`,
+                  backgroundSize: "cover",
+                }
+              : undefined
+          }
+        />
+        <div className="p-6 space-y-3">
+          <img
+            src={avatar(community.name, detail?.avatarUrl)}
+            alt=""
+            className="w-20 h-20 rounded-2xl -mt-16 border-4 border-card"
+          />
+          <h1 className="text-2xl font-extrabold">
+            {detail?.name || community.name}
+          </h1>
+          <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+            {detail?.description || community.description}
+          </p>
+          <p className="text-sm flex gap-2 items-center">
+            <Users className="w-4 h-4" />
+            {detail?.memberCount ?? community.memberCount} members ·{" "}
+            {community.category}
+          </p>
+          {detail?.userRole === "OWNER" ? (
+            <span className="text-xs font-semibold text-primary">
+              You own this community
             </span>
-          </div>
-        </div>
-
-        <div className="p-6 sm:p-8 relative">
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 -mt-16 sm:-mt-20">
-            <div className="flex items-end gap-4">
-              <img
-                src={community.avatarUrl}
-                alt={community.name}
-                className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl object-cover ring-4 ring-card shadow-xl"
-              />
-              <div>
-                <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight">
-                  {community.name}
-                </h1>
-                <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 flex items-center gap-2 font-medium">
-                  <Users className="w-4 h-4 text-indigo-500" />
-                  <span>{memberCount.toLocaleString()} Members</span>
-                </p>
-              </div>
-            </div>
-
+          ) : (
             <button
-              onClick={toggleJoin}
-              className={cn(
-                "px-6 py-3 rounded-2xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all duration-200 cursor-pointer shadow-md self-start sm:self-auto",
-                isJoined
-                  ? "bg-accent text-foreground border border-border hover:bg-destructive/10 hover:text-destructive"
-                  : "bg-primary text-primary-foreground hover:opacity-90 active:scale-95"
-              )}
+              disabled={
+                busy ||
+                loading ||
+                !!detail?.hasPendingRequest ||
+                detail?.joinPolicy === "INVITE_ONLY"
+              }
+              className="rounded-xl px-4 py-2 bg-primary text-primary-foreground font-semibold disabled:opacity-50"
+              onClick={() =>
+                void run(
+                  "/communities/" +
+                    community.id +
+                    (joined
+                      ? "/leave"
+                      : detail?.joinPolicy === "APPROVAL_REQUIRED"
+                        ? "/request"
+                        : "/join"),
+                  joined ? "DELETE" : "POST",
+                  {},
+                )
+              }
             >
-              {isJoined ? (
-                <>
-                  <Check className="w-4 h-4 text-emerald-500" /> Joined Community
-                </>
-              ) : (
-                <>
-                  <Plus className="w-4 h-4" /> Join Community
-                </>
-              )}
+              {busy
+                ? "Saving…"
+                : detail?.hasPendingRequest
+                  ? "Request pending"
+                  : joined
+                    ? "Leave community"
+                    : detail?.joinPolicy === "APPROVAL_REQUIRED"
+                      ? "Request to join"
+                      : detail?.joinPolicy === "INVITE_ONLY"
+                        ? "Invitation required"
+                        : "Join community"}
             </button>
-          </div>
-
-          {/* Full Bio / Description */}
-          <div className="mt-6 pt-6 border-t border-border/60 space-y-2">
-            <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">About this Community</h3>
-            <p className="text-xs sm:text-sm text-foreground/90 leading-relaxed max-w-3xl">
-              {community.fullBio}
-            </p>
-          </div>
+          )}
         </div>
+      </header>
+      <div className="flex gap-2">
+        {["posts", "members", ...(manager ? ["requests", "manage"] : [])].map(
+          (t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={
+                "rounded-xl px-4 py-2 text-sm capitalize " +
+                (tab === t
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-card border border-border")
+              }
+            >
+              {t}
+              {t === "requests" ? ` (${requests.length})` : ""}
+            </button>
+          ),
+        )}
       </div>
-
-      {/* Tabs Navigation */}
-      <div className="flex items-center gap-2 border-b border-border/60 pb-2">
-        <button
-          onClick={() => setActiveTab("posts")}
-          className={cn(
-            "px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 cursor-pointer",
-            activeTab === "posts"
-              ? "bg-primary text-primary-foreground shadow-xs"
-              : "text-muted-foreground hover:text-foreground hover:bg-accent/60"
-          )}
-        >
-          Recent Discussions ({posts.length})
-        </button>
-        <button
-          onClick={() => setActiveTab("events")}
-          className={cn(
-            "px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 cursor-pointer",
-            activeTab === "events"
-              ? "bg-primary text-primary-foreground shadow-xs"
-              : "text-muted-foreground hover:text-foreground hover:bg-accent/60"
-          )}
-        >
-          Upcoming Events ({community.upcomingEvents.length})
-        </button>
-        <button
-          onClick={() => setActiveTab("members")}
-          className={cn(
-            "px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 cursor-pointer",
-            activeTab === "members"
-              ? "bg-primary text-primary-foreground shadow-xs"
-              : "text-muted-foreground hover:text-foreground hover:bg-accent/60"
-          )}
-        >
-          Members ({community.featuredMembers.length})
-        </button>
-      </div>
-
-      {/* Tab Content 1: Discussions & Create Post */}
-      {activeTab === "posts" && (
-        <div className="space-y-6">
-          {/* Create Post Input */}
-          <form onSubmit={handleCreatePost} className="p-4 rounded-2xl bg-card border border-border/80 shadow-xs space-y-3">
-            <textarea
-              value={newPostContent}
-              onChange={(e) => setNewPostContent(e.target.value)}
-              placeholder={`Share an update or question in ${community.name}...`}
-              rows={2}
-              className="w-full p-3 text-xs sm:text-sm rounded-xl bg-accent/40 border border-border/50 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none"
-            />
-            <div className="flex justify-end">
+      {loading && (
+        <p role="status" className="text-muted-foreground">
+          Loading community…
+        </p>
+      )}
+      {error && (
+        <p role="alert">
+          {error}{" "}
+          <button className="underline" onClick={() => void load()}>
+            Retry
+          </button>
+        </p>
+      )}
+      {tab === "posts" && (
+        <div className="space-y-4">
+          {joined && (
+            <form
+              className="rounded-3xl p-4 border border-border bg-card space-y-3"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (
+                  draft.trim() &&
+                  (await run("/feed/posts", "POST", {
+                    content: draft.trim(),
+                    communityId: community.id,
+                    category: "CLUB_UPDATE",
+                  }))
+                )
+                  setDraft("");
+              }}
+            >
+              <textarea
+                aria-label="Community post"
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                maxLength={10000}
+                placeholder="Share an update with this community…"
+                className="w-full bg-secondary/30 border border-border rounded-xl p-3"
+                rows={3}
+              />
               <button
-                type="submit"
-                disabled={!newPostContent.trim()}
-                className="px-4 py-2 rounded-xl bg-primary text-primary-foreground font-bold text-xs disabled:opacity-50 hover:opacity-90 transition-opacity cursor-pointer"
+                disabled={busy || !draft.trim()}
+                className="bg-primary text-primary-foreground rounded-xl py-2 px-4 text-sm flex items-center gap-2 disabled:opacity-50"
               >
-                Post Discussion
+                <Send className="w-4 h-4" />
+                {busy ? "Publishing…" : "Publish"}
               </button>
-            </div>
-          </form>
-
-          {/* Posts Feed List */}
-          <div className="space-y-4">
-            {posts.length === 0 ? (
-              <div className="py-12 text-center text-xs text-muted-foreground">
-                No discussions posted yet. Be the first to start a topic!
-              </div>
-            ) : (
-              posts.map((post) => (
-                <div key={post.id} className="p-5 rounded-2xl bg-card border border-border/70 shadow-xs space-y-3">
-                  <div className="flex items-center gap-3">
-                    <img src={post.authorAvatar} alt={post.authorName} className="w-10 h-10 rounded-full object-cover ring-1 ring-border" />
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="font-bold text-xs sm:text-sm text-foreground">{post.authorName}</h4>
-                        <span className="text-[10px] px-2 py-0.5 rounded-md bg-accent text-muted-foreground font-medium">{post.authorRole}</span>
-                      </div>
-                      <p className="text-[11px] text-muted-foreground">{post.timeAgo}</p>
-                    </div>
-                  </div>
-
-                  <p className="text-xs sm:text-sm text-foreground/90 leading-relaxed">
-                    {post.content}
+            </form>
+          )}
+          {!loading && !posts.length && (
+            <p className="text-muted-foreground text-sm p-6 border border-border rounded-2xl">
+              {joined
+                ? "No posts yet. Start the conversation."
+                : "Join this community to see member posts."}
+            </p>
+          )}
+          {posts.map((p) => (
+            <article
+              key={p.id}
+              className="bg-card rounded-3xl p-5 border border-border space-y-3"
+            >
+              <header className="flex items-center gap-3">
+                <img
+                  alt=""
+                  src={avatar(
+                    p.author.profile?.name || "Student",
+                    p.author.profile?.avatarUrl,
+                  )}
+                  className="w-9 h-9 rounded-full"
+                />
+                <div>
+                  <h3 className="font-semibold text-sm">
+                    {p.author.profile?.name || "Student"}
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    {formatDate(p.createdAt)}
                   </p>
-
-                  <div className="pt-2 border-t border-border/50 flex items-center gap-6 text-xs text-muted-foreground">
-                    <button
-                      onClick={() => toggleLike(post.id)}
-                      className={cn("flex items-center gap-1.5 hover:text-rose-500 transition-colors font-medium", post.isLiked && "text-rose-500")}
-                    >
-                      <Heart className={cn("w-4 h-4", post.isLiked && "fill-rose-500")} /> {post.likesCount}
-                    </button>
-                    <button className="flex items-center gap-1.5 hover:text-indigo-500 transition-colors font-medium">
-                      <MessageSquare className="w-4 h-4" /> {post.commentsCount} comments
-                    </button>
-                  </div>
                 </div>
-              ))
-            )}
-          </div>
+                {p.authorId === user.id && (
+                  <button
+                    disabled={busy}
+                    className="ml-auto text-xs text-destructive"
+                    onClick={() => {
+                      if (window.confirm("Delete this post?"))
+                        void run("/feed/posts/" + p.id, "DELETE");
+                    }}
+                  >
+                    Delete
+                  </button>
+                )}
+              </header>
+              <p className="text-sm whitespace-pre-wrap">{p.content}</p>
+              {p.media?.[0] && (
+                <img
+                  src={p.media[0].url}
+                  alt="Post attachment"
+                  className="rounded-xl max-h-80 object-cover"
+                />
+              )}
+              <button
+                disabled={busy}
+                className={
+                  "flex items-center gap-2 text-sm " +
+                  (p.isLiked ? "text-primary" : "text-muted-foreground")
+                }
+                onClick={() =>
+                  void run(
+                    "/feed/posts/" + p.id + "/like",
+                    p.isLiked ? "DELETE" : "POST",
+                  )
+                }
+              >
+                <Heart className="w-4 h-4" />
+                {p.likeCount} likes
+              </button>
+            </article>
+          ))}
+          {cursor && (
+            <button
+              disabled={busy}
+              className="underline text-sm"
+              onClick={async () => {
+                setBusy(true);
+                try {
+                  const p = await apiRequest<Page<Post>>(
+                    "/communities/" +
+                      community.id +
+                      "/feed?limit=20&cursor=" +
+                      encodeURIComponent(cursor),
+                  );
+                  setPosts((prev) => [...prev, ...p.items]);
+                  setCursor(p.nextCursor || null);
+                } catch (e) {
+                  toast.error(
+                    e instanceof Error ? e.message : "Unable to load posts.",
+                  );
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              Load more posts
+            </button>
+          )}
         </div>
       )}
-
-      {/* Tab Content 2: Events */}
-      {activeTab === "events" && (
-        <div className="space-y-4">
-          {community.upcomingEvents.length === 0 ? (
-            <div className="py-12 text-center text-xs text-muted-foreground">
-              No upcoming events scheduled right now.
-            </div>
-          ) : (
-            community.upcomingEvents.map((evt) => (
-              <div key={evt.id} className="p-5 rounded-2xl bg-card border border-border/70 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="space-y-1">
-                  <h4 className="font-bold text-sm text-foreground">{evt.title}</h4>
-                  <div className="flex flex-wrap gap-4 text-xs text-muted-foreground font-medium pt-1">
-                    <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5 text-emerald-500" /> {evt.date}</span>
-                    <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5 text-muted-foreground" /> {evt.time}</span>
-                    <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5 text-muted-foreground" /> {evt.location}</span>
-                  </div>
-                </div>
+      {tab === "members" && (
+        <div className="grid sm:grid-cols-2 gap-3">
+          {detail?.members?.map((m) => (
+            <div
+              key={m.user.id}
+              className="p-4 rounded-2xl border border-border bg-card flex gap-3 items-center"
+            >
+              <img
+                alt=""
+                src={avatar(
+                  m.user.profile?.name || "Student",
+                  m.user.profile?.avatarUrl,
+                )}
+                className="w-10 h-10 rounded-full"
+              />
+              <div className="flex-1">
+                <p className="font-semibold text-sm">
+                  {m.user.profile?.name || "Student"}
+                </p>
+                <p className="text-xs text-muted-foreground">{m.role}</p>
+              </div>
+              {m.user.id !== user.id && (
                 <button
-                  onClick={() => toggleRsvp(evt.id, evt.title)}
-                  className={cn(
-                    "px-4 py-2 rounded-xl font-bold text-xs self-start sm:self-center shadow-xs transition-colors cursor-pointer",
-                    rsvpedEvents[evt.id]
-                      ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
-                      : "bg-emerald-600 text-white hover:bg-emerald-500"
-                  )}
+                  className="text-primary text-sm"
+                  onClick={() => {
+                    startChatWithUser({
+                      id: m.user.id,
+                      name: m.user.profile?.name || "Student",
+                      avatar: avatar(
+                        m.user.profile?.name || "Student",
+                        m.user.profile?.avatarUrl,
+                      ),
+                    });
+                    navigate("/messages");
+                  }}
                 >
-                  {rsvpedEvents[evt.id] ? "RSVP Confirmed ✓" : "RSVP Event"}
+                  Message
+                </button>
+              )}
+            </div>
+          ))}
+          <p className="text-xs text-muted-foreground">
+            Showing the 10 most recent members.
+          </p>
+        </div>
+      )}
+      {tab === "requests" && manager && (
+        <div className="space-y-3">
+          {!requests.length && (
+            <p className="text-muted-foreground">No pending requests.</p>
+          )}
+          {requests.map((r) => (
+            <div
+              key={r.id}
+              className="bg-card rounded-2xl border border-border p-4 space-y-3"
+            >
+              <p className="font-semibold text-sm">
+                {r.user.profile?.name || r.user.email}
+              </p>
+              <p className="text-sm">{r.message}</p>
+              <div className="flex gap-3">
+                <button
+                  disabled={busy}
+                  className="text-primary text-sm"
+                  onClick={() =>
+                    void run(
+                      "/communities/requests/" + r.id + "/accept",
+                      "POST",
+                    )
+                  }
+                >
+                  Accept
+                </button>
+                <button
+                  disabled={busy}
+                  className="text-muted-foreground text-sm"
+                  onClick={() =>
+                    void run(
+                      "/communities/requests/" + r.id + "/reject",
+                      "POST",
+                    )
+                  }
+                >
+                  Decline
                 </button>
               </div>
-            ))
-          )}
-        </div>
-      )}
-
-      {/* Tab Content 3: Members */}
-      {activeTab === "members" && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {community.featuredMembers.map((member) => (
-            <div key={member.id} className="p-4 rounded-2xl bg-card border border-border/70 flex items-center justify-between gap-3 shadow-xs">
-              <div className="flex items-center gap-3">
-                <img src={member.avatar} alt={member.name} className="w-12 h-12 rounded-full object-cover ring-2 ring-primary/20" />
-                <div>
-                  <h4 className="font-bold text-xs sm:text-sm text-foreground">{member.name}</h4>
-                  <p className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold">{member.role}</p>
-                  <p className="text-[11px] text-muted-foreground">{member.major}</p>
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  startChatWithUser({
-                    name: member.name,
-                    avatar: member.avatar,
-                    isOnline: true,
-                  });
-                  navigate("/messages");
-                }}
-                className="p-2.5 rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground transition-colors cursor-pointer shrink-0"
-                title={`Message ${member.name}`}
-              >
-                <MessageCircle className="w-4 h-4" />
-              </button>
             </div>
           ))}
         </div>
       )}
-    </motion.div>
+      {tab === "manage" && manager && (
+        <form
+          key={detail?.id}
+          className="bg-card rounded-3xl p-5 border border-border space-y-3"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            const f = new FormData(e.currentTarget);
+            if (
+              await run("/communities/" + community.id, "PATCH", {
+                name: String(f.get("name")).trim(),
+                description: String(f.get("description")).trim(),
+                joinPolicy: String(f.get("policy")),
+              })
+            )
+              toast.success("Community updated.");
+          }}
+        >
+          <label className="block text-sm">
+            Name
+            <input
+              name="name"
+              required
+              defaultValue={detail?.name}
+              className="w-full rounded-xl bg-secondary p-3 mt-1"
+            />
+          </label>
+          <label className="block text-sm">
+            Description
+            <textarea
+              name="description"
+              required
+              defaultValue={detail?.description}
+              rows={4}
+              className="w-full rounded-xl bg-secondary p-3 mt-1"
+            />
+          </label>
+          <label className="block text-sm">
+            Membership
+            <select
+              name="policy"
+              defaultValue={detail?.joinPolicy}
+              className="w-full rounded-xl bg-secondary p-3 mt-1"
+            >
+              <option value="OPEN">Open to campus</option>
+              <option value="APPROVAL_REQUIRED">Approval required</option>
+              <option value="INVITE_ONLY">Closed to new members</option>
+            </select>
+          </label>
+          <button
+            disabled={busy}
+            className="bg-primary text-primary-foreground rounded-xl py-2 px-4"
+          >
+            Save changes
+          </button>
+        </form>
+      )}
+    </div>
   );
 }

@@ -1,8 +1,11 @@
-import { Injectable } from '@nestjs/common';
-import { Post } from '@prisma/client';
-import { BaseAbstractRepository } from '@common/repositories/base.repository';
-import { PrismaService } from '@database/prisma.service';
-import { CursorPaginatedResponse, CursorPaginationQueryDto } from '../dto/feed.dto';
+import { Injectable } from "@nestjs/common";
+import { Post } from "@prisma/client";
+import { BaseAbstractRepository } from "@common/repositories/base.repository";
+import { PrismaService } from "@database/prisma.service";
+import {
+  CursorPaginatedResponse,
+  CursorPaginationQueryDto,
+} from "../dto/feed.dto";
 
 @Injectable()
 export class FeedRepository extends BaseAbstractRepository<Post> {
@@ -55,7 +58,9 @@ export class FeedRepository extends BaseAbstractRepository<Post> {
             author: {
               select: {
                 id: true,
-                profile: { select: { name: true, username: true, avatarUrl: true } },
+                profile: {
+                  select: { name: true, username: true, avatarUrl: true },
+                },
               },
             },
             replies: {
@@ -64,60 +69,104 @@ export class FeedRepository extends BaseAbstractRepository<Post> {
                 author: {
                   select: {
                     id: true,
-                    profile: { select: { name: true, username: true, avatarUrl: true } },
+                    profile: {
+                      select: { name: true, username: true, avatarUrl: true },
+                    },
                   },
                 },
               },
-              orderBy: { createdAt: 'asc' },
+              orderBy: { createdAt: "asc" },
             },
           },
-          orderBy: { createdAt: 'desc' },
+          orderBy: { createdAt: "desc" },
         },
       },
     });
   }
 
-  async findLatestFeed(dto: CursorPaginationQueryDto): Promise<CursorPaginatedResponse<Record<string, unknown>>> {
+  async findLatestFeed(
+    dto: CursorPaginationQueryDto,
+  ): Promise<CursorPaginatedResponse<Record<string, unknown>>> {
     const limit = dto.limit || 10;
 
     const where: Record<string, unknown> = {
       deletedAt: null,
-      visibility: 'PUBLIC_CAMPUS',
+      visibility: "PUBLIC_CAMPUS",
+      ...(dto.category ? { category: dto.category } : {}),
+      ...(dto.search?.trim()
+        ? {
+            OR: [
+              { content: { contains: dto.search.trim(), mode: "insensitive" } },
+              {
+                author: {
+                  profile: {
+                    name: { contains: dto.search.trim(), mode: "insensitive" },
+                  },
+                },
+              },
+              {
+                tags: {
+                  has: dto.search.trim().replace(/^#/, "").toLowerCase(),
+                },
+              },
+            ],
+          }
+        : {}),
     };
 
     if (dto.cursor) {
       const cursorPost = await this.prisma.post.findUnique({
         where: { id: dto.cursor },
-        select: { createdAt: true },
+        select: { createdAt: true, likeCount: true, id: true },
       });
 
       if (cursorPost) {
-        where.createdAt = { lt: cursorPost.createdAt };
+        const chronological = [
+          { createdAt: { lt: cursorPost.createdAt } },
+          { createdAt: cursorPost.createdAt, id: { lt: cursorPost.id } },
+        ];
+        where.AND = [
+          {
+            OR:
+              dto.sort === "TRENDING"
+                ? [
+                    { likeCount: { lt: cursorPost.likeCount } },
+                    { likeCount: cursorPost.likeCount, OR: chronological },
+                  ]
+                : chronological,
+          },
+        ];
       }
     }
 
     const items = await this.prisma.post.findMany({
       where,
       take: limit + 1,
-      orderBy: { createdAt: 'desc' },
+      orderBy:
+        dto.sort === "TRENDING"
+          ? [{ likeCount: "desc" }, { createdAt: "desc" }, { id: "desc" }]
+          : [{ createdAt: "desc" }, { id: "desc" }],
       include: this.postIncludeSelect(),
     });
 
     const hasMore = items.length > limit;
     if (hasMore) items.pop();
 
-    const nextCursor = hasMore && items.length > 0 ? items[items.length - 1].id : null;
+    const nextCursor =
+      hasMore && items.length > 0 ? items[items.length - 1].id : null;
 
     return { items, nextCursor, hasMore };
   }
 
-  async findTrendingFeed(dto: CursorPaginationQueryDto): Promise<CursorPaginatedResponse<Record<string, unknown>>> {
+  async findTrendingFeed(
+    dto: CursorPaginationQueryDto,
+  ): Promise<CursorPaginatedResponse<Record<string, unknown>>> {
     const limit = dto.limit || 10;
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
     const where: Record<string, unknown> = {
       deletedAt: null,
-      visibility: 'PUBLIC_CAMPUS',
+      visibility: "PUBLIC_CAMPUS",
       createdAt: { gte: sevenDaysAgo },
     };
 
@@ -130,7 +179,10 @@ export class FeedRepository extends BaseAbstractRepository<Post> {
       if (cursorPost) {
         where.OR = [
           { likeCount: { lt: cursorPost.likeCount } },
-          { likeCount: cursorPost.likeCount, createdAt: { lt: cursorPost.createdAt } },
+          {
+            likeCount: cursorPost.likeCount,
+            createdAt: { lt: cursorPost.createdAt },
+          },
         ];
       }
     }
@@ -138,14 +190,19 @@ export class FeedRepository extends BaseAbstractRepository<Post> {
     const items = await this.prisma.post.findMany({
       where,
       take: limit + 1,
-      orderBy: [{ likeCount: 'desc' }, { commentCount: 'desc' }, { createdAt: 'desc' }],
+      orderBy: [
+        { likeCount: "desc" },
+        { commentCount: "desc" },
+        { createdAt: "desc" },
+      ],
       include: this.postIncludeSelect(),
     });
 
     const hasMore = items.length > limit;
     if (hasMore) items.pop();
 
-    const nextCursor = hasMore && items.length > 0 ? items[items.length - 1].id : null;
+    const nextCursor =
+      hasMore && items.length > 0 ? items[items.length - 1].id : null;
 
     return { items, nextCursor, hasMore };
   }
@@ -167,6 +224,7 @@ export class FeedRepository extends BaseAbstractRepository<Post> {
     const where: Record<string, unknown> = {
       deletedAt: null,
       authorId: { in: followingIds },
+      visibility: "PUBLIC_CAMPUS",
     };
 
     if (dto.cursor) {
@@ -183,14 +241,15 @@ export class FeedRepository extends BaseAbstractRepository<Post> {
     const items = await this.prisma.post.findMany({
       where,
       take: limit + 1,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
       include: this.postIncludeSelect(),
     });
 
     const hasMore = items.length > limit;
     if (hasMore) items.pop();
 
-    const nextCursor = hasMore && items.length > 0 ? items[items.length - 1].id : null;
+    const nextCursor =
+      hasMore && items.length > 0 ? items[items.length - 1].id : null;
 
     return { items, nextCursor, hasMore };
   }
@@ -204,6 +263,7 @@ export class FeedRepository extends BaseAbstractRepository<Post> {
     const where: Record<string, unknown> = {
       authorId: userId,
       deletedAt: null,
+      visibility: "PUBLIC_CAMPUS",
     };
 
     if (dto.cursor) {
@@ -220,14 +280,15 @@ export class FeedRepository extends BaseAbstractRepository<Post> {
     const items = await this.prisma.post.findMany({
       where,
       take: limit + 1,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
       include: this.postIncludeSelect(),
     });
 
     const hasMore = items.length > limit;
     if (hasMore) items.pop();
 
-    const nextCursor = hasMore && items.length > 0 ? items[items.length - 1].id : null;
+    const nextCursor =
+      hasMore && items.length > 0 ? items[items.length - 1].id : null;
 
     return { items, nextCursor, hasMore };
   }
@@ -235,41 +296,34 @@ export class FeedRepository extends BaseAbstractRepository<Post> {
   // --- INTERACTIONS & COUNTERS ---
 
   async likePost(postId: string, userId: string) {
-    const existing = await this.prisma.like.findUnique({
-      where: { postId_userId: { postId, userId } },
-    });
-
-    if (existing) return existing;
-
-    const [like] = await Promise.all([
-      this.prisma.like.create({
-        data: { postId, userId },
-      }),
-      this.prisma.post.update({
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM posts WHERE id = ${postId} FOR UPDATE`;
+      const existing = await tx.like.findUnique({
+        where: { postId_userId: { postId, userId } },
+      });
+      if (existing) return { ...existing, created: false };
+      const like = await tx.like.create({ data: { postId, userId } });
+      await tx.post.update({
         where: { id: postId },
         data: { likeCount: { increment: 1 } },
-      }),
-    ]);
-
-    return like;
+      });
+      return { ...like, created: true };
+    });
   }
 
   async unlikePost(postId: string, userId: string) {
-    const existing = await this.prisma.like.findUnique({
-      where: { postId_userId: { postId, userId } },
-    });
-
-    if (!existing) return;
-
-    await Promise.all([
-      this.prisma.like.delete({
-        where: { id: existing.id },
-      }),
-      this.prisma.post.update({
+    await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM posts WHERE id = ${postId} FOR UPDATE`;
+      const existing = await tx.like.findUnique({
+        where: { postId_userId: { postId, userId } },
+      });
+      if (!existing) return;
+      await tx.like.delete({ where: { id: existing.id } });
+      await tx.post.update({
         where: { id: postId },
         data: { likeCount: { decrement: 1 } },
-      }),
-    ]);
+      });
+    });
   }
 
   async addBookmark(postId: string, userId: string) {
@@ -277,14 +331,14 @@ export class FeedRepository extends BaseAbstractRepository<Post> {
       where: {
         userId_targetType_targetId: {
           userId,
-          targetType: 'POST',
+          targetType: "POST",
           targetId: postId,
         },
       },
       update: {},
       create: {
         userId,
-        targetType: 'POST',
+        targetType: "POST",
         targetId: postId,
         postId,
       },
@@ -295,7 +349,7 @@ export class FeedRepository extends BaseAbstractRepository<Post> {
     await this.prisma.bookmark.deleteMany({
       where: {
         userId,
-        targetType: 'POST',
+        targetType: "POST",
         targetId: postId,
       },
     });
@@ -309,7 +363,18 @@ export class FeedRepository extends BaseAbstractRepository<Post> {
 
     const where: Record<string, unknown> = {
       userId,
-      targetType: 'POST',
+      targetType: "POST",
+      post: {
+        deletedAt: null,
+        OR: [
+          { visibility: "PUBLIC_CAMPUS" },
+          { authorId: userId },
+          {
+            visibility: "COMMUNITY_ONLY",
+            community: { members: { some: { userId } } },
+          },
+        ],
+      },
     };
 
     if (dto.cursor) {
@@ -326,7 +391,7 @@ export class FeedRepository extends BaseAbstractRepository<Post> {
     const bookmarks = await this.prisma.bookmark.findMany({
       where,
       take: limit + 1,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
       include: {
         post: {
           include: this.postIncludeSelect(),
@@ -337,8 +402,14 @@ export class FeedRepository extends BaseAbstractRepository<Post> {
     const hasMore = bookmarks.length > limit;
     if (hasMore) bookmarks.pop();
 
-    const items = bookmarks.map((b) => b.post).filter(Boolean) as Record<string, unknown>[];
-    const nextCursor = hasMore && bookmarks.length > 0 ? bookmarks[bookmarks.length - 1].id : null;
+    const items = bookmarks.map((b) => b.post).filter(Boolean) as Record<
+      string,
+      unknown
+    >[];
+    const nextCursor =
+      hasMore && bookmarks.length > 0
+        ? bookmarks[bookmarks.length - 1].id
+        : null;
 
     return { items, nextCursor, hasMore };
   }

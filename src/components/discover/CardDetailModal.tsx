@@ -1,12 +1,25 @@
+import { useDialogAccessibility } from "@/hooks/useDialogAccessibility";
+import { useDiscoveryData } from "@/hooks/useDiscoveryData";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Coffee, UserPlus, Sparkles, Trophy, Calendar, MapPin, ExternalLink, ShieldCheck, MessageSquare } from "lucide-react";
-import { SeniorMentor, PeerStudent, DiscoverCommunity, HackathonItem, DiscoverOpportunity } from "./types";
+import { X, Coffee, Sparkles, Trophy, Calendar, MapPin, ExternalLink, ShieldCheck, MessageSquare } from "lucide-react";
+import {
+  SeniorMentor,
+  PeerStudent,
+  DiscoverCommunity,
+  HackathonItem,
+  DiscoverOpportunity,
+} from "./types";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/context/ToastContext";
 import { useApp } from "@/context/AppContext";
 import { useNavigate } from "react-router-dom";
 
-type DetailItem = SeniorMentor | PeerStudent | DiscoverCommunity | HackathonItem | DiscoverOpportunity;
+type DetailItem =
+  | SeniorMentor
+  | PeerStudent
+  | DiscoverCommunity
+  | HackathonItem
+  | DiscoverOpportunity;
 
 interface CardDetailModalProps {
   item: DetailItem | null;
@@ -15,8 +28,11 @@ interface CardDetailModalProps {
 
 export function CardDetailModal({ item, onClose }: CardDetailModalProps) {
   const toast = useToast();
+  const { requestCoffee, toggleCommunity, toggleRegisterEvent } =
+    useDiscoveryData();
   const { startChatWithUser } = useApp();
   const navigate = useNavigate();
+  useDialogAccessibility(!!item, onClose);
   if (!item) return null;
 
   const isSenior = "companyTag" in item;
@@ -47,13 +63,21 @@ export function CardDetailModal({ item, onClose }: CardDetailModalProps) {
           {isSenior && (
             <div className="p-6 space-y-4">
               <div className="flex items-center gap-4">
-                <img src={item.avatar} alt={item.name} className="w-16 h-16 rounded-full object-cover ring-4 ring-indigo-500/20" />
+                <img
+                  src={item.avatar}
+                  alt={item.name}
+                  className="w-16 h-16 rounded-full object-cover ring-4 ring-indigo-500/20"
+                />
                 <div>
                   <div className="flex items-center gap-1.5">
-                    <h3 className="font-extrabold text-lg text-foreground">{item.name}</h3>
+                    <h3 className="font-extrabold text-lg text-foreground">
+                      {item.name}
+                    </h3>
                     <ShieldCheck className="w-4 h-4 text-indigo-500" />
                   </div>
-                  <p className="text-xs text-muted-foreground">{item.major} · {item.year}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {item.major} · {item.year}
+                  </p>
                   <span className="inline-block mt-1 text-xs font-bold px-2.5 py-0.5 rounded-md bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
                     {item.companyTag}
                   </span>
@@ -61,15 +85,22 @@ export function CardDetailModal({ item, onClose }: CardDetailModalProps) {
               </div>
 
               <div className="p-3 rounded-2xl bg-accent/40 border border-border/50 text-xs text-foreground leading-relaxed">
-                <p className="font-semibold text-primary mb-1">About & Mentorship</p>
+                <p className="font-semibold text-primary mb-1">
+                  About & Mentorship
+                </p>
                 <p>{item.bio}</p>
               </div>
 
               <div className="space-y-1">
-                <p className="text-xs font-bold text-muted-foreground">Expertise & Skills</p>
+                <p className="text-xs font-bold text-muted-foreground">
+                  Expertise & Skills
+                </p>
                 <div className="flex flex-wrap gap-1.5">
                   {item.skills.map((s, idx) => (
-                    <span key={idx} className="text-xs px-2.5 py-1 rounded-lg bg-accent text-foreground font-medium">
+                    <span
+                      key={idx}
+                      className="text-xs px-2.5 py-1 rounded-lg bg-accent text-foreground font-medium"
+                    >
                       {s}
                     </span>
                   ))}
@@ -77,13 +108,17 @@ export function CardDetailModal({ item, onClose }: CardDetailModalProps) {
               </div>
 
               <div className="pt-2 flex gap-3">
-                <button 
+                <button
                   onClick={() => {
-                    startChatWithUser({ name: item.name, avatar: item.avatar, isOnline: true });
-                    toast.success(`Coffee chat invitation sent to ${item.name}! Opening chat... ☕`);
+                    startChatWithUser({
+                      id: item.id,
+                      name: item.name,
+                      avatar: item.avatar,
+                    });
+                    void requestCoffee(item.id);
                     onClose();
                     navigate("/messages");
-                  }} 
+                  }}
                   className="flex-1 py-3 rounded-2xl bg-indigo-600 text-white font-bold text-xs flex items-center justify-center gap-2 hover:bg-indigo-500 shadow-md cursor-pointer"
                 >
                   <Coffee className="w-4 h-4" /> Schedule Coffee Chat ☕
@@ -95,10 +130,18 @@ export function CardDetailModal({ item, onClose }: CardDetailModalProps) {
           {isPeer && (
             <div className="p-6 space-y-4">
               <div className="flex items-center gap-4">
-                <img src={item.avatar} alt={item.name} className="w-16 h-16 rounded-full object-cover ring-4 ring-cyan-500/20" />
+                <img
+                  src={item.avatar}
+                  alt={item.name}
+                  className="w-16 h-16 rounded-full object-cover ring-4 ring-cyan-500/20"
+                />
                 <div>
-                  <h3 className="font-extrabold text-lg text-foreground">{item.name}</h3>
-                  <p className="text-xs text-muted-foreground">{item.major} · {item.year}</p>
+                  <h3 className="font-extrabold text-lg text-foreground">
+                    {item.name}
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    {item.major} · {item.year}
+                  </p>
                 </div>
               </div>
 
@@ -107,10 +150,15 @@ export function CardDetailModal({ item, onClose }: CardDetailModalProps) {
               </div>
 
               <div className="space-y-1">
-                <p className="text-xs font-bold text-muted-foreground">Tech Stack & Interests</p>
+                <p className="text-xs font-bold text-muted-foreground">
+                  Tech Stack & Interests
+                </p>
                 <div className="flex flex-wrap gap-1.5">
                   {item.skills.map((s, idx) => (
-                    <span key={idx} className="text-xs px-2.5 py-1 rounded-lg bg-accent text-foreground font-medium">
+                    <span
+                      key={idx}
+                      className="text-xs px-2.5 py-1 rounded-lg bg-accent text-foreground font-medium"
+                    >
                       {s}
                     </span>
                   ))}
@@ -118,13 +166,17 @@ export function CardDetailModal({ item, onClose }: CardDetailModalProps) {
               </div>
 
               <div className="pt-2 flex gap-3">
-                <button 
+                <button
                   onClick={() => {
-                    startChatWithUser({ name: item.name, avatar: item.avatar, isOnline: true });
-                    toast.success(`Connection request accepted! Opening chat with ${item.name}...`);
+                    startChatWithUser({
+                      id: item.id,
+                      name: item.name,
+                      avatar: item.avatar,
+                    });
+
                     onClose();
                     navigate("/messages");
-                  }} 
+                  }}
                   className="flex-1 py-3 rounded-2xl bg-cyan-600 text-white font-bold text-xs flex items-center justify-center gap-2 hover:bg-cyan-500 shadow-md cursor-pointer"
                 >
                   <MessageSquare className="w-4 h-4" /> Message Collaborator
@@ -135,26 +187,41 @@ export function CardDetailModal({ item, onClose }: CardDetailModalProps) {
 
           {isCommunity && (
             <div>
-              <div className={cn("h-28 w-full bg-gradient-to-r p-4 flex items-end", item.bannerGradient)}>
+              <div
+                className={cn(
+                  "h-28 w-full bg-gradient-to-r p-4 flex items-end",
+                  item.bannerGradient,
+                )}
+              >
                 <span className="text-xs font-bold px-3 py-1 rounded-full bg-black/50 text-white backdrop-blur-md">
                   {item.category}
                 </span>
               </div>
               <div className="p-6 space-y-4">
                 <div className="flex items-center gap-3 -mt-10">
-                  <img src={item.avatar} alt={item.name} className="w-16 h-16 rounded-2xl object-cover ring-4 ring-background shadow-lg" />
+                  <img
+                    src={item.avatar}
+                    alt={item.name}
+                    className="w-16 h-16 rounded-2xl object-cover ring-4 ring-background shadow-lg"
+                  />
                   <div className="pt-4">
-                    <h3 className="font-extrabold text-lg text-foreground">{item.name}</h3>
-                    <p className="text-xs text-muted-foreground">{item.membersCount.toLocaleString()} Active Members</p>
+                    <h3 className="font-extrabold text-lg text-foreground">
+                      {item.name}
+                    </h3>
+                    <p className="text-xs text-muted-foreground">
+                      {item.membersCount.toLocaleString()} Active Members
+                    </p>
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground leading-relaxed">{item.description}</p>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  {item.description}
+                </p>
                 <div className="pt-2 flex gap-3">
-                  <button 
+                  <button
                     onClick={() => {
-                      toast.success(`Joined channel for ${item.name}!`);
+                      void toggleCommunity(item.id);
                       onClose();
-                    }} 
+                    }}
                     className="flex-1 py-3 rounded-2xl bg-amber-600 text-white font-bold text-xs flex items-center justify-center gap-2 hover:bg-amber-500 shadow-md cursor-pointer"
                   >
                     <Sparkles className="w-4 h-4" /> Join Community Channel
@@ -167,28 +234,41 @@ export function CardDetailModal({ item, onClose }: CardDetailModalProps) {
           {isHackathon && (
             <div className="p-6 space-y-4">
               <div className="relative h-36 rounded-2xl overflow-hidden bg-muted">
-                <img src={item.image} alt={item.title} className="w-full h-full object-cover" />
+                <img
+                  src={item.image}
+                  alt={item.title}
+                  className="w-full h-full object-cover"
+                />
                 <div className="absolute top-3 left-3 bg-amber-500 text-black text-xs font-black px-3 py-1 rounded-lg">
                   {item.prizePool}
                 </div>
               </div>
               <div>
-                <span className="text-xs font-bold text-muted-foreground uppercase">{item.organizer}</span>
-                <h3 className="font-extrabold text-lg text-foreground">{item.title}</h3>
+                <span className="text-xs font-bold text-muted-foreground uppercase">
+                  {item.organizer}
+                </span>
+                <h3 className="font-extrabold text-lg text-foreground">
+                  {item.title}
+                </h3>
                 <div className="flex items-center gap-4 text-xs text-muted-foreground mt-2">
-                  <span className="flex items-center gap-1"><Calendar className="w-4 h-4" /> {item.dates}</span>
-                  <span className="flex items-center gap-1"><MapPin className="w-4 h-4" /> {item.location}</span>
+                  <span className="flex items-center gap-1">
+                    <Calendar className="w-4 h-4" /> {item.dates}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <MapPin className="w-4 h-4" /> {item.location}
+                  </span>
                 </div>
               </div>
               <div className="pt-2 flex gap-3">
-                <button 
+                <button
                   onClick={() => {
-                    toast.success(`Registered for ${item.title}!`);
+                    void toggleRegisterEvent(item.id);
                     onClose();
-                  }} 
+                  }}
                   className="flex-1 py-3 rounded-2xl bg-emerald-600 text-white font-bold text-xs flex items-center justify-center gap-2 hover:bg-emerald-500 shadow-md cursor-pointer"
                 >
-                  <Trophy className="w-4 h-4" /> Register / Join Team Matchmaking
+                  <Trophy className="w-4 h-4" /> Register / Join Team
+                  Matchmaking
                 </button>
               </div>
             </div>
@@ -200,21 +280,27 @@ export function CardDetailModal({ item, onClose }: CardDetailModalProps) {
                 {item.type}
               </span>
               <div>
-                <h3 className="font-extrabold text-lg text-foreground">{item.title}</h3>
-                <p className="text-xs text-muted-foreground font-semibold">{item.organization}</p>
+                <h3 className="font-extrabold text-lg text-foreground">
+                  {item.title}
+                </h3>
+                <p className="text-xs text-muted-foreground font-semibold">
+                  {item.organization}
+                </p>
               </div>
-              <p className="text-xs text-muted-foreground leading-relaxed">{item.description}</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                {item.description}
+              </p>
               {item.stipendOrPrize && (
                 <div className="text-xs font-bold text-emerald-600 bg-emerald-500/10 p-2 rounded-xl border border-emerald-500/20">
                   Reward / Stipend: {item.stipendOrPrize}
                 </div>
               )}
               <div className="pt-2 flex gap-3">
-                <button 
+                <button
                   onClick={() => {
-                    toast.success(`Application submitted to ${item.organization}!`);
+                    navigate("/opportunities");
                     onClose();
-                  }} 
+                  }}
                   className="flex-1 py-3 rounded-2xl bg-primary text-primary-foreground font-bold text-xs flex items-center justify-center gap-2 shadow-md cursor-pointer"
                 >
                   Submit Application <ExternalLink className="w-4 h-4" />

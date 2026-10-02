@@ -1,9 +1,12 @@
-import { Inject, Injectable } from '@nestjs/common';
-import { PrismaService } from '@database/prisma.service';
-import { ISearchProvider, SEARCH_PROVIDER } from './interfaces/search-provider.interface';
-import { SearchRepository } from './repositories/search.repository';
-import { AutocompleteQueryDto, SearchQueryDto } from './dto/search.dto';
-import { AppLoggerService } from '@logger/logger.service';
+import { Inject, Injectable } from "@nestjs/common";
+import { PrismaService } from "@database/prisma.service";
+import {
+  ISearchProvider,
+  SEARCH_PROVIDER,
+} from "./interfaces/search-provider.interface";
+import { SearchRepository } from "./repositories/search.repository";
+import { AutocompleteQueryDto, SearchQueryDto } from "./dto/search.dto";
+import { AppLoggerService } from "@logger/logger.service";
 
 @Injectable()
 export class SearchService {
@@ -25,12 +28,17 @@ export class SearchService {
     // Asynchronously log search history and increment trending keyword
     if (dto.q && dto.q.trim().length >= 2) {
       if (userId) {
-        this.searchRepository.recordSearchHistory(userId, dto.q).catch(() => {});
+        this.searchRepository
+          .recordSearchHistory(userId, dto.q)
+          .catch(() => {});
       }
       this.searchRepository.incrementTrendingSearch(dto.q).catch(() => {});
     }
 
-    this.logger.log(`Unified search executed for query '${dto.q}' (module: ${dto.module || 'ALL'})`, 'SearchService');
+    this.logger.log(
+      `Unified search executed for query '${dto.q}' (module: ${dto.module || "ALL"})`,
+      "SearchService",
+    );
 
     return results;
   }
@@ -52,39 +60,69 @@ export class SearchService {
   }
 
   async getDiscoveryRecommendations() {
-    const [recommendedCommunities, recommendedEvents, suggestedProfiles, trendingOpportunities, popularPosts] =
-      await Promise.all([
-        this.prisma.community.findMany({
-          where: { deletedAt: null, isPrivate: false },
-          take: 5,
-          orderBy: { memberCount: 'desc' },
-        }),
-        this.prisma.event.findMany({
-          where: { deletedAt: null, status: 'PUBLISHED' },
-          take: 5,
-          orderBy: { rsvpCount: 'desc' },
-        }),
-        this.prisma.profile.findMany({
-          take: 5,
-          orderBy: { viewCount: 'desc' },
-          select: { id: true, name: true, username: true, avatarUrl: true, department: true, year: true },
-        }),
-        this.prisma.opportunity.findMany({
-          where: { deletedAt: null, status: 'OPEN' },
-          take: 5,
-          orderBy: { createdAt: 'desc' },
-        }),
-        this.prisma.post.findMany({
-          where: { deletedAt: null },
-          take: 5,
-          orderBy: { likeCount: 'desc' },
-          include: {
-            author: {
-              select: { id: true, profile: { select: { name: true, username: true, avatarUrl: true } } },
+    const [
+      recommendedCommunities,
+      recommendedEvents,
+      suggestedProfiles,
+      trendingOpportunities,
+      popularPosts,
+    ] = await Promise.all([
+      this.prisma.community.findMany({
+        where: { deletedAt: null, isPrivate: false },
+        take: 5,
+        orderBy: { memberCount: "desc" },
+      }),
+      this.prisma.event.findMany({
+        where: {
+          deletedAt: null,
+          visibility: "PUBLIC_CAMPUS",
+          status: { in: ["PUBLISHED", "REGISTRATION_OPEN"] },
+        },
+        take: 5,
+        orderBy: { rsvpCount: "desc" },
+      }),
+      this.prisma.profile.findMany({
+        where: {
+          visibility: { not: "PRIVATE" },
+          user: {
+            isActive: true,
+            isVerified: true,
+            email: { endsWith: "@srmist.edu.in" },
+          },
+        },
+        take: 5,
+        orderBy: { viewCount: "desc" },
+        select: {
+          id: true,
+          userId: true,
+          name: true,
+          username: true,
+          avatarUrl: true,
+          department: true,
+          year: true,
+        },
+      }),
+      this.prisma.opportunity.findMany({
+        where: { deletedAt: null, status: "OPEN" },
+        take: 5,
+        orderBy: { createdAt: "desc" },
+      }),
+      this.prisma.post.findMany({
+        where: { deletedAt: null, visibility: "PUBLIC_CAMPUS" },
+        take: 5,
+        orderBy: { likeCount: "desc" },
+        include: {
+          author: {
+            select: {
+              id: true,
+              profile: {
+                select: { name: true, username: true, avatarUrl: true },
+              },
             },
           },
-        }),
-      ]);
+        },
+      }),
+    ]);
 
     return {
       recommendedCommunities,

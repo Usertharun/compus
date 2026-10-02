@@ -1,27 +1,18 @@
 import { useState } from "react";
-import { EVENTS_DATA } from "@/data/eventsData";
-import { 
-  Calendar, 
-  MapPin, 
-  Clock, 
-  Users, 
-  Check, 
-  Ticket, 
-  Sparkles, 
-  Plus, 
-  Search, 
-  X,
-  LayoutGrid, 
-  List, 
-  QrCode,
-  Share2
-} from "lucide-react";
+import { Calendar, MapPin, Clock, Users, Check, Ticket, Sparkles, Plus, Search, X, LayoutGrid, List, QrCode } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { useApp } from "@/context/AppContext";
 import { useToast } from "@/context/ToastContext";
 
-const CATEGORIES = ["All", "Hackathons", "Workshops", "Keynotes", "Socials", "My RSVPs"];
+const CATEGORIES = [
+  "All",
+  "Hackathons",
+  "Workshops",
+  "Keynotes",
+  "Socials",
+  "My RSVPs",
+];
 
 export default function EventsPage() {
   const { openHostEvent, user, events, toggleRegisterEvent } = useApp();
@@ -33,12 +24,16 @@ export default function EventsPage() {
 
   const registeredCount = events.filter((e) => e.isRegistered).length;
 
-  const handleToggleRegister = (id: string, title: string, currentStatus?: boolean) => {
-    toggleRegisterEvent(id);
+  const handleToggleRegister = async (
+    id: string,
+    title: string,
+    currentStatus?: boolean,
+  ) => {
+    if (!(await toggleRegisterEvent(id))) return;
     toast.success(
-      !currentStatus
-        ? `RSVP confirmed for ${title}! Admission pass generated.`
-        : `Cancelled RSVP for ${title}`
+      currentStatus
+        ? `Cancelled registration for ${title}`
+        : `Registration updated for ${title}. Check My RSVPs for your status.`,
     );
   };
 
@@ -47,8 +42,10 @@ export default function EventsPage() {
       if (!e.isRegistered) return false;
     } else if (selectedCategory !== "All") {
       const match =
-        (e.category && e.category.toLowerCase().includes(selectedCategory.toLowerCase())) ||
-        (selectedCategory === "Hackathons" && e.title.toLowerCase().includes("hackathon"));
+        (e.category &&
+          e.category.toLowerCase().includes(selectedCategory.toLowerCase())) ||
+        (selectedCategory === "Hackathons" &&
+          e.title.toLowerCase().includes("hackathon"));
       if (!match) return false;
     }
 
@@ -74,13 +71,14 @@ export default function EventsPage() {
         <div>
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-bold border border-emerald-500/20 mb-2.5">
             <Calendar className="w-3.5 h-3.5" />
-            Campus Calendar & Ticketing
+            Campus calendar
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground font-sans">
             Workshops, Hackathons & Keynotes
           </h1>
           <p className="text-xs sm:text-sm text-muted-foreground mt-1 font-normal">
-            RSVP for campus tech talks, developer sprints, hackathons, and socials.
+            RSVP for campus tech talks, developer sprints, hackathons, and
+            socials.
           </p>
         </div>
 
@@ -91,15 +89,19 @@ export default function EventsPage() {
               "px-4 py-2.5 rounded-2xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer border",
               selectedCategory === "My RSVPs"
                 ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
-                : "bg-secondary/40 hover:bg-secondary border-border/50 text-foreground"
+                : "bg-secondary/40 hover:bg-secondary border-border/50 text-foreground",
             )}
           >
             <Ticket className="w-4 h-4" />
             <span>My RSVPs</span>
-            <span className={cn(
-              "px-1.5 py-0.5 rounded-md text-[10px] font-extrabold",
-              selectedCategory === "My RSVPs" ? "bg-white/20 text-white" : "bg-emerald-500/10 text-emerald-600"
-            )}>
+            <span
+              className={cn(
+                "px-1.5 py-0.5 rounded-md text-[10px] font-extrabold",
+                selectedCategory === "My RSVPs"
+                  ? "bg-white/20 text-white"
+                  : "bg-emerald-500/10 text-emerald-600",
+              )}
+            >
               {registeredCount}
             </span>
           </button>
@@ -141,7 +143,9 @@ export default function EventsPage() {
             onClick={() => setViewMode("grid")}
             className={cn(
               "p-2 rounded-xl transition-colors cursor-pointer",
-              viewMode === "grid" ? "bg-primary text-primary-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+              viewMode === "grid"
+                ? "bg-primary text-primary-foreground shadow-xs"
+                : "text-muted-foreground hover:text-foreground",
             )}
             title="Grid View"
           >
@@ -151,7 +155,9 @@ export default function EventsPage() {
             onClick={() => setViewMode("list")}
             className={cn(
               "p-2 rounded-xl transition-colors cursor-pointer",
-              viewMode === "list" ? "bg-primary text-primary-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+              viewMode === "list"
+                ? "bg-primary text-primary-foreground shadow-xs"
+                : "text-muted-foreground hover:text-foreground",
             )}
             title="List View"
           >
@@ -172,15 +178,19 @@ export default function EventsPage() {
                 "px-4 py-2 rounded-2xl text-xs font-bold transition-all duration-200 cursor-pointer whitespace-nowrap flex items-center gap-1.5",
                 isActive
                   ? "bg-emerald-600 text-white shadow-xs"
-                  : "bg-card border border-border/50 text-muted-foreground hover:text-foreground hover:bg-secondary/60"
+                  : "bg-card border border-border/50 text-muted-foreground hover:text-foreground hover:bg-secondary/60",
               )}
             >
               <span>{cat}</span>
               {cat === "My RSVPs" && (
-                <span className={cn(
-                  "px-1.5 py-0.2 rounded-md text-[10px] font-extrabold",
-                  isActive ? "bg-white/20 text-white" : "bg-emerald-500/10 text-emerald-600"
-                )}>
+                <span
+                  className={cn(
+                    "px-1.5 py-0.2 rounded-md text-[10px] font-extrabold",
+                    isActive
+                      ? "bg-white/20 text-white"
+                      : "bg-emerald-500/10 text-emerald-600",
+                  )}
+                >
                   {registeredCount}
                 </span>
               )}
@@ -194,11 +204,13 @@ export default function EventsPage() {
         <div className="py-16 text-center text-muted-foreground glass-panel rounded-3xl space-y-3 p-8 border border-border/50">
           <Calendar className="w-12 h-12 mx-auto text-muted-foreground/30" />
           <h3 className="font-bold text-base text-foreground">
-            {selectedCategory === "My RSVPs" ? "No RSVP'd events yet" : "No events match your filter"}
+            {selectedCategory === "My RSVPs"
+              ? "No RSVP'd events yet"
+              : "No events match your filter"}
           </h3>
           <p className="text-xs max-w-sm mx-auto">
             {selectedCategory === "My RSVPs"
-              ? "Browse the campus calendar and click 'Register' on upcoming events to claim your pass."
+              ? "Browse the campus calendar and click 'Register' on upcoming events to register."
               : "Try adjusting your search terms or select 'All' to see all campus activities."}
           </p>
           {selectedCategory === "My RSVPs" && (
@@ -221,7 +233,7 @@ export default function EventsPage() {
               className={cn(
                 "group rounded-3xl bg-card border border-border/50 overflow-hidden shadow-xs",
                 "hover:-translate-y-1 hover:shadow-xl hover:shadow-emerald-500/5 hover:border-emerald-500/30",
-                "transition-all duration-300 flex flex-col justify-between"
+                "transition-all duration-300 flex flex-col justify-between",
               )}
             >
               {/* Image Banner */}
@@ -280,7 +292,10 @@ export default function EventsPage() {
                 <div className="pt-3.5 border-t border-border/40 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <Users className="w-3.5 h-3.5 text-muted-foreground" />
-                    <span className="font-bold text-foreground">{event.attendeesCount}</span> attending
+                    <span className="font-bold text-foreground">
+                      {event.attendeesCount}
+                    </span>{" "}
+                    attending
                   </div>
 
                   <div className="flex items-center gap-1.5">
@@ -288,24 +303,31 @@ export default function EventsPage() {
                       <button
                         onClick={() => setSelectedTicket(event)}
                         className="p-2 rounded-xl bg-secondary/60 hover:bg-secondary text-foreground text-xs font-bold transition-colors cursor-pointer"
-                        title="View Ticket QR"
+                        title="View registration"
                       >
                         <QrCode className="w-3.5 h-3.5" />
                       </button>
                     )}
 
                     <button
-                      onClick={() => handleToggleRegister(event.id, event.title, event.isRegistered)}
+                      onClick={() =>
+                        handleToggleRegister(
+                          event.id,
+                          event.title,
+                          event.isRegistered,
+                        )
+                      }
                       className={cn(
                         "px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all duration-200 cursor-pointer",
                         event.isRegistered
                           ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20"
-                          : "bg-emerald-600 text-white hover:bg-emerald-500 shadow-xs active:scale-95"
+                          : "bg-emerald-600 text-white hover:bg-emerald-500 shadow-xs active:scale-95",
                       )}
                     >
                       {event.isRegistered ? (
                         <>
-                          <Check className="w-3.5 h-3.5 text-emerald-500" /> Confirmed
+                          <Check className="w-3.5 h-3.5 text-emerald-500" />{" "}
+                          Confirmed
                         </>
                       ) : (
                         <>
@@ -338,9 +360,13 @@ export default function EventsPage() {
                     <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
                       {event.category || "Event"}
                     </span>
-                    <span className="text-xs text-muted-foreground font-medium">{event.date}</span>
+                    <span className="text-xs text-muted-foreground font-medium">
+                      {event.date}
+                    </span>
                   </div>
-                  <h3 className="font-bold text-sm text-foreground truncate">{event.title}</h3>
+                  <h3 className="font-bold text-sm text-foreground truncate">
+                    {event.title}
+                  </h3>
                   <p className="text-xs text-muted-foreground flex items-center gap-2 mt-0.5">
                     <span>{event.venue}</span> • <span>{event.host}</span>
                   </p>
@@ -349,16 +375,32 @@ export default function EventsPage() {
 
               <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
                 <button
-                  onClick={() => handleToggleRegister(event.id, event.title, event.isRegistered)}
+                  onClick={() =>
+                    handleToggleRegister(
+                      event.id,
+                      event.title,
+                      event.isRegistered,
+                    )
+                  }
                   className={cn(
                     "px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer",
                     event.isRegistered
                       ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"
-                      : "bg-emerald-600 text-white hover:bg-emerald-500"
+                      : "bg-emerald-600 text-white hover:bg-emerald-500",
                   )}
                 >
-                  {event.isRegistered ? <Check className="w-3.5 h-3.5" /> : <Ticket className="w-3.5 h-3.5" />}
-                  <span>{event.isRegistered ? "RSVP'd" : "Register"}</span>
+                  {event.isRegistered ? (
+                    <Check className="w-3.5 h-3.5" />
+                  ) : (
+                    <Ticket className="w-3.5 h-3.5" />
+                  )}
+                  <span>
+                    {event.rsvpStatus === "WAITLISTED"
+                      ? "Waitlisted"
+                      : event.isRegistered
+                        ? "Cancel RSVP"
+                        : "Register"}
+                  </span>
                 </button>
               </div>
             </div>
@@ -382,7 +424,7 @@ export default function EventsPage() {
 
               <div>
                 <span className="text-[10px] font-extrabold uppercase tracking-widest text-emerald-600">
-                  Verified Admission Ticket
+                  Campus registration
                 </span>
                 <h3 className="font-extrabold text-base text-foreground mt-1 leading-snug">
                   {selectedTicket.title}
@@ -392,23 +434,34 @@ export default function EventsPage() {
                 </p>
               </div>
 
-              {/* QR Mock */}
-              <div className="bg-white p-4 rounded-2xl w-44 h-44 mx-auto flex flex-col items-center justify-center border shadow-inner">
-                <div className="w-36 h-36 border-4 border-black border-dashed flex items-center justify-center">
-                  <span className="font-mono text-xs font-black text-black">PASS-{selectedTicket.id}-2026</span>
-                </div>
-              </div>
+              <p className="text-sm text-muted-foreground">
+                Status:{" "}
+                {selectedTicket.rsvpStatus === "WAITLISTED"
+                  ? "Waitlisted — awaiting a place"
+                  : "Registered"}
+                . Contact the organizer for admission requirements.
+              </p>
 
               <div className="text-xs text-muted-foreground space-y-1">
-                <div>Venue: <span className="font-semibold text-foreground">{selectedTicket.venue}</span></div>
-                <div>Date & Time: <span className="font-semibold text-foreground">{selectedTicket.date} • {selectedTicket.time}</span></div>
+                <div>
+                  Venue:{" "}
+                  <span className="font-semibold text-foreground">
+                    {selectedTicket.venue}
+                  </span>
+                </div>
+                <div>
+                  Date & Time:{" "}
+                  <span className="font-semibold text-foreground">
+                    {selectedTicket.date} • {selectedTicket.time}
+                  </span>
+                </div>
               </div>
 
               <button
                 onClick={() => setSelectedTicket(null)}
                 className="w-full py-2.5 rounded-xl bg-secondary text-foreground font-bold text-xs hover:bg-secondary/80 cursor-pointer"
               >
-                Close Pass
+                Close
               </button>
             </motion.div>
           </div>

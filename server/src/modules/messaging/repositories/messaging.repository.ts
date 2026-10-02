@@ -1,9 +1,18 @@
-import { Injectable } from '@nestjs/common';
-import { Conversation, ConversationType, Message, ParticipantRole } from '@prisma/client';
-import { BaseAbstractRepository } from '@common/repositories/base.repository';
-import { PrismaService } from '@database/prisma.service';
-import { CreateGroupConversationDto, CursorMessageQueryDto, SendMessageDto } from '../dto/messaging.dto';
-import { CursorPaginatedResponse } from '@modules/feed/dto/feed.dto';
+import { Injectable } from "@nestjs/common";
+import {
+  Conversation,
+  ConversationType,
+  Message,
+  ParticipantRole,
+} from "@prisma/client";
+import { BaseAbstractRepository } from "@common/repositories/base.repository";
+import { PrismaService } from "@database/prisma.service";
+import {
+  CreateGroupConversationDto,
+  CursorMessageQueryDto,
+  SendMessageDto,
+} from "../dto/messaging.dto";
+import { CursorPaginatedResponse } from "@modules/feed/dto/feed.dto";
 
 @Injectable()
 export class MessagingRepository extends BaseAbstractRepository<Conversation> {
@@ -19,7 +28,9 @@ export class MessagingRepository extends BaseAbstractRepository<Conversation> {
             select: {
               id: true,
               email: true,
-              profile: { select: { name: true, username: true, avatarUrl: true } },
+              profile: {
+                select: { name: true, username: true, avatarUrl: true },
+              },
             },
           },
         },
@@ -27,10 +38,13 @@ export class MessagingRepository extends BaseAbstractRepository<Conversation> {
       messages: {
         where: { deletedAt: null },
         take: 1,
-        orderBy: { createdAt: 'desc' as const },
+        orderBy: { createdAt: "desc" as const },
         include: {
           sender: {
-            select: { id: true, profile: { select: { name: true, username: true } } },
+            select: {
+              id: true,
+              profile: { select: { name: true, username: true } },
+            },
           },
         },
       },
@@ -50,7 +64,10 @@ export class MessagingRepository extends BaseAbstractRepository<Conversation> {
       reactions: {
         include: {
           user: {
-            select: { id: true, profile: { select: { name: true, username: true } } },
+            select: {
+              id: true,
+              profile: { select: { name: true, username: true } },
+            },
           },
         },
       },
@@ -78,16 +95,33 @@ export class MessagingRepository extends BaseAbstractRepository<Conversation> {
   }
 
   async findUserConversations(userId: string) {
-    return this.prisma.conversation.findMany({
+    const conversations = await this.prisma.conversation.findMany({
       where: {
         deletedAt: null,
         participants: {
           some: { userId },
         },
       },
-      orderBy: { lastMessageAt: 'desc' },
+      orderBy: { lastMessageAt: "desc" },
       include: this.conversationIncludeSelect(),
     });
+    return Promise.all(
+      conversations.map(async (c) => ({
+        ...c,
+        unreadCount: await this.prisma.message.count({
+          where: {
+            conversationId: c.id,
+            deletedAt: null,
+            senderId: { not: userId },
+            createdAt: {
+              gt:
+                c.participants.find((p) => p.userId === userId)?.lastReadAt ||
+                new Date(0),
+            },
+          },
+        }),
+      })),
+    );
   }
 
   async findConversationById(id: string) {
@@ -97,9 +131,12 @@ export class MessagingRepository extends BaseAbstractRepository<Conversation> {
     });
   }
 
-  async isParticipant(conversationId: string, userId: string): Promise<boolean> {
+  async isParticipant(
+    conversationId: string,
+    userId: string,
+  ): Promise<boolean> {
     const count = await this.prisma.conversationParticipant.count({
-      where: { conversationId, userId },
+      where: { conversationId, userId, conversation: { deletedAt: null } },
     });
     return count > 0;
   }
@@ -120,8 +157,13 @@ export class MessagingRepository extends BaseAbstractRepository<Conversation> {
     });
   }
 
-  async createGroupConversation(dto: CreateGroupConversationDto, creatorId: string) {
-    const participantIds = Array.from(new Set([...dto.participantUserIds, creatorId]));
+  async createGroupConversation(
+    dto: CreateGroupConversationDto,
+    creatorId: string,
+  ) {
+    const participantIds = Array.from(
+      new Set([...dto.participantUserIds, creatorId]),
+    );
 
     return this.prisma.conversation.create({
       data: {
@@ -134,7 +176,10 @@ export class MessagingRepository extends BaseAbstractRepository<Conversation> {
         participants: {
           create: participantIds.map((userId) => ({
             userId,
-            role: userId === creatorId ? ParticipantRole.ADMIN : ParticipantRole.MEMBER,
+            role:
+              userId === creatorId
+                ? ParticipantRole.ADMIN
+                : ParticipantRole.MEMBER,
           })),
         },
       },
@@ -167,14 +212,15 @@ export class MessagingRepository extends BaseAbstractRepository<Conversation> {
     const items = await this.prisma.message.findMany({
       where,
       take: limit + 1,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
       include: this.messageIncludeSelect(),
     });
 
     const hasMore = items.length > limit;
     if (hasMore) items.pop();
 
-    const nextCursor = hasMore && items.length > 0 ? items[items.length - 1].id : null;
+    const nextCursor =
+      hasMore && items.length > 0 ? items[items.length - 1].id : null;
 
     return { items, nextCursor, hasMore };
   }
@@ -186,27 +232,32 @@ export class MessagingRepository extends BaseAbstractRepository<Conversation> {
     });
   }
 
-  async createMessage(conversationId: string, senderId: string, dto: SendMessageDto): Promise<Message> {
+  async createMessage(
+    conversationId: string,
+    senderId: string,
+    dto: SendMessageDto,
+  ): Promise<Message> {
     const [message] = await Promise.all([
       this.prisma.message.create({
         data: {
           conversationId,
           senderId,
           content: dto.content,
-          type: dto.type || 'TEXT',
+          type: dto.type || "TEXT",
           mediaUrl: dto.mediaUrl,
           parentId: dto.parentId || null,
-          attachments: dto.attachments && dto.attachments.length > 0
-            ? {
-                create: dto.attachments.map((a) => ({
-                  url: a.url,
-                  type: a.type,
-                  fileName: a.fileName,
-                  fileSize: a.fileSize,
-                  mimeType: a.mimeType,
-                })),
-              }
-            : undefined,
+          attachments:
+            dto.attachments && dto.attachments.length > 0
+              ? {
+                  create: dto.attachments.map((a) => ({
+                    url: a.url,
+                    type: a.type,
+                    fileName: a.fileName,
+                    fileSize: a.fileSize,
+                    mimeType: a.mimeType,
+                  })),
+                }
+              : undefined,
         },
         include: this.messageIncludeSelect(),
       }),

@@ -2,9 +2,9 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
-} from '@nestjs/common';
-import { PrismaService } from '@database/prisma.service';
-import { ProfileRepository } from './repositories/profile.repository';
+} from "@nestjs/common";
+import { PrismaService } from "@database/prisma.service";
+import { ProfileRepository } from "./repositories/profile.repository";
 import {
   AddInterestDto,
   AddSkillDto,
@@ -14,9 +14,9 @@ import {
   UpdateAchievementDto,
   UpdateProfileDto,
   UpdateProjectDto,
-} from './dto/profile.dto';
-import { PaginatedResponseDto } from '@common/dto/pagination.dto';
-import { AppLoggerService } from '@logger/logger.service';
+} from "./dto/profile.dto";
+import { PaginatedResponseDto } from "@common/dto/pagination.dto";
+import { AppLoggerService } from "@logger/logger.service";
 
 @Injectable()
 export class ProfileService {
@@ -29,10 +29,13 @@ export class ProfileService {
   async getOwnProfile(userId: string) {
     const profile = await this.profileRepository.findByUserId(userId);
     if (!profile) {
-      throw new NotFoundException('Profile record not found');
+      throw new NotFoundException("Profile record not found");
     }
 
-    const metrics = await this.profileRepository.getProfileMetrics(userId, profile.id);
+    const metrics = await this.profileRepository.getProfileMetrics(
+      userId,
+      profile.id,
+    );
 
     return {
       ...profile,
@@ -40,24 +43,37 @@ export class ProfileService {
     };
   }
 
-  async getPublicProfileByUsername(username: string, viewerId?: string, ipAddress?: string) {
+  async getPublicProfileByUsername(
+    username: string,
+    viewerId?: string,
+    ipAddress?: string,
+  ) {
     const profile = await this.profileRepository.findByUsername(username);
 
     if (!profile || !profile.user.isVerified) {
-      throw new NotFoundException(`Student profile '@${username}' was not found`);
+      throw new NotFoundException(
+        `Student profile '@${username}' was not found`,
+      );
     }
 
     // Increment profile view count
     if (viewerId !== profile.userId) {
-      await this.profileRepository.incrementViewCount(profile.id, viewerId, ipAddress);
+      await this.profileRepository.incrementViewCount(
+        profile.id,
+        viewerId,
+        ipAddress,
+      );
     }
 
-    const metrics = await this.profileRepository.getProfileMetrics(profile.userId, profile.id);
+    const metrics = await this.profileRepository.getProfileMetrics(
+      profile.userId,
+      profile.id,
+    );
 
     // Apply privacy visibility filters
     const isOwner = viewerId === profile.userId;
 
-    if (profile.visibility === 'PRIVATE' && !isOwner) {
+    if (profile.visibility === "PRIVATE" && !isOwner) {
       return {
         id: profile.id,
         username: profile.username,
@@ -76,6 +92,16 @@ export class ProfileService {
 
     return {
       ...profile,
+      user:
+        profile.contactVisibility === "PRIVATE" && !isOwner
+          ? { ...profile.user, email: undefined }
+          : profile.user,
+      campusLocation:
+        profile.showLocation === false && !isOwner
+          ? null
+          : profile.campusLocation,
+      skills: profile.showSkills || isOwner ? profile.skills : [],
+      projects: profile.showProjects || isOwner ? profile.projects : [],
       metrics,
     };
   }
@@ -83,13 +109,18 @@ export class ProfileService {
   async updateProfile(userId: string, dto: UpdateProfileDto) {
     const existing = await this.profileRepository.findByUserId(userId);
     if (!existing) {
-      throw new NotFoundException('Profile record not found');
+      throw new NotFoundException("Profile record not found");
     }
 
     if (dto.username && dto.username !== existing.username) {
-      const isAvailable = await this.profileRepository.isUsernameAvailable(dto.username, userId);
+      const isAvailable = await this.profileRepository.isUsernameAvailable(
+        dto.username,
+        userId,
+      );
       if (!isAvailable) {
-        throw new ConflictException(`Username '@${dto.username}' is already taken`);
+        throw new ConflictException(
+          `Username '@${dto.username}' is already taken`,
+        );
       }
     }
 
@@ -98,50 +129,81 @@ export class ProfileService {
       data: {
         ...(dto.username && { username: dto.username.toLowerCase() }),
         ...(dto.name && { name: dto.name }),
-        ...(dto.registerNumber !== undefined && { registerNumber: dto.registerNumber }),
+        ...(dto.registerNumber !== undefined && {
+          registerNumber: dto.registerNumber,
+        }),
         ...(dto.department !== undefined && { department: dto.department }),
         ...(dto.year !== undefined && { year: dto.year }),
         ...(dto.section !== undefined && { section: dto.section }),
         ...(dto.bio !== undefined && { bio: dto.bio }),
         ...(dto.avatarUrl !== undefined && { avatarUrl: dto.avatarUrl }),
         ...(dto.bannerUrl !== undefined && { bannerUrl: dto.bannerUrl }),
-        ...(dto.campusLocation !== undefined && { campusLocation: dto.campusLocation }),
-        ...(dto.portfolioUrl !== undefined && { portfolioUrl: dto.portfolioUrl }),
+        ...(dto.campusLocation !== undefined && {
+          campusLocation: dto.campusLocation,
+        }),
+        ...(dto.portfolioUrl !== undefined && {
+          portfolioUrl: dto.portfolioUrl,
+        }),
         ...(dto.linkedinUrl !== undefined && { linkedinUrl: dto.linkedinUrl }),
         ...(dto.githubUrl !== undefined && { githubUrl: dto.githubUrl }),
         ...(dto.websiteUrl !== undefined && { websiteUrl: dto.websiteUrl }),
         ...(dto.visibility && { visibility: dto.visibility }),
-        ...(dto.contactVisibility && { contactVisibility: dto.contactVisibility }),
+        ...(dto.contactVisibility && {
+          contactVisibility: dto.contactVisibility,
+        }),
         ...(dto.showSkills !== undefined && { showSkills: dto.showSkills }),
-        ...(dto.showProjects !== undefined && { showProjects: dto.showProjects }),
+        ...(dto.showProjects !== undefined && {
+          showProjects: dto.showProjects,
+        }),
+        ...(dto.allowDirectMessages !== undefined && {
+          allowDirectMessages: dto.allowDirectMessages,
+        }),
+        ...(dto.showLocation !== undefined && {
+          showLocation: dto.showLocation,
+        }),
       },
     });
 
-    this.logger.log(`Updated profile identity for user: ${userId}`, 'ProfileService');
+    this.logger.log(
+      `Updated profile identity for user: ${userId}`,
+      "ProfileService",
+    );
 
     return updated;
   }
 
   async checkUsernameAvailability(username: string, currentUserId?: string) {
-    const isAvailable = await this.profileRepository.isUsernameAvailable(username, currentUserId);
+    const isAvailable = await this.profileRepository.isUsernameAvailable(
+      username,
+      currentUserId,
+    );
     return { username: username.toLowerCase(), isAvailable };
   }
 
   async searchStudents(dto: SearchStudentsDto) {
-    const { items, total, page, limit } = await this.profileRepository.searchProfiles(dto);
-    return new PaginatedResponseDto(items, total, page, limit);
+    const { items, total, page, limit } =
+      await this.profileRepository.searchProfiles(dto);
+    const visible = items.map((profile) => ({
+      ...profile,
+      campusLocation: profile.showLocation ? profile.campusLocation : null,
+      skills: profile.showSkills ? profile.skills : [],
+    }));
+    return new PaginatedResponseDto(visible, total, page, limit);
   }
 
   // --- SKILLS & INTERESTS ---
 
   async addSkill(userId: string, dto: AddSkillDto) {
     const profile = await this.profileRepository.findByUserId(userId);
-    if (!profile) throw new NotFoundException('Profile not found');
+    if (!profile) throw new NotFoundException("Profile not found");
 
     const skill = await this.prisma.skill.upsert({
       where: { name: dto.skillName.trim() },
       update: {},
-      create: { name: dto.skillName.trim(), category: dto.category || 'GENERAL' },
+      create: {
+        name: dto.skillName.trim(),
+        category: dto.category || "GENERAL",
+      },
     });
 
     const userSkill = await this.prisma.userSkill.upsert({
@@ -164,18 +226,18 @@ export class ProfileService {
 
   async removeSkill(userId: string, skillId: string) {
     const profile = await this.profileRepository.findByUserId(userId);
-    if (!profile) throw new NotFoundException('Profile not found');
+    if (!profile) throw new NotFoundException("Profile not found");
 
     await this.prisma.userSkill.deleteMany({
       where: { profileId: profile.id, skillId },
     });
 
-    return { message: 'Skill removed from profile' };
+    return { message: "Skill removed from profile" };
   }
 
   async addInterest(userId: string, dto: AddInterestDto) {
     const profile = await this.profileRepository.findByUserId(userId);
-    if (!profile) throw new NotFoundException('Profile not found');
+    if (!profile) throw new NotFoundException("Profile not found");
 
     const interest = await this.prisma.interest.upsert({
       where: { name: dto.interestName.trim() },
@@ -203,20 +265,20 @@ export class ProfileService {
 
   async removeInterest(userId: string, interestId: string) {
     const profile = await this.profileRepository.findByUserId(userId);
-    if (!profile) throw new NotFoundException('Profile not found');
+    if (!profile) throw new NotFoundException("Profile not found");
 
     await this.prisma.userInterest.deleteMany({
       where: { profileId: profile.id, interestId },
     });
 
-    return { message: 'Interest removed from profile' };
+    return { message: "Interest removed from profile" };
   }
 
   // --- PROJECTS CRUD ---
 
   async addProject(userId: string, dto: CreateProjectDto) {
     const profile = await this.profileRepository.findByUserId(userId);
-    if (!profile) throw new NotFoundException('Profile not found');
+    if (!profile) throw new NotFoundException("Profile not found");
 
     return this.prisma.project.create({
       data: {
@@ -233,15 +295,19 @@ export class ProfileService {
     });
   }
 
-  async updateProject(userId: string, projectId: string, dto: UpdateProjectDto) {
+  async updateProject(
+    userId: string,
+    projectId: string,
+    dto: UpdateProjectDto,
+  ) {
     const profile = await this.profileRepository.findByUserId(userId);
-    if (!profile) throw new NotFoundException('Profile not found');
+    if (!profile) throw new NotFoundException("Profile not found");
 
     const project = await this.prisma.project.findFirst({
       where: { id: projectId, profileId: profile.id },
     });
 
-    if (!project) throw new NotFoundException('Project record not found');
+    if (!project) throw new NotFoundException("Project record not found");
 
     return this.prisma.project.update({
       where: { id: projectId },
@@ -251,20 +317,20 @@ export class ProfileService {
 
   async deleteProject(userId: string, projectId: string) {
     const profile = await this.profileRepository.findByUserId(userId);
-    if (!profile) throw new NotFoundException('Profile not found');
+    if (!profile) throw new NotFoundException("Profile not found");
 
     await this.prisma.project.deleteMany({
       where: { id: projectId, profileId: profile.id },
     });
 
-    return { message: 'Project deleted successfully' };
+    return { message: "Project deleted successfully" };
   }
 
   // --- ACHIEVEMENTS CRUD ---
 
   async addAchievement(userId: string, dto: CreateAchievementDto) {
     const profile = await this.profileRepository.findByUserId(userId);
-    if (!profile) throw new NotFoundException('Profile not found');
+    if (!profile) throw new NotFoundException("Profile not found");
 
     return this.prisma.achievement.create({
       data: {
@@ -278,15 +344,20 @@ export class ProfileService {
     });
   }
 
-  async updateAchievement(userId: string, achievementId: string, dto: UpdateAchievementDto) {
+  async updateAchievement(
+    userId: string,
+    achievementId: string,
+    dto: UpdateAchievementDto,
+  ) {
     const profile = await this.profileRepository.findByUserId(userId);
-    if (!profile) throw new NotFoundException('Profile not found');
+    if (!profile) throw new NotFoundException("Profile not found");
 
     const achievement = await this.prisma.achievement.findFirst({
       where: { id: achievementId, profileId: profile.id },
     });
 
-    if (!achievement) throw new NotFoundException('Achievement record not found');
+    if (!achievement)
+      throw new NotFoundException("Achievement record not found");
 
     return this.prisma.achievement.update({
       where: { id: achievementId },
@@ -296,12 +367,12 @@ export class ProfileService {
 
   async deleteAchievement(userId: string, achievementId: string) {
     const profile = await this.profileRepository.findByUserId(userId);
-    if (!profile) throw new NotFoundException('Profile not found');
+    if (!profile) throw new NotFoundException("Profile not found");
 
     await this.prisma.achievement.deleteMany({
       where: { id: achievementId, profileId: profile.id },
     });
 
-    return { message: 'Achievement deleted successfully' };
+    return { message: "Achievement deleted successfully" };
   }
 }

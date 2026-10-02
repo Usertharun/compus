@@ -6,24 +6,28 @@ import {
   SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
-} from '@nestjs/websockets';
-import { Server, Socket } from 'socket.io';
-import { JwtService } from '@nestjs/jwt';
-import { ConfigService } from '@nestjs/config';
-import { MessagingService } from './messaging.service';
-import { MessageType } from '@prisma/client';
-import { isCampusEmail } from '@common/utils/email-validator.util';
-import { SendMessageDto } from './dto/messaging.dto';
-import { AppLoggerService } from '@logger/logger.service';
+} from "@nestjs/websockets";
+import { Server, Socket } from "socket.io";
+import { JwtService } from "@nestjs/jwt";
+import { ConfigService } from "@nestjs/config";
+import { MessagingService } from "./messaging.service";
+import { MessageType } from "@prisma/client";
+import { isAllowedAccountEmail } from "@common/utils/email-validator.util";
+import { SendMessageDto } from "./dto/messaging.dto";
+import { AppLoggerService } from "@logger/logger.service";
+import { PrismaService } from "@database/prisma.service";
+import { createHash } from "crypto";
 
 @WebSocketGateway({
   cors: {
-    origin: '*',
+    origin: "*",
     credentials: true,
   },
-  namespace: '/ws/messaging',
+  namespace: "/ws/messaging",
 })
-export class MessagingGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class MessagingGateway
+  implements OnGatewayConnection, OnGatewayDisconnect
+{
   @WebSocketServer()
   server: Server;
 
@@ -34,29 +38,54 @@ export class MessagingGateway implements OnGatewayConnection, OnGatewayDisconnec
     private readonly configService: ConfigService,
     private readonly messagingService: MessagingService,
     private readonly logger: AppLoggerService,
+    private readonly prisma: PrismaService,
   ) {}
 
   async handleConnection(socket: Socket) {
     try {
       const token =
         socket.handshake.auth?.token ||
-        socket.handshake.headers?.authorization?.split(' ')[1];
+        socket.handshake.headers?.authorization?.split(" ")[1];
 
       if (!token) {
         socket.disconnect();
         return;
       }
 
-      const secret = this.configService.get<string>('JWT_ACCESS_SECRET');
+      const secret = this.configService.get<string>("JWT_SECRET");
       const payload = this.jwtService.verify(token, { secret });
-      if (!isCampusEmail(payload.email)) { socket.disconnect(); return; }
+      if (!isAllowedAccountEmail(payload.email, payload.role, this.configService.get<string>("OWNER_EMAIL"))) {
+        socket.disconnect();
+        return;
+      }
       const userId = payload.sub;
+      const session = await this.prisma.session.findUnique({
+        where: { tokenHash: createHash("sha256").update(token).digest("hex") },
+      });
+      const user = await this.prisma.user.findUnique({ where: { id: userId } });
+      if (
+        !session ||
+        session.userId !== userId ||
+        session.isRevoked ||
+        session.expiresAt <= new Date() ||
+        !user?.isActive ||
+        !user.isVerified ||
+        user.deletedAt ||
+        !isAllowedAccountEmail(user.email, user.role, this.configService.get<string>("OWNER_EMAIL"))
+      ) {
+        socket.disconnect();
+        return;
+      }
 
       socket.data.userId = userId;
+      await socket.join(`user:${userId}`);
       this.connectedUsers.set(socket.id, userId);
 
-      this.logger.log(`WebSocket client connected: ${socket.id} (user: ${userId})`, 'MessagingGateway');
-      this.server.emit('user_status_changed', { userId, status: 'ONLINE' });
+      this.logger.log(
+        `WebSocket client connected: ${socket.id} (user: ${userId})`,
+        "MessagingGateway",
+      );
+      this.server.emit("user_status_changed", { userId, status: "ONLINE" });
     } catch {
       socket.disconnect();
     }
@@ -66,12 +95,15 @@ export class MessagingGateway implements OnGatewayConnection, OnGatewayDisconnec
     const userId = socket.data.userId;
     if (userId) {
       this.connectedUsers.delete(socket.id);
-      this.logger.log(`WebSocket client disconnected: ${socket.id} (user: ${userId})`, 'MessagingGateway');
-      this.server.emit('user_status_changed', { userId, status: 'OFFLINE' });
+      this.logger.log(
+        `WebSocket client disconnected: ${socket.id} (user: ${userId})`,
+        "MessagingGateway",
+      );
+      this.server.emit("user_status_changed", { userId, status: "OFFLINE" });
     }
   }
 
-  @SubscribeMessage('join_conversation')
+  @SubscribeMessage("join_conversation")
   async handleJoinConversation(
     @ConnectedSocket() socket: Socket,
     @MessageBody() data: { conversationId: string },
@@ -79,24 +111,36 @@ export class MessagingGateway implements OnGatewayConnection, OnGatewayDisconnec
     const userId = socket.data.userId;
     if (!userId || !data.conversationId) return;
 
+    await this.messagingService.getConversationDetails(
+      data.conversationId,
+      userId,
+    );
+
     await socket.join(`conversation:${data.conversationId}`);
-    return { status: 'joined', conversationId: data.conversationId };
+    return { status: "joined", conversationId: data.conversationId };
   }
 
-  @SubscribeMessage('leave_conversation')
+  @SubscribeMessage("leave_conversation")
   async handleLeaveConversation(
     @ConnectedSocket() socket: Socket,
     @MessageBody() data: { conversationId: string },
   ) {
     if (!data.conversationId) return;
     await socket.leave(`conversation:${data.conversationId}`);
-    return { status: 'left', conversationId: data.conversationId };
+    return { status: "left", conversationId: data.conversationId };
   }
 
-  @SubscribeMessage('send_message')
+  @SubscribeMessage("send_message")
   async handleSendMessage(
     @ConnectedSocket() socket: Socket,
-    @MessageBody() data: { conversationId: string; content: string; type?: MessageType; mediaUrl?: string; parentId?: string },
+    @MessageBody()
+    data: {
+      conversationId: string;
+      content: string;
+      type?: MessageType;
+      mediaUrl?: string;
+      parentId?: string;
+    },
   ) {
     const userId = socket.data.userId;
     if (!userId || !data.conversationId || !data.content) return;
@@ -108,43 +152,59 @@ export class MessagingGateway implements OnGatewayConnection, OnGatewayDisconnec
       parentId: data.parentId,
     };
 
-    const message = await this.messagingService.sendMessage(userId, data.conversationId, dto);
+    const message = await this.messagingService.sendMessage(
+      userId,
+      data.conversationId,
+      dto,
+    );
 
     // Broadcast new message to conversation room
-    this.server.to(`conversation:${data.conversationId}`).emit('new_message', message);
+    this.server
+      .to(`conversation:${data.conversationId}`)
+      .emit("new_message", message);
 
     return message;
   }
 
-  @SubscribeMessage('typing_start')
-  handleTypingStart(
+  @SubscribeMessage("typing_start")
+  async handleTypingStart(
     @ConnectedSocket() socket: Socket,
     @MessageBody() data: { conversationId: string },
   ) {
     const userId = socket.data.userId;
     if (!userId || !data.conversationId) return;
 
-    socket.to(`conversation:${data.conversationId}`).emit('typing_started', {
+    await this.messagingService.getConversationDetails(
+      data.conversationId,
+      userId,
+    );
+
+    socket.to(`conversation:${data.conversationId}`).emit("typing_started", {
       userId,
       conversationId: data.conversationId,
     });
   }
 
-  @SubscribeMessage('typing_stop')
-  handleTypingStop(
+  @SubscribeMessage("typing_stop")
+  async handleTypingStop(
     @ConnectedSocket() socket: Socket,
     @MessageBody() data: { conversationId: string },
   ) {
     const userId = socket.data.userId;
     if (!userId || !data.conversationId) return;
 
-    socket.to(`conversation:${data.conversationId}`).emit('typing_stopped', {
+    await this.messagingService.getConversationDetails(
+      data.conversationId,
+      userId,
+    );
+
+    socket.to(`conversation:${data.conversationId}`).emit("typing_stopped", {
       userId,
       conversationId: data.conversationId,
     });
   }
 
-  @SubscribeMessage('read_message')
+  @SubscribeMessage("read_message")
   async handleReadMessage(
     @ConnectedSocket() socket: Socket,
     @MessageBody() data: { conversationId: string; messageId: string },
@@ -152,12 +212,14 @@ export class MessagingGateway implements OnGatewayConnection, OnGatewayDisconnec
     const userId = socket.data.userId;
     if (!userId || !data.messageId) return;
 
-    await this.messagingService.markRead(userId, data.messageId);
+    const result = await this.messagingService.markRead(userId, data.messageId);
 
-    this.server.to(`conversation:${data.conversationId}`).emit('message_read_receipt', {
-      messageId: data.messageId,
-      userId,
-      readAt: new Date(),
-    });
+    this.server
+      .to(`conversation:${result.conversationId}`)
+      .emit("message_read_receipt", {
+        messageId: data.messageId,
+        userId,
+        readAt: new Date(),
+      });
   }
 }

@@ -12,6 +12,7 @@ import { CreatePostModal } from "@/components/home/CreatePostModal";
 import { HostEventModal } from "@/components/events/HostEventModal";
 import { CreateOpportunityModal } from "@/components/opportunities/CreateOpportunityModal";
 import { useApp } from "@/context/AppContext";
+import { FeedbackButton } from "./FeedbackButton";
 
 export function AppLayout({
   children,
@@ -22,11 +23,18 @@ export function AppLayout({
   maxWidthClass = "max-w-[1440px]",
 }: AppLayoutProps) {
   const location = useLocation();
-  const { 
-    isCreatePostOpen, closeCreatePost,
-    createPostCategory, createPostMediaOpen,
-    isHostEventOpen, closeHostEvent,
-    isCreateOppOpen, closeCreateOpp
+  const {
+    isCreatePostOpen,
+    closeCreatePost,
+    createPostCategory,
+    createPostMediaOpen,
+    isHostEventOpen,
+    closeHostEvent,
+    isCreateOppOpen,
+    closeCreateOpp,
+    loading,
+    dataError,
+    refreshData,
   } = useApp();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -39,15 +47,16 @@ export function AppLayout({
   }, [location.pathname]);
 
   const isMessagesPage = location.pathname.startsWith("/messages");
-  const isCampusPage = location.pathname === "/" || location.pathname.startsWith("/campus");
+  const isCampusPage =
+    location.pathname === "/" || location.pathname.startsWith("/campus");
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col antialiased selection:bg-indigo-500/20 selection:text-indigo-600 font-sans transition-colors duration-200 relative">
       {/* Top App Bar */}
       {!hideTopBar && (
-        <TopAppBar 
-          title={pageTitle} 
-          subtitle={pageSubtitle} 
+        <TopAppBar
+          title={pageTitle}
+          subtitle={pageSubtitle}
           onMenuClick={() => setIsMobileMenuOpen(true)}
         />
       )}
@@ -55,10 +64,37 @@ export function AppLayout({
       {/* Main Content Area */}
       <main className="flex-1 w-full relative">
         <div
+          className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8"
+          aria-live="polite"
+        >
+          {loading && (
+            <p role="status" className="py-3 text-sm text-muted-foreground">
+              Loading campus data…
+            </p>
+          )}
+          {dataError && (
+            <div
+              role="alert"
+              className="my-3 rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm"
+            >
+              <p>Some campus data could not be loaded. {dataError}</p>
+              <button
+                onClick={() => void refreshData()}
+                disabled={loading}
+                className="mt-2 font-semibold underline"
+              >
+                Retry
+              </button>
+            </div>
+          )}
+        </div>
+        <div
           className={cn(
             "mx-auto px-4 sm:px-6 lg:px-8",
-            isMessagesPage ? "py-2 pb-20 sm:pb-24 lg:py-4 lg:pb-6" : "py-6 pb-24 lg:pb-8",
-            maxWidthClass
+            isMessagesPage
+              ? "py-2 pb-20 sm:pb-24 lg:py-4 lg:pb-6"
+              : "py-6 pb-24 lg:pb-8",
+            maxWidthClass,
           )}
         >
           {isMessagesPage ? (
@@ -84,7 +120,7 @@ export function AppLayout({
             // 3-Column Feed layout: Golden Ratio Proportion (280px Nav : ~680px Feed : 340px Pulse/Connect)
             <div className="grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)_330px] xl:grid-cols-[300px_minmax(0,1fr)_350px] gap-7 xl:gap-9 items-start">
               <LeftSidebar />
-              
+
               <div className="w-full min-w-0">
                 <AnimatePresence mode="wait">
                   <motion.div
@@ -127,6 +163,7 @@ export function AppLayout({
 
       {/* Floating Bottom Navigation (Mobile Only) */}
       {!hideBottomNav && <BottomNav />}
+      {!isMessagesPage && <FeedbackButton />}
 
       {/* Mobile Sidebar Drawer */}
       <AnimatePresence>
@@ -153,14 +190,17 @@ export function AppLayout({
       </AnimatePresence>
 
       {/* Global Modals */}
-      <CreatePostModal 
-        isOpen={isCreatePostOpen} 
-        onClose={closeCreatePost} 
-        initialCategory={createPostCategory} 
-        initialMediaOpen={createPostMediaOpen} 
+      <CreatePostModal
+        isOpen={isCreatePostOpen}
+        onClose={closeCreatePost}
+        initialCategory={createPostCategory}
+        initialMediaOpen={createPostMediaOpen}
       />
       <HostEventModal isOpen={isHostEventOpen} onClose={closeHostEvent} />
-      <CreateOpportunityModal isOpen={isCreateOppOpen} onClose={closeCreateOpp} />
+      <CreateOpportunityModal
+        isOpen={isCreateOppOpen}
+        onClose={closeCreateOpp}
+      />
     </div>
   );
 }

@@ -1,10 +1,16 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { MediaType, PostCategory, PostVisibility, ReportReason } from '@prisma/client';
-import { Type } from 'class-transformer';
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import {
+  MediaType,
+  PostCategory,
+  PostVisibility,
+  ReportReason,
+} from "@prisma/client";
+import { Type } from "class-transformer";
 import {
   IsArray,
   IsEnum,
   IsInt,
+  IsIn,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -12,10 +18,12 @@ import {
   Max,
   Min,
   ValidateNested,
-} from 'class-validator';
+} from "class-validator";
 
 export class MediaAttachmentDto {
-  @ApiProperty({ example: 'https://storage.supabase.co/v1/object/public/feed/image.jpg' })
+  @ApiProperty({
+    example: "https://storage.supabase.co/v1/object/public/feed/image.jpg",
+  })
   @IsUrl()
   url: string;
 
@@ -23,7 +31,7 @@ export class MediaAttachmentDto {
   @IsEnum(MediaType)
   type: MediaType;
 
-  @ApiPropertyOptional({ example: 'campus-event.jpg' })
+  @ApiPropertyOptional({ example: "campus-event.jpg" })
   @IsOptional()
   @IsString()
   fileName?: string;
@@ -33,24 +41,32 @@ export class MediaAttachmentDto {
   @IsInt()
   fileSize?: number;
 
-  @ApiPropertyOptional({ example: 'image/jpeg' })
+  @ApiPropertyOptional({ example: "image/jpeg" })
   @IsOptional()
   @IsString()
   mimeType?: string;
 
-  @ApiPropertyOptional({ example: 'Group photo at the hackathon' })
+  @ApiPropertyOptional({ example: "Group photo at the hackathon" })
   @IsOptional()
   @IsString()
   caption?: string;
 }
 
 export class CreatePostDto {
-  @ApiPropertyOptional({ example: 'Compus Fall Hackathon 2026 Registration Open!' })
+  @IsOptional()
+  @IsString()
+  communityId?: string;
+  @ApiPropertyOptional({
+    example: "Compus Fall Hackathon 2026 Registration Open!",
+  })
   @IsOptional()
   @IsString()
   title?: string;
 
-  @ApiProperty({ example: 'Excited to announce our 24-hour campus hackathon! Join us at @alexchen #hackathon #compus' })
+  @ApiProperty({
+    example:
+      "Excited to announce our 24-hour campus hackathon! Join us at @alexchen #hackathon #compus",
+  })
   @IsString()
   @IsNotEmpty()
   content: string;
@@ -60,7 +76,10 @@ export class CreatePostDto {
   @IsEnum(PostCategory)
   category?: PostCategory;
 
-  @ApiPropertyOptional({ enum: PostVisibility, default: PostVisibility.PUBLIC_CAMPUS })
+  @ApiPropertyOptional({
+    enum: PostVisibility,
+    default: PostVisibility.PUBLIC_CAMPUS,
+  })
   @IsOptional()
   @IsEnum(PostVisibility)
   visibility?: PostVisibility;
@@ -72,7 +91,7 @@ export class CreatePostDto {
   @Type(() => MediaAttachmentDto)
   media?: MediaAttachmentDto[];
 
-  @ApiPropertyOptional({ example: ['hackathon', 'compus'] })
+  @ApiPropertyOptional({ example: ["hackathon", "compus"] })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
@@ -102,7 +121,18 @@ export class UpdatePostDto {
 }
 
 export class CursorPaginationQueryDto {
-  @ApiPropertyOptional({ description: 'ID of the last post received for cursor pagination' })
+  @IsOptional()
+  @IsEnum(PostCategory)
+  category?: PostCategory;
+  @IsOptional()
+  @IsString()
+  search?: string;
+  @IsOptional()
+  @IsIn(["LATEST", "TRENDING"])
+  sort?: string;
+  @ApiPropertyOptional({
+    description: "ID of the last post received for cursor pagination",
+  })
   @IsOptional()
   @IsString()
   cursor?: string;
@@ -117,19 +147,23 @@ export class CursorPaginationQueryDto {
 }
 
 export class AddCommentDto {
-  @ApiProperty({ example: 'Great initiative! Looking forward to participating.' })
+  @ApiProperty({
+    example: "Great initiative! Looking forward to participating.",
+  })
   @IsString()
   @IsNotEmpty()
   content: string;
 
-  @ApiPropertyOptional({ description: 'Parent comment ID if replying to a comment' })
+  @ApiPropertyOptional({
+    description: "Parent comment ID if replying to a comment",
+  })
   @IsOptional()
   @IsString()
   parentId?: string;
 }
 
 export class EditCommentDto {
-  @ApiProperty({ example: 'Updated comment text.' })
+  @ApiProperty({ example: "Updated comment text." })
   @IsString()
   @IsNotEmpty()
   content: string;
@@ -140,7 +174,9 @@ export class ReportPostDto {
   @IsEnum(ReportReason)
   reason: ReportReason;
 
-  @ApiPropertyOptional({ example: 'Contains inappropriate promotional material.' })
+  @ApiPropertyOptional({
+    example: "Contains inappropriate promotional material.",
+  })
   @IsOptional()
   @IsString()
   details?: string;

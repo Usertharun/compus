@@ -1,94 +1,157 @@
-import { useState } from "react";
-import { OPPORTUNITIES_DATA } from "@/data/opportunitiesData";
-import { 
-  Briefcase, 
-  Calendar, 
-  MapPin, 
-  ExternalLink, 
-  Bookmark, 
-  Plus, 
-  Search, 
-  X, 
-  CheckCircle2, 
-  Clock, 
-  DollarSign, 
-  Send,
-  Building2,
-  FileCheck
-} from "lucide-react";
+import { useDialogAccessibility } from "@/hooks/useDialogAccessibility";
+import { ApplicantsPanel } from "@/components/opportunities/ApplicantsPanel";
+
+import { useState, useEffect } from "react";
+
+import { apiRequest } from "@/services/api";
+
+import { formatDate, type Opportunity } from "@/services/models";
+
+import { Briefcase, Calendar, MapPin, ExternalLink, Bookmark, Plus, Search, X, CheckCircle2, Clock, Send, Building2, FileCheck } from "lucide-react";
+
 import { cn } from "@/lib/utils";
+
 import { motion, AnimatePresence } from "framer-motion";
+
 import { useApp } from "@/context/AppContext";
+
 import { useToast } from "@/context/ToastContext";
 
-const TYPES = ["All", "Internship", "Research", "Grant", "Club Role", "My Applications"];
+const TYPES = [
+  "All",
+  "Internship",
+  "Research",
+  "Grant",
+  "Club Role",
+  "My Applications",
+];
 
 interface AppliedItem {
   id: string;
+
   title: string;
+
   company: string;
+
   appliedDate: string;
-  status: "Submitted" | "Under Review" | "Shortlisted";
+
+  status: string;
 }
 
 export default function OpportunitiesPage() {
-  const { openCreateOpp, user, opportunities, toggleSaveOpportunity } = useApp();
-  const toast = useToast();
-  const [selectedType, setSelectedType] = useState("All");
-  const [appliedOpp, setAppliedOpp] = useState<any | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [appliedItems, setAppliedItems] = useState<AppliedItem[]>([
-    {
-      id: "app-1",
-      title: "Machine Learning Research Fellow",
-      company: "Stanford HAI Lab",
-      appliedDate: "Applied 2 days ago",
-      status: "Under Review"
-    },
-    {
-      id: "app-2",
-      title: "Frontend Engineering Intern",
-      company: "Linear Technologies",
-      appliedDate: "Applied 1 week ago",
-      status: "Shortlisted"
-    }
-  ]);
-  const [noteInput, setNoteInput] = useState("");
+  const { openCreateOpp, user, opportunities, toggleSaveOpportunity } =
+    useApp();
 
-  const toggleBookmark = (id: string, title: string, currentStatus?: boolean) => {
-    toggleSaveOpportunity(id);
-    toast.success(
-      !currentStatus
-        ? `Saved ${title} to your bookmarks! 🔖`
-        : `Removed ${title} from saved bookmarks`
+  const toast = useToast();
+
+  const [selectedType, setSelectedType] = useState("All");
+
+  const [appliedOpp, setAppliedOpp] = useState<any | null>(null);
+
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const [appliedItems, setAppliedItems] = useState<AppliedItem[]>([]);
+
+  const loadApplications = async () => {
+    const records = await apiRequest<
+      {
+        id: string;
+        opportunity: Opportunity;
+        status: string;
+        appliedAt: string;
+      }[]
+    >("/opportunities/my-applications");
+
+    setAppliedItems(
+      records.map((a) => ({
+        id: a.id,
+        title: a.opportunity.title,
+        company: a.opportunity.companyName,
+        appliedDate: formatDate(a.appliedAt),
+        status:
+          a.status === "ACCEPTED"
+            ? "Accepted"
+            : a.status === "REJECTED"
+              ? "Rejected"
+              : a.status === "REVIEWING"
+                ? "Under Review"
+                : "Submitted",
+      })),
     );
   };
 
-  const handleApplySubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    void loadApplications().catch((error) => toast.error(error.message));
+  }, []);
+
+  const [noteInput, setNoteInput] = useState("");
+
+  const [applicantsId, setApplicantsId] = useState<string | null>(null);
+
+  const [submitting, setSubmitting] = useState(false);
+
+  useDialogAccessibility(!!appliedOpp, () => {
+    if (!submitting) setAppliedOpp(null);
+  });
+  const toggleBookmark = async (
+    id: string,
+    title: string,
+    currentStatus?: boolean,
+  ) => {
+    if (!(await toggleSaveOpportunity(id))) return;
+
+    toast.success(
+      !currentStatus
+        ? `Saved ${title} to your bookmarks! 🔖`
+        : `Removed ${title} from saved bookmarks`,
+    );
+  };
+
+  const handleApplySubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!appliedOpp) return;
 
-    const newApp: AppliedItem = {
-      id: `app-${Date.now()}`,
-      title: appliedOpp.title,
-      company: appliedOpp.company || "University Partner",
-      appliedDate: "Just now",
-      status: "Submitted"
-    };
+    if (appliedOpp.applicationUrl) {
+      window.open(appliedOpp.applicationUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
 
-    setAppliedItems(prev => [newApp, ...prev]);
-    toast.success(`Application submitted to ${newApp.company}! Track it under 'My Applications'.`);
-    setAppliedOpp(null);
-    setNoteInput("");
+    const data = new FormData(e.currentTarget);
+
+    if (submitting) return;
+    setSubmitting(true);
+
+    try {
+      await apiRequest("/opportunities/" + appliedOpp.id + "/apply", "POST", {
+        coverLetter: noteInput,
+        ...(data.get("portfolio") ? { resumeUrl: data.get("portfolio") } : {}),
+      });
+
+      await loadApplications();
+      toast.success("Application submitted to the opportunity creator.");
+      setAppliedOpp(null);
+      setNoteInput("");
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to submit application.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const filteredOpps = opportunities.filter((opp) => {
     if (selectedType !== "All" && selectedType !== "My Applications") {
-      if (!opp.type.toLowerCase().includes(selectedType.toLowerCase())) return false;
+      if (!opp.type.toLowerCase().includes(selectedType.toLowerCase()))
+        return false;
     }
 
     const q = searchQuery.toLowerCase().trim();
+
     if (!q) return true;
+
     return (
       opp.title.toLowerCase().includes(q) ||
       opp.company?.toLowerCase().includes(q) ||
@@ -100,47 +163,64 @@ export default function OpportunitiesPage() {
   return (
     <motion.div
       initial={{ opacity: 0 }}
+
       animate={{ opacity: 1 }}
+
       transition={{ duration: 0.3 }}
+
       className="space-y-6 max-w-7xl mx-auto pb-16"
     >
       {/* 1. Header Banner */}
+
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 glass-panel rounded-3xl p-6 sm:p-7 shadow-sm border border-border/50 bg-card/60 backdrop-blur-md">
         <div>
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-xs font-bold border border-indigo-500/20 mb-2.5">
             <Briefcase className="w-3.5 h-3.5" />
             Career, Research & Grants Board
           </div>
+
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground font-sans">
             Internships, Lab Roles & Grants
           </h1>
+
           <p className="text-xs sm:text-sm text-muted-foreground mt-1 font-normal">
-            Direct access to student tech internships, academic research grants, and club executive positions.
+            Direct access to student tech internships, academic research grants,
+            and club executive positions.
           </p>
         </div>
 
         <div className="flex items-center gap-2.5 shrink-0">
           <button
             onClick={() => setSelectedType("My Applications")}
+
             className={cn(
               "px-4 py-2.5 rounded-2xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer border",
+
               selectedType === "My Applications"
                 ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
-                : "bg-secondary/40 hover:bg-secondary border-border/50 text-foreground"
+                : "bg-secondary/40 hover:bg-secondary border-border/50 text-foreground",
             )}
           >
             <FileCheck className="w-4 h-4" />
+
             <span>My Applications</span>
-            <span className={cn(
-              "px-1.5 py-0.5 rounded-md text-[10px] font-extrabold",
-              selectedType === "My Applications" ? "bg-white/20 text-white" : "bg-indigo-500/10 text-indigo-600"
-            )}>
+
+            <span
+              className={cn(
+                "px-1.5 py-0.5 rounded-md text-[10px] font-extrabold",
+
+                selectedType === "My Applications"
+                  ? "bg-white/20 text-white"
+                  : "bg-indigo-500/10 text-indigo-600",
+              )}
+            >
               {appliedItems.length}
             </span>
           </button>
 
           <button
             onClick={openCreateOpp}
+
             className="px-4 py-2.5 rounded-2xl bg-primary text-primary-foreground font-bold text-xs flex items-center gap-1.5 hover:opacity-90 shadow-sm transition-all cursor-pointer shrink-0"
           >
             <Plus className="w-4 h-4" /> Post Role
@@ -149,19 +229,27 @@ export default function OpportunitiesPage() {
       </div>
 
       {/* 2. Controls & Search Row */}
+
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
         <div className="relative flex-1 max-w-md group">
           <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors pointer-events-none" />
+
           <input
             type="text"
+
             value={searchQuery}
+
             onChange={(e) => setSearchQuery(e.target.value)}
+
             placeholder="Search opportunities by title, company, or tech stack..."
+
             className="w-full pl-10 pr-9 py-2.5 rounded-2xl bg-card border border-border/50 text-xs font-medium placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all"
           />
+
           {searchQuery && (
             <button
               onClick={() => setSearchQuery("")}
+
               className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded-md text-muted-foreground hover:text-foreground"
             >
               <X className="w-3.5 h-3.5" />
@@ -171,26 +259,37 @@ export default function OpportunitiesPage() {
       </div>
 
       {/* 3. Filter Tabs */}
+
       <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
         {TYPES.map((type) => {
           const isActive = selectedType === type;
+
           return (
             <button
               key={type}
+
               onClick={() => setSelectedType(type)}
+
               className={cn(
                 "px-4 py-2 rounded-2xl text-xs font-bold transition-all duration-200 cursor-pointer whitespace-nowrap flex items-center gap-1.5",
+
                 isActive
                   ? "bg-indigo-600 text-white shadow-xs"
-                  : "bg-card border border-border/50 text-muted-foreground hover:text-foreground hover:bg-secondary/60"
+                  : "bg-card border border-border/50 text-muted-foreground hover:text-foreground hover:bg-secondary/60",
               )}
             >
               <span>{type}</span>
+
               {type === "My Applications" && (
-                <span className={cn(
-                  "px-1.5 py-0.2 rounded-md text-[10px] font-extrabold",
-                  isActive ? "bg-white/20 text-white" : "bg-indigo-500/10 text-indigo-600"
-                )}>
+                <span
+                  className={cn(
+                    "px-1.5 py-0.2 rounded-md text-[10px] font-extrabold",
+
+                    isActive
+                      ? "bg-white/20 text-white"
+                      : "bg-indigo-500/10 text-indigo-600",
+                  )}
+                >
                   {appliedItems.length}
                 </span>
               )}
@@ -200,34 +299,53 @@ export default function OpportunitiesPage() {
       </div>
 
       {/* 4. Content Area: Opportunities Grid OR My Applications View */}
+
       {selectedType === "My Applications" ? (
         /* My Applications Tracker */
+
         <div className="space-y-4">
           <div className="flex items-center justify-between px-1">
-            <h2 className="font-bold text-base text-foreground">Submitted Applications ({appliedItems.length})</h2>
-            <span className="text-xs text-muted-foreground">Applications sent directly to recruiters & labs</span>
+            <h2 className="font-bold text-base text-foreground">
+              Submitted Applications ({appliedItems.length})
+            </h2>
+
+            <span className="text-xs text-muted-foreground">
+              Applications sent to campus opportunity creators
+            </span>
           </div>
+
+          {!appliedItems.length && (
+            <p className="p-8 rounded-2xl border border-border text-muted-foreground">
+              You have not applied to any opportunities inside Compus yet.
+            </p>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {appliedItems.map((item) => (
               <div
                 key={item.id}
+
                 className="glass-panel rounded-3xl p-5 border border-border/50 bg-card/60 flex flex-col justify-between gap-4 shadow-sm hover:shadow-md transition-all"
               >
                 <div>
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <span className="text-xs font-bold text-muted-foreground flex items-center gap-1.5">
                       <Building2 className="w-3.5 h-3.5 text-indigo-500" />
+
                       {item.company}
                     </span>
-                    <span className={cn(
-                      "text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full border",
-                      item.status === "Shortlisted" 
-                        ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
-                        : item.status === "Under Review"
-                        ? "bg-amber-500/10 text-amber-600 border-amber-500/20"
-                        : "bg-indigo-500/10 text-indigo-600 border-indigo-500/20"
-                    )}>
+
+                    <span
+                      className={cn(
+                        "text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full border",
+
+                        item.status === "Shortlisted"
+                          ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                          : item.status === "Under Review"
+                            ? "bg-amber-500/10 text-amber-600 border-amber-500/20"
+                            : "bg-indigo-500/10 text-indigo-600 border-indigo-500/20",
+                      )}
+                    >
                       {item.status}
                     </span>
                   </div>
@@ -241,7 +359,10 @@ export default function OpportunitiesPage() {
                   <span className="flex items-center gap-1 text-[11px]">
                     <Clock className="w-3.5 h-3.5" /> {item.appliedDate}
                   </span>
-                  <span className="text-[11px] font-semibold text-primary">Candidate Profile Linked</span>
+
+                  <span className="text-[11px] font-semibold text-primary">
+                    Candidate Profile Linked
+                  </span>
                 </div>
               </div>
             ))}
@@ -250,35 +371,53 @@ export default function OpportunitiesPage() {
       ) : filteredOpps.length === 0 ? (
         <div className="py-16 text-center text-muted-foreground glass-panel rounded-3xl space-y-2 p-8 border border-border/50">
           <Briefcase className="w-12 h-12 mx-auto text-muted-foreground/30" />
-          <h3 className="font-bold text-base text-foreground">No opportunities found</h3>
-          <p className="text-xs max-w-sm mx-auto">Try selecting a different filter category or clearing your search term.</p>
+
+          <h3 className="font-bold text-base text-foreground">
+            No opportunities found
+          </h3>
+
+          <p className="text-xs max-w-sm mx-auto">
+            Try selecting a different filter category or clearing your search
+            term.
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {filteredOpps.map((opp, index) => (
             <motion.div
               key={opp.id}
+
               initial={{ opacity: 0, y: 12 }}
+
               animate={{ opacity: 1, y: 0 }}
+
               transition={{ duration: 0.25, delay: index * 0.04 }}
+
               className={cn(
                 "p-6 rounded-3xl bg-card border border-border/50 shadow-xs",
+
                 "flex flex-col justify-between space-y-4 group",
+
                 "hover:-translate-y-1 hover:shadow-xl hover:shadow-indigo-500/5 hover:border-indigo-500/30",
-                "transition-all duration-300"
+
+                "transition-all duration-300",
               )}
             >
               {/* Top Row */}
+
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <span
                     className={cn(
                       "text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border",
-                      opp.badgeColor || "bg-indigo-500/10 text-indigo-600 border-indigo-500/20"
+
+                      opp.badgeColor ||
+                        "bg-indigo-500/10 text-indigo-600 border-indigo-500/20",
                     )}
                   >
                     {opp.type}
                   </span>
+
                   <span className="text-xs font-semibold text-muted-foreground truncate max-w-[180px]">
                     {opp.company}
                   </span>
@@ -286,23 +425,32 @@ export default function OpportunitiesPage() {
 
                 <button
                   onClick={() => toggleBookmark(opp.id, opp.title, opp.isSaved)}
+
                   className={cn(
                     "p-2 rounded-xl border transition-colors cursor-pointer",
+
                     opp.isSaved
                       ? "bg-primary/10 text-primary border-primary/20"
-                      : "text-muted-foreground hover:text-foreground border-border/40 hover:bg-accent"
+                      : "text-muted-foreground hover:text-foreground border-border/40 hover:bg-accent",
                   )}
-                  title={opp.isSaved ? "Remove from bookmarks" : "Save opportunity"}
+
+                  title={
+                    opp.isSaved ? "Remove from bookmarks" : "Save opportunity"
+                  }
                 >
-                  <Bookmark className={cn("w-4 h-4", opp.isSaved && "fill-current")} />
+                  <Bookmark
+                    className={cn("w-4 h-4", opp.isSaved && "fill-current")}
+                  />
                 </button>
               </div>
 
               {/* Title & Description */}
+
               <div className="space-y-2">
                 <h3 className="font-extrabold text-base text-foreground group-hover:text-primary transition-colors leading-snug">
                   {opp.title}
                 </h3>
+
                 {opp.description && (
                   <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed font-normal">
                     {opp.description}
@@ -311,11 +459,13 @@ export default function OpportunitiesPage() {
               </div>
 
               {/* Tags */}
+
               {opp.tags && opp.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 pt-1">
                   {opp.tags.map((tag, tIndex) => (
                     <span
                       key={tIndex}
+
                       className="text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-secondary/50 text-muted-foreground border border-border/40"
                     >
                       {tag}
@@ -325,25 +475,45 @@ export default function OpportunitiesPage() {
               )}
 
               {/* Footer */}
+
               <div className="pt-4 border-t border-border/50 flex items-center justify-between text-xs">
                 <div className="flex items-center gap-3 text-muted-foreground font-medium">
                   <span className="flex items-center gap-1">
                     <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
+
                     {opp.deadline}
                   </span>
+
                   {opp.location && (
                     <span className="flex items-center gap-1 truncate max-w-[120px]">
                       <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
+
                       {opp.location}
                     </span>
                   )}
                 </div>
 
                 <button
-                  onClick={() => setAppliedOpp(opp)}
+                  onClick={() =>
+                    opp.creatorId === user.id
+                      ? setApplicantsId(opp.id)
+                      : opp.applicationUrl
+                        ? window.open(
+                            opp.applicationUrl,
+                            "_blank",
+                            "noopener,noreferrer",
+                          )
+                        : setAppliedOpp(opp)
+                  }
+
                   className="px-4 py-2 rounded-xl bg-primary text-primary-foreground font-bold text-xs flex items-center gap-1.5 hover:opacity-90 transition-opacity shadow-xs cursor-pointer"
                 >
-                  Apply <ExternalLink className="w-3.5 h-3.5" />
+                  {opp.creatorId === user.id
+                    ? "View applicants"
+                    : opp.applicationUrl
+                      ? "Apply externally"
+                      : "Apply"}{" "}
+                  <ExternalLink className="w-3.5 h-3.5" />
                 </button>
               </div>
             </motion.div>
@@ -351,28 +521,48 @@ export default function OpportunitiesPage() {
         </div>
       )}
 
+      {applicantsId && (
+        <ApplicantsPanel
+          opportunityId={applicantsId}
+          onClose={() => setApplicantsId(null)}
+        />
+      )}
+
       {/* 5. Application Modal */}
+
       <AnimatePresence>
         {appliedOpp && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
+
               animate={{ opacity: 1, scale: 1 }}
+
               exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-lg bg-card border border-border rounded-3xl p-6 sm:p-7 shadow-2xl space-y-5"
+
+              role="dialog"
+              aria-modal="true"
+              aria-label="Apply for opportunity"
+              className="w-full max-w-lg max-h-[90dvh] overflow-y-auto bg-card border border-border rounded-3xl p-6 sm:p-7 shadow-2xl space-y-5"
             >
               <div className="flex items-start justify-between">
                 <div>
                   <span className="text-[10px] font-bold text-primary uppercase tracking-widest bg-primary/10 px-2.5 py-1 rounded-md border border-primary/20">
                     {appliedOpp.type} Application
                   </span>
+
                   <h3 className="font-extrabold text-lg text-foreground mt-2 leading-snug">
                     {appliedOpp.title}
                   </h3>
-                  <p className="text-xs text-muted-foreground">{appliedOpp.company}</p>
+
+                  <p className="text-xs text-muted-foreground">
+                    {appliedOpp.company}
+                  </p>
                 </div>
+
                 <button
                   onClick={() => setAppliedOpp(null)}
+
                   className="p-1.5 rounded-full hover:bg-secondary text-muted-foreground hover:text-foreground"
                 >
                   <X className="w-5 h-5" />
@@ -385,31 +575,51 @@ export default function OpportunitiesPage() {
 
               <div className="rounded-2xl p-3 bg-primary/5 border border-primary/20 text-xs text-foreground space-y-1">
                 <div className="font-bold flex items-center gap-1.5 text-primary">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Pre-verified Campus Profile
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Pre-verified Campus
+                  Profile
                 </div>
+
                 <div className="text-muted-foreground text-[11px]">
-                  Applying as <span className="font-semibold text-foreground">{user.name}</span> ({user.major} • {user.email})
+                  Applying as{" "}
+                  <span className="font-semibold text-foreground">
+                    {user.name}
+                  </span>{" "}
+                  ({user.major} • {user.email})
                 </div>
               </div>
 
               <form onSubmit={handleApplySubmit} className="space-y-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-muted-foreground">Portfolio Link / GitHub URL</label>
+                  <label className="text-xs font-bold text-muted-foreground">
+                    Portfolio Link / GitHub URL
+                  </label>
+
                   <input
                     type="url"
+
                     placeholder="https://github.com/myusername or portfolio URL"
-                    defaultValue="https://github.com/Usertharun"
+
+                    name="portfolio"
+                    defaultValue={user.portfolioUrl || user.githubUrl || ""}
+
                     className="w-full px-3.5 py-2.5 rounded-xl bg-secondary/40 border border-border/60 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-muted-foreground">Cover Note / Project Experience</label>
+                  <label className="text-xs font-bold text-muted-foreground">
+                    Cover Note / Project Experience
+                  </label>
+
                   <textarea
                     rows={3}
+
                     value={noteInput}
+
                     onChange={(e) => setNoteInput(e.target.value)}
+
                     placeholder="Briefly explain your relevant coursework, projects, or why you'd excel in this position..."
+
                     className="w-full px-3.5 py-2.5 rounded-xl bg-secondary/40 border border-border/60 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none"
                   />
                 </div>
@@ -417,16 +627,22 @@ export default function OpportunitiesPage() {
                 <div className="flex gap-3 pt-2">
                   <button
                     type="button"
+
                     onClick={() => setAppliedOpp(null)}
+
                     className="flex-1 py-2.5 rounded-xl bg-secondary text-foreground font-bold text-xs hover:bg-secondary/80 cursor-pointer"
                   >
                     Cancel
                   </button>
+
                   <button
                     type="submit"
+                    disabled={submitting}
+
                     className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground font-bold text-xs hover:opacity-90 shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
                   >
-                    <Send className="w-3.5 h-3.5" /> Submit Application
+                    <Send className="w-3.5 h-3.5" />{" "}
+                    {submitting ? "Submitting…" : "Submit application"}
                   </button>
                 </div>
               </form>

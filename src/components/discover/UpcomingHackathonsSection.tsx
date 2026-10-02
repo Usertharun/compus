@@ -1,6 +1,6 @@
-import { useState } from "react";
+
 import type { HackathonItem } from "./types";
-import { UPCOMING_HACKATHONS } from "@/data/discoverMockData";
+import { useDiscoveryData } from "@/hooks/useDiscoveryData";
 import { Trophy, Calendar, MapPin, Ticket, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
@@ -9,14 +9,15 @@ interface UpcomingHackathonsSectionProps {
   onCardClick?: (item: HackathonItem) => void;
 }
 
-export function UpcomingHackathonsSection({ onCardClick }: UpcomingHackathonsSectionProps) {
-  const [hackathons, setHackathons] = useState<HackathonItem[]>(UPCOMING_HACKATHONS);
+export function UpcomingHackathonsSection({
+  onCardClick,
+}: UpcomingHackathonsSectionProps) {
+  const { UPCOMING_HACKATHONS, toggleRegisterEvent } = useDiscoveryData();
+  const hackathons = UPCOMING_HACKATHONS;
 
   const toggleRegister = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setHackathons((prev) =>
-      prev.map((h) => (h.id === id ? { ...h, isRegistered: !h.isRegistered } : h))
-    );
+    void toggleRegisterEvent(id);
   };
 
   return (
@@ -27,7 +28,9 @@ export function UpcomingHackathonsSection({ onCardClick }: UpcomingHackathonsSec
             <Trophy className="w-5 h-5 text-amber-500" />
             Upcoming Hackathons
           </h2>
-          <p className="text-xs text-muted-foreground">National collegiate hackathons & campus build sprints</p>
+          <p className="text-xs text-muted-foreground">
+            National collegiate hackathons & campus build sprints
+          </p>
         </div>
       </div>
 
@@ -42,7 +45,7 @@ export function UpcomingHackathonsSection({ onCardClick }: UpcomingHackathonsSec
             className={cn(
               "rounded-2xl bg-card border border-border/70 overflow-hidden shadow-xs group",
               "hover:-translate-y-1 hover:shadow-xl hover:shadow-amber-500/5 hover:border-border",
-              "transition-all duration-300 cursor-pointer flex flex-col sm:flex-row"
+              "transition-all duration-300 cursor-pointer flex flex-col sm:flex-row",
             )}
           >
             {/* Image side */}
@@ -105,12 +108,13 @@ export function UpcomingHackathonsSection({ onCardClick }: UpcomingHackathonsSec
                     "px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 shrink-0 transition-all duration-200 cursor-pointer",
                     hackathon.isRegistered
                       ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
-                      : "bg-primary text-primary-foreground hover:opacity-90 shadow-xs"
+                      : "bg-primary text-primary-foreground hover:opacity-90 shadow-xs",
                   )}
                 >
                   {hackathon.isRegistered ? (
                     <>
-                      <Check className="w-3.5 h-3.5 text-emerald-500" /> Registered
+                      <Check className="w-3.5 h-3.5 text-emerald-500" />{" "}
+                      Registered
                     </>
                   ) : (
                     <>

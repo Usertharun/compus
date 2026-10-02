@@ -200,6 +200,8 @@ enum BookmarkType {
 // ------------------------------------------------------
 
 model User {
+  feedback Feedback[]
+  imageAssets ImageAsset[]
   id                  String     @id @default(uuid())
   email               String     @unique
   passwordHash        String
@@ -254,7 +256,21 @@ model User {
   @@map("users")
 }
 
+model Feedback {
+  id String @id @default(uuid())
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category String
+  message String
+  page String
+  createdAt DateTime @default(now())
+  @@index([createdAt])
+  @@map("feedback")
+}
+
 model Profile {
+  allowDirectMessages Boolean @default(true)
+  showLocation Boolean @default(true)
   id                String            @id @default(uuid())
   userId            String            @unique
   user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -1279,4 +1295,15 @@ model Bookmark {
   @@unique([userId, targetType, targetId])
   @@index([userId])
   @@map("bookmarks")
+}
+model ImageAsset {
+  id        String   @id @default(uuid())
+  ownerId   String
+  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  mimeType  String
+  content   Bytes
+  createdAt DateTime @default(now())
+
+  @@index([ownerId])
+  @@map("image_assets")
 }

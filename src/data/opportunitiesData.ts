@@ -3,13 +3,16 @@ export interface CampusOpportunity {
   title: string;
   company: string;
   deadline: string;
-  type: "Internship" | "Hackathon" | "Workshop" | "Club Recruitment" | "Research Grant";
+  type: string;
+  creatorId?: string;
   stipendOrPrize?: string;
   location?: string;
   tags?: string[];
   description?: string;
   badgeColor?: string;
   isSaved?: boolean;
+  applicationUrl?: string;
+  personalStatus?: string | null;
 }
 
 export const OPPORTUNITIES_DATA: CampusOpportunity[] = [
@@ -22,8 +25,10 @@ export const OPPORTUNITIES_DATA: CampusOpportunity[] = [
     stipendOrPrize: "₹1,20,000 / month",
     location: "Bengaluru (Hybrid)",
     tags: ["PyTorch", "Python", "Transformers"],
-    description: "Paid research internship working alongside scientists on Indian language multi-modal models.",
-    badgeColor: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
+    description:
+      "Paid research internship working alongside scientists on Indian language multi-modal models.",
+    badgeColor:
+      "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
   },
   {
     id: "opp-2",
@@ -34,8 +39,10 @@ export const OPPORTUNITIES_DATA: CampusOpportunity[] = [
     stipendOrPrize: "₹1,00,000 per Problem Statement",
     location: "Nodal Centers Across India",
     tags: ["36-Hour Hackathon", "Government Challenges", "Mentorship"],
-    description: "Nationwide competition solving real-world challenges for public sector ministries and industries.",
-    badgeColor: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
+    description:
+      "Nationwide competition solving real-world challenges for public sector ministries and industries.",
+    badgeColor:
+      "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
   },
   {
     id: "opp-3",
@@ -46,8 +53,10 @@ export const OPPORTUNITIES_DATA: CampusOpportunity[] = [
     stipendOrPrize: "Free BrowserStack Pro & Swag",
     location: "Campus Computer Lab 3",
     tags: ["React 19", "TypeScript", "Tailwind v4"],
-    description: "4-week intensive bootcamp covering modern frontend component architecture, testing, and CI/CD.",
-    badgeColor: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20",
+    description:
+      "4-week intensive bootcamp covering modern frontend component architecture, testing, and CI/CD.",
+    badgeColor:
+      "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20",
   },
   {
     id: "opp-4",
@@ -58,8 +67,10 @@ export const OPPORTUNITIES_DATA: CampusOpportunity[] = [
     stipendOrPrize: "Team Sponsorship & Certificate",
     location: "Mechanical Workshop Yard",
     tags: ["SolidWorks", "Battery Tech", "CAD"],
-    description: "Recruiting passionate engineers to design and fabricate electric race cars for national competitions.",
-    badgeColor: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
+    description:
+      "Recruiting passionate engineers to design and fabricate electric race cars for national competitions.",
+    badgeColor:
+      "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
   },
   {
     id: "opp-5",
@@ -70,8 +81,10 @@ export const OPPORTUNITIES_DATA: CampusOpportunity[] = [
     stipendOrPrize: "₹1,50,000 / month",
     location: "Bengaluru",
     tags: ["Go", "Kafka", "Microservices"],
-    description: "Work on ultra-high-throughput financial transaction microservices and real-time backend systems.",
-    badgeColor: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
+    description:
+      "Work on ultra-high-throughput financial transaction microservices and real-time backend systems.",
+    badgeColor:
+      "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
   },
   {
     id: "opp-6",
@@ -82,8 +95,10 @@ export const OPPORTUNITIES_DATA: CampusOpportunity[] = [
     stipendOrPrize: "₹1,00,000 / month",
     location: "Bengaluru / Remote",
     tags: ["Figma", "UI/UX", "Fintech"],
-    description: "Design seamless checkout interfaces and merchant dashboard experiences used by millions.",
-    badgeColor: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
+    description:
+      "Design seamless checkout interfaces and merchant dashboard experiences used by millions.",
+    badgeColor:
+      "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
   },
   {
     id: "opp-7",
@@ -94,8 +109,10 @@ export const OPPORTUNITIES_DATA: CampusOpportunity[] = [
     stipendOrPrize: "$5,000 H100 GPU Credits",
     location: "On-Campus / Hybrid",
     tags: ["PyTorch", "GPU Compute", "Research"],
-    description: "Research sponsorship for students developing novel speech or vision models for Indian languages.",
-    badgeColor: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20",
+    description:
+      "Research sponsorship for students developing novel speech or vision models for Indian languages.",
+    badgeColor:
+      "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20",
   },
   {
     id: "opp-8",
@@ -106,8 +123,10 @@ export const OPPORTUNITIES_DATA: CampusOpportunity[] = [
     stipendOrPrize: "$25,000 Prize Pool",
     location: "Online / Devfolio Platform",
     tags: ["Web3", "Open Source", "Solana"],
-    description: "48-hour global online hackathon for building decentralized protocols and developer tools.",
-    badgeColor: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
+    description:
+      "48-hour global online hackathon for building decentralized protocols and developer tools.",
+    badgeColor:
+      "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
   },
   {
     id: "opp-9",
@@ -118,8 +137,10 @@ export const OPPORTUNITIES_DATA: CampusOpportunity[] = [
     stipendOrPrize: "₹80,000 / month + Fund Access",
     location: "On-Campus Scout",
     tags: ["VC", "Startup Sourcing", "Due Diligence"],
-    description: "Scout top student founders on campus, evaluate early-stage seed pitches, and write investment memos.",
-    badgeColor: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
+    description:
+      "Scout top student founders on campus, evaluate early-stage seed pitches, and write investment memos.",
+    badgeColor:
+      "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
   },
   {
     id: "opp-10",
@@ -130,8 +151,10 @@ export const OPPORTUNITIES_DATA: CampusOpportunity[] = [
     stipendOrPrize: "Certificate & Interview Fast-Track",
     location: "Main Seminar Hall",
     tags: ["C++20", "Low Latency", "Algo Trading"],
-    description: "2-week masterclass covering memory alignment, SIMD instructions, and cache-friendly data structures.",
-    badgeColor: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20",
+    description:
+      "2-week masterclass covering memory alignment, SIMD instructions, and cache-friendly data structures.",
+    badgeColor:
+      "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20",
   },
   {
     id: "opp-11",
@@ -142,8 +165,10 @@ export const OPPORTUNITIES_DATA: CampusOpportunity[] = [
     stipendOrPrize: "Lab Access & Travel Grants",
     location: "Robotics Testing Ground",
     tags: ["ROS2", "Mechatronics", "Embedded C++"],
-    description: "Recruiting student engineers to program leg locomotion kinematics and LIDAR SLAM navigation.",
-    badgeColor: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
+    description:
+      "Recruiting student engineers to program leg locomotion kinematics and LIDAR SLAM navigation.",
+    badgeColor:
+      "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
   },
   {
     id: "opp-12",
@@ -154,8 +179,10 @@ export const OPPORTUNITIES_DATA: CampusOpportunity[] = [
     stipendOrPrize: "₹1,10,000 / month",
     location: "Bengaluru",
     tags: ["React 19", "Performance", "Web Vitals"],
-    description: "Optimize high-volume web ordering funnels and build micro-frontend modules for Swiggy web.",
-    badgeColor: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
+    description:
+      "Optimize high-volume web ordering funnels and build micro-frontend modules for Swiggy web.",
+    badgeColor:
+      "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
   },
   {
     id: "opp-13",
@@ -166,8 +193,10 @@ export const OPPORTUNITIES_DATA: CampusOpportunity[] = [
     stipendOrPrize: "$3,000 Stipend",
     location: "Remote",
     tags: ["Linux", "Python", "Open Source"],
-    description: "Mentorship and financial grant for students making impactful commits to top open source repositories.",
-    badgeColor: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20",
+    description:
+      "Mentorship and financial grant for students making impactful commits to top open source repositories.",
+    badgeColor:
+      "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20",
   },
   {
     id: "opp-14",
@@ -178,8 +207,10 @@ export const OPPORTUNITIES_DATA: CampusOpportunity[] = [
     stipendOrPrize: "$15,000 in Bounty Grants",
     location: "IIIT Campus / Hybrid",
     tags: ["ZK-SNARKs", "Rust", "Privacy"],
-    description: "Build privacy-preserving verification apps using zero-knowledge proofs and succinct smart contracts.",
-    badgeColor: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
+    description:
+      "Build privacy-preserving verification apps using zero-knowledge proofs and succinct smart contracts.",
+    badgeColor:
+      "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
   },
   {
     id: "opp-15",
@@ -190,8 +221,10 @@ export const OPPORTUNITIES_DATA: CampusOpportunity[] = [
     stipendOrPrize: "GDG Swag & Android Badge",
     location: "LHC Hall 102",
     tags: ["Kotlin", "Jetpack Compose", "Android"],
-    description: "Build modern reactive Android apps with Kotlin Coroutines, ViewModel architecture, and Material 3.",
-    badgeColor: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20",
+    description:
+      "Build modern reactive Android apps with Kotlin Coroutines, ViewModel architecture, and Material 3.",
+    badgeColor:
+      "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20",
   },
   {
     id: "opp-16",
@@ -202,8 +235,10 @@ export const OPPORTUNITIES_DATA: CampusOpportunity[] = [
     stipendOrPrize: "Editorial Certificate & Press Pass",
     location: "Humanities Block",
     tags: ["Writing", "Journalism", "Editing"],
-    description: "Lead the official university print and digital magazine covering tech, culture, and campus life.",
-    badgeColor: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
+    description:
+      "Lead the official university print and digital magazine covering tech, culture, and campus life.",
+    badgeColor:
+      "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
   },
   {
     id: "opp-17",
@@ -214,8 +249,10 @@ export const OPPORTUNITIES_DATA: CampusOpportunity[] = [
     stipendOrPrize: "Free Burp Suite Pro License",
     location: "HackerLab 201",
     tags: ["Ethical Hacking", "Web Sec", "PenTesting"],
-    description: "Hands-on vulnerability assessment, OWASP Top 10 exploits, and real-world penetration testing.",
-    badgeColor: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20",
+    description:
+      "Hands-on vulnerability assessment, OWASP Top 10 exploits, and real-world penetration testing.",
+    badgeColor:
+      "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20",
   },
   {
     id: "opp-18",
@@ -226,8 +263,10 @@ export const OPPORTUNITIES_DATA: CampusOpportunity[] = [
     stipendOrPrize: "₹90,000 / month",
     location: "Gurugram",
     tags: ["MLOps", "MLflow", "Docker", "Python"],
-    description: "Deploy and monitor recommendation models processing millions of daily pharmacy orders.",
-    badgeColor: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
+    description:
+      "Deploy and monitor recommendation models processing millions of daily pharmacy orders.",
+    badgeColor:
+      "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
   },
   {
     id: "opp-19",
@@ -238,8 +277,10 @@ export const OPPORTUNITIES_DATA: CampusOpportunity[] = [
     stipendOrPrize: "₹2,50,000 Grant Fund",
     location: "Centre for Battery Tech",
     tags: ["Clean Energy", "EV Tech", "Material Science"],
-    description: "Research funding for student projects building high-density, fire-safe battery management systems.",
-    badgeColor: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20",
+    description:
+      "Research funding for student projects building high-density, fire-safe battery management systems.",
+    badgeColor:
+      "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20",
   },
   {
     id: "opp-20",
@@ -250,7 +291,9 @@ export const OPPORTUNITIES_DATA: CampusOpportunity[] = [
     stipendOrPrize: "₹5,00,000 Total Cash Pool",
     location: "IIT Delhi / Hybrid",
     tags: ["National Hackathon", "AI & Hardware", "Travel Grants"],
-    description: "Bring your boldest ideas to life at India's premier university hackathon with top mentor support.",
-    badgeColor: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
+    description:
+      "Bring your boldest ideas to life at India's premier university hackathon with top mentor support.",
+    badgeColor:
+      "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
   },
 ];

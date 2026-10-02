@@ -1,10 +1,27 @@
 import { useAuth } from "./AuthContext";
-import React, { createContext, useContext, useState, useEffect } from "react";
-import { apiService, ApiPost } from "../services/api";
-import { EVENTS_DATA, CampusEvent } from "../data/eventsData";
-import { OPPORTUNITIES_DATA, CampusOpportunity } from "../data/opportunitiesData";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+} from "react";
+import { apiRequest } from "../services/api";
+import type { CampusEvent } from "../data/eventsData";
+import type { CampusOpportunity } from "../data/opportunitiesData";
+import type {
+  Community,
+  Event,
+  Opportunity,
+  Page,
+  Post,
+  Student,
+} from "../services/models";
+import { avatar, formatDate, formatTime } from "../services/models";
 
 export interface UserProfile {
+  id?: string;
   name: string;
   email: string;
   major: string;
@@ -18,7 +35,6 @@ export interface UserProfile {
   linkedinUrl?: string;
   portfolioUrl?: string;
 }
-
 export interface PostComment {
   id: number | string;
   author: string;
@@ -26,14 +42,9 @@ export interface PostComment {
   text: string;
   time: string;
 }
-
 export interface PostItem {
   id: number | string;
-  author: {
-    name: string;
-    avatar: string;
-    title: string;
-  };
+  author: { id?: string; name: string; avatar: string; title: string };
   timestamp: string;
   content: string;
   image?: string | null;
@@ -43,447 +54,508 @@ export interface PostItem {
   type: "text" | "image" | "poll";
   liked: boolean;
   saved: boolean;
+  category: string;
   votedOption?: string | null;
-  pollOptions?: Array<{ option: string; votes: number }>;
+  pollOptions?: { option: string; votes: number }[];
   commentsList?: PostComment[];
 }
-
-const DEFAULT_USER: UserProfile = {
-  name: "Student", email: "", major: "", gradYear: "", bio: "", avatar: "", university: "", location: "",
-};
-
-const INITIAL_PRODUCTION_POSTS: PostItem[] = [
-  {
-    id: "post-1",
-    author: {
-      name: "Alex Rivera",
-      avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80",
-      title: "Senior '26 • CS & AI",
-    },
-    timestamp: "10 mins ago",
-    content: "Excited to share our open-source agent framework built with React 19 and PyTorch! We just open-sourced the autonomous multi-agent task orchestrator. Feel free to clone the repo, submit PRs, and star it! 🌟🚀",
-    image: "https://images.unsplash.com/photo-1555066931-4365d14bab8c?q=80&w=1000&auto=format&fit=crop",
-    tags: ["opensource", "ai", "react19", "pytorch"],
-    likes: 48,
-    comments: 6,
-    type: "image",
-    liked: false,
-    saved: true,
-    commentsList: [
-      { id: 1, author: "Sarah Chen", authorAvatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150", text: "Incredible architecture! The state reconciliation is super clean.", time: "8 mins ago" },
-      { id: 2, author: "Marcus Vance", authorAvatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150", text: "Pulling the latest build right now to test with local Ollama models.", time: "4 mins ago" },
-    ],
-  },
-  {
-    id: "post-2",
-    author: {
-      name: "Stanford AI Society",
-      avatar: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150&auto=format&fit=crop&q=80",
-      title: "Official Campus Society",
-    },
-    timestamp: "1 hour ago",
-    content: "Which development framework is your team using for the upcoming TreeHacks 2026 collegiate hackathon? Cast your vote below! 👇",
-    image: null,
-    tags: ["hackathon", "treehacks", "survey"],
-    likes: 132,
-    comments: 14,
-    type: "poll",
-    liked: true,
-    saved: false,
-    votedOption: "Next.js & Supabase",
-    pollOptions: [
-      { option: "Next.js & Supabase", votes: 84 },
-      { option: "Vite React & PostgreSQL", votes: 42 },
-      { option: "Python FastAPI & PyTorch", votes: 29 },
-      { option: "Rust / Native Systems", votes: 12 },
-    ],
-    commentsList: [
-      { id: 3, author: "Devansh Gupta", authorAvatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150", text: "Next.js 15 App Router with Server Actions is lightning fast for hackathons.", time: "45 mins ago" },
-    ],
-  },
-  {
-    id: "post-3",
-    author: {
-      name: "Priya Patel",
-      avatar: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=200&auto=format&fit=crop&q=80",
-      title: "Junior '27 • Design & UX",
-    },
-    timestamp: "3 hours ago",
-    content: "Sneak peek of the dark mode glassmorphic interface design system for our campus community! Feedback and critique on typography, spacing, and micro-animations are welcome. ✨🎨",
-    image: "https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?q=80&w=1000&auto=format&fit=crop",
-    tags: ["design", "uiux", "figma", "darkmode"],
-    likes: 95,
-    comments: 8,
-    type: "image",
-    liked: false,
-    saved: false,
-    commentsList: [
-      { id: 4, author: "Elena Rostova", authorAvatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150", text: "The indigo glass highlights are stunning! Matches the desktop aesthetic nicely.", time: "2 hours ago" },
-    ],
-  },
-];
-
-interface AppContextType {
-  user: UserProfile;
-  updateUser: (updated: Partial<UserProfile>) => void;
-  posts: PostItem[];
-  addPost: (content: string, image?: string | null, tags?: string[], type?: "text" | "image" | "poll") => void;
-  deletePost: (id: number | string) => void;
-  toggleLikePost: (id: number | string) => void;
-  toggleSavePost: (id: number | string) => void;
-  addPostComment: (postId: number | string, text: string) => void;
-  votePollOption: (postId: number | string, option: string) => void;
-  events: CampusEvent[];
-  addEvent: (event: Omit<CampusEvent, "id">) => void;
-  toggleRegisterEvent: (id: string) => void;
-  opportunities: CampusOpportunity[];
-  addOpportunity: (opp: Omit<CampusOpportunity, "id">) => void;
-  toggleSaveOpportunity: (id: string) => void;
-  activeChatUser: { name: string; avatar: string; isOnline?: boolean } | null;
-  startChatWithUser: (user: { name: string; avatar: string; isOnline?: boolean }) => void;
-  searchQuery: string;
-  setSearchQuery: (query: string) => void;
-  isCreatePostOpen: boolean;
-  createPostCategory: string;
-  createPostMediaOpen: boolean;
-  openCreatePost: (category?: string, mediaOpen?: boolean) => void;
-  closeCreatePost: () => void;
-  isHostEventOpen: boolean;
-  openHostEvent: () => void;
-  closeHostEvent: () => void;
-  isCreateOppOpen: boolean;
-  openCreateOpp: () => void;
-  closeCreateOpp: () => void;
-  isBackendConnected: boolean;
+export interface ChatPartner {
+  id?: string;
+  name: string;
+  avatar: string;
+  isOnline?: boolean;
 }
-
-const AppContext = createContext<AppContextType | undefined>(undefined);
-
-export function AppProvider({ children }: { children: React.ReactNode }) {
+export const mapPost = (p: Post): PostItem => ({
+  id: p.id,
+  author: {
+    id: p.authorId || p.author.id,
+    name: p.author.profile?.name || "Student",
+    avatar: avatar(
+      p.author.profile?.name || "Student",
+      p.author.profile?.avatarUrl,
+    ),
+    title: p.author.profile?.department || "SRM student",
+  },
+  timestamp: formatDate(p.createdAt) + " · " + formatTime(p.createdAt),
+  content: p.content,
+  image: p.media?.[0]?.url || null,
+  tags: p.tags?.length ? p.tags : [p.category.toLowerCase()],
+  likes: p.likeCount,
+  comments: p.commentCount,
+  type: p.media?.length ? "image" : "text",
+  category: p.category,
+  liked: !!p.isLiked,
+  saved: !!p.isBookmarked,
+  commentsList:
+    p.comments?.map((c) => ({
+      id: c.id,
+      author: c.author.profile?.name || "Student",
+      authorAvatar: c.author.profile?.avatarUrl,
+      text: c.content,
+      time: formatDate(c.createdAt),
+    })) || [],
+});
+export const mapEvent = (e: Event): CampusEvent => ({
+  id: e.id,
+  organizerId: e.organizerId,
+  status: e.status,
+  rsvpStatus: e.userRsvpStatus,
+  title: e.title,
+  date: formatDate(e.startTime),
+  time: formatTime(e.startTime) + " – " + formatTime(e.endTime),
+  venue: e.venue,
+  host: e.organizer?.profile?.name || "SRM student",
+  category: e.category,
+  attendeesCount: e.rsvpCount,
+  image: e.coverImageUrl,
+  isRegistered:
+    e.userRsvpStatus === "GOING" || e.userRsvpStatus === "WAITLISTED",
+  description: e.description,
+  startTime: e.startTime,
+  endTime: e.endTime,
+});
+export const mapOpportunity = (o: Opportunity): CampusOpportunity => ({
+  id: o.id,
+  creatorId: o.creatorId,
+  title: o.title,
+  company: o.companyName,
+  deadline: o.deadline ? formatDate(o.deadline) : "Open until filled",
+  type: o.category as CampusOpportunity["type"],
+  stipendOrPrize: o.stipend,
+  location: o.location,
+  tags: o.tags,
+  description: o.description,
+  isSaved: !!o.isBookmarked,
+  applicationUrl: o.applicationUrl || o.registrationUrl,
+  personalStatus: o.personalStatus,
+});
+function feedPath(category: string, query: string, cursor?: string) {
+  const categories: Record<string, string> = {
+    projects: "PROJECT",
+    discussions: "DISCUSSION",
+    questions: "QUESTION",
+    announcements: "ANNOUNCEMENT",
+  };
+  const params = new URLSearchParams({ limit: "20" });
+  if (categories[category]) params.set("category", categories[category]);
+  if (query.trim()) params.set("search", query.trim());
+  if (category === "trending") params.set("sort", "TRENDING");
+  if (cursor) params.set("cursor", cursor);
+  return "/feed/latest?" + params.toString();
+}
+function useAppState() {
   const { user: account } = useAuth();
-  const storageKey = (key: string) => key + ":" + (account?.id || "anonymous");
-  const [user, setUser] = useState<UserProfile>(() => {
-    return account ? { ...DEFAULT_USER, name: account.profile?.name || account.name, email: account.email,
-      major: account.profile?.department || "", gradYear: account.profile?.year || "", bio: account.profile?.bio || "",
-      avatar: account.profile?.avatarUrl || "", banner: account.profile?.bannerUrl,
-      location: account.profile?.campusLocation || "", githubUrl: account.profile?.githubUrl,
-      linkedinUrl: account.profile?.linkedinUrl, portfolioUrl: account.profile?.portfolioUrl } : DEFAULT_USER;
-  });
-
-  const [posts, setPosts] = useState<PostItem[]>(() => {
-    const saved = localStorage.getItem(storageKey("compus_posts"));
-    if (saved) {
-      try { 
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      } catch (e) { /* fallback */ }
-    }
-    return INITIAL_PRODUCTION_POSTS;
-  });
-
-  const [events, setEvents] = useState<CampusEvent[]>(() => {
-    const saved = localStorage.getItem(storageKey("compus_events"));
-    if (saved) {
-      try { 
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      } catch (e) { /* fallback */ }
-    }
-    return EVENTS_DATA;
-  });
-
-  const [opportunities, setOpportunities] = useState<CampusOpportunity[]>(() => {
-    const saved = localStorage.getItem(storageKey("compus_opportunities"));
-    if (saved) {
-      try { 
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      } catch (e) { /* fallback */ }
-    }
-    return OPPORTUNITIES_DATA;
-  });
-
-  const [activeChatUser, setActiveChatUser] = useState<{ name: string; avatar: string; isOnline?: boolean } | null>(null);
-  const [isBackendConnected, setIsBackendConnected] = useState<boolean>(false);
-
-  // Sync with live backend API
-  useEffect(() => {
-    async function loadLiveBackendData() {
-      const health = await apiService.getHealth();
-      if (health && health.status === 'ok') {
-        setIsBackendConnected(true);
-        const livePosts = await apiService.getLatestFeed();
-        if (livePosts && livePosts.length > 0) {
-          const formattedLivePosts: PostItem[] = livePosts.map((p: ApiPost) => ({
-            id: p.id,
-            author: {
-              name: p.author?.profile?.name || p.author?.email || "Student",
-              avatar: p.author?.profile?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.id}`,
-              title: `${p.author?.profile?.department || 'Verified Member'}`,
-            },
-            timestamp: new Date(p.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            content: p.content,
-            image: p.mediaUrls && p.mediaUrls.length > 0 ? p.mediaUrls[0] : null,
-            tags: [p.category || 'campus'],
-            likes: p.likeCount || 0,
-            comments: p.commentCount || 0,
-            type: p.mediaUrls && p.mediaUrls.length > 0 ? 'image' : 'text',
-            liked: false,
-            saved: false,
-            commentsList: [],
-          }));
-          setPosts(formattedLivePosts);
-        }
-      }
-    }
-    if (account) void loadLiveBackendData().catch(() => setIsBackendConnected(false));
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem(storageKey("compus_user_profile"), JSON.stringify(user));
-  }, [user]);
-
-  useEffect(() => {
-    localStorage.setItem(storageKey("compus_posts"), JSON.stringify(posts));
-  }, [posts]);
-
-  useEffect(() => {
-    localStorage.setItem(storageKey("compus_events"), JSON.stringify(events));
-  }, [events]);
-
-  useEffect(() => {
-    localStorage.setItem(storageKey("compus_opportunities"), JSON.stringify(opportunities));
-  }, [opportunities]);
-
-  const updateUser = (updated: Partial<UserProfile>) => {
-    setUser((prev) => {
-      const next = { ...prev, ...updated };
-      localStorage.setItem(storageKey("compus_user_profile"), JSON.stringify(next));
-      return next;
-    });
-  };
-
-  const addPost = async (
-    content: string, 
-    image: string | null = null, 
-    tags: string[] = ["campus"],
-    type: "text" | "image" | "poll" = image ? "image" : "text"
-  ) => {
-    const newPost: PostItem = {
-      id: `post-${Date.now()}`,
-      author: {
-        name: user.name,
-        avatar: user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.name}`,
-        title: `${user.major}, ${user.gradYear ? `'${user.gradYear.slice(-2)}` : 'Student'}`,
-      },
-      timestamp: "Just now",
-      content,
-      image,
-      tags,
-      likes: 0,
-      comments: 0,
-      type,
-      liked: false,
-      saved: false,
-      commentsList: [],
-    };
-
-    setPosts((prev) => [newPost, ...prev]);
-
-    if (isBackendConnected) {
-      await apiService.createPost(content, image ? [image] : []).catch(() => setIsBackendConnected(false));
-    }
-  };
-
-  const deletePost = (id: number | string) => {
-    setPosts((prev) => prev.filter((p) => p.id !== id));
-  };
-
-  const toggleLikePost = (id: number | string) => {
-    setPosts((prev) =>
-      prev.map((p) => {
-        if (p.id === id) {
-          const nextLiked = !p.liked;
-          return {
-            ...p,
-            liked: nextLiked,
-            likes: nextLiked ? p.likes + 1 : Math.max(0, p.likes - 1),
-          };
-        }
-        return p;
-      })
-    );
-  };
-
-  const toggleSavePost = (id: number | string) => {
-    setPosts((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, saved: !p.saved } : p))
-    );
-  };
-
-  const addPostComment = (postId: number | string, text: string) => {
-    if (!text.trim()) return;
-    const newComment: PostComment = {
-      id: Date.now(),
-      author: user.name,
-      authorAvatar: user.avatar,
-      text: text.trim(),
-      time: "Just now",
-    };
-
-    setPosts((prev) =>
-      prev.map((p) => {
-        if (p.id === postId) {
-          const list = p.commentsList || [];
-          return {
-            ...p,
-            comments: p.comments + 1,
-            commentsList: [...list, newComment],
-          };
-        }
-        return p;
-      })
-    );
-  };
-
-  const votePollOption = (postId: number | string, option: string) => {
-    setPosts((prev) =>
-      prev.map((p) => {
-        if (p.id === postId) {
-          const options = (p.pollOptions || []).map((opt) => {
-            if (opt.option === option) {
-              return { ...opt, votes: opt.votes + 1 };
-            }
-            if (p.votedOption === opt.option) {
-              return { ...opt, votes: Math.max(0, opt.votes - 1) };
-            }
-            return opt;
-          });
-          return {
-            ...p,
-            votedOption: option,
-            pollOptions: options,
-          };
-        }
-        return p;
-      })
-    );
-  };
-
-  const addEvent = (eventData: Omit<CampusEvent, "id">) => {
-    const newEvt: CampusEvent = {
-      id: `evt-${Date.now()}`,
-      ...eventData,
-      attendeesCount: 1,
-      isRegistered: true,
-    };
-    setEvents((prev) => [newEvt, ...prev]);
-  };
-
-  const toggleRegisterEvent = (id: string) => {
-    setEvents((prev) =>
-      prev.map((e) => {
-        if (e.id === id) {
-          const nextState = !e.isRegistered;
-          return {
-            ...e,
-            isRegistered: nextState,
-            attendeesCount: nextState ? (e.attendeesCount || 100) + 1 : Math.max(0, (e.attendeesCount || 100) - 1),
-          };
-        }
-        return e;
-      })
-    );
-  };
-
-  const addOpportunity = (oppData: Omit<CampusOpportunity, "id">) => {
-    const newOpp: CampusOpportunity = {
-      id: `opp-${Date.now()}`,
-      ...oppData,
-      isSaved: false,
-    };
-    setOpportunities((prev) => [newOpp, ...prev]);
-  };
-
-  const toggleSaveOpportunity = (id: string) => {
-    setOpportunities((prev) =>
-      prev.map((opp) => (opp.id === id ? { ...opp, isSaved: !opp.isSaved } : opp))
-    );
-  };
-
-  const startChatWithUser = (chatPartner: { name: string; avatar: string; isOnline?: boolean }) => {
-    setActiveChatUser(chatPartner);
-  };
-
   const [searchQuery, setSearchQuery] = useState("");
+  const [feedCategory, setFeedCategory] = useState("all");
+  const currentFeedPath = feedPath(feedCategory, searchQuery);
+  const feedFilter = useRef(currentFeedPath);
+  useEffect(() => { feedFilter.current = currentFeedPath; }, [currentFeedPath]);
+  const [profile, setProfile] = useState<Student | null>(null);
+  const [posts, setPosts] = useState<PostItem[]>([]);
+  const [savedPosts, setSavedPosts] = useState<PostItem[]>([]);
+  const [events, setEvents] = useState<CampusEvent[]>([]);
+  const [opportunities, setOpportunities] = useState<CampusOpportunity[]>([]);
+  const [communities, setCommunities] = useState<Community[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [dataError, setDataError] = useState("");
+  const [isBackendConnected, setIsBackendConnected] = useState(false);
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [hasMorePosts, setHasMorePosts] = useState(false);
+  const busy = useRef(new Set<string>());
+  const generation = useRef(0);
+  const user: UserProfile = {
+    id: account?.id,
+    name: profile?.name || account?.name || "Student",
+    email: account?.email || "",
+    major: profile?.department ?? account?.profile?.department ?? "",
+    gradYear: profile?.year ?? account?.profile?.year ?? "",
+    bio: profile?.bio ?? account?.profile?.bio ?? "",
+    avatar: avatar(
+      profile?.name || account?.name || "Student",
+      profile?.avatarUrl ?? account?.profile?.avatarUrl,
+    ),
+    banner: profile?.bannerUrl,
+    university: "SRM Institute of Science and Technology",
+    location: profile?.campusLocation || "",
+    githubUrl: profile?.githubUrl,
+    linkedinUrl: profile?.linkedinUrl,
+    portfolioUrl: profile?.portfolioUrl,
+  };
+  const hydratePosts = async (items: Post[]) => items.map(mapPost);
+  const refreshData = useCallback(async () => {
+    if (!account?.onboardingCompleted) return;
+    const current = ++generation.current;
+    setLoading(true);
+    setDataError("");
+    const results = await Promise.allSettled([
+      apiRequest<Student>("/profile/me").then((p) => {
+        if (generation.current === current) setProfile(p);
+      }),
+      apiRequest<Page<Post>>(feedFilter.current).then(async (p) => {
+        const items = await hydratePosts(p.items);
+        if (generation.current === current) {
+          setPosts(items);
+          setCursor(p.nextCursor || null);
+          setHasMorePosts(!!p.hasMore);
+        }
+      }),
+      apiRequest<Page<Post>>("/feed/bookmarks?limit=50").then((p) => {
+        if (generation.current === current)
+          setSavedPosts(
+            p.items.map((i) => mapPost({ ...i, isBookmarked: true })),
+          );
+      }),
+      apiRequest<Page<Event>>("/events/browse?limit=50").then(async (p) => {
+        const items = p.items.map(mapEvent);
+        if (generation.current === current) setEvents(items);
+      }),
+      apiRequest<Page<Opportunity>>("/opportunities/browse?limit=50").then(
+        async (p) => {
+          const items = p.items.map(mapOpportunity);
+          if (generation.current === current) setOpportunities(items);
+        },
+      ),
+      apiRequest<Page<Community>>("/communities/browse?limit=50").then(
+        async (p) => {
+          const items = p.items;
+          if (generation.current === current) setCommunities(items);
+        },
+      ),
+      apiRequest<Page<Student>>("/profile/search", "POST", { limit: 50 }).then(
+        (p) => {
+          if (generation.current === current)
+            setStudents(p.items.filter((s) => s.userId !== account.id));
+        },
+      ),
+    ]);
+    if (generation.current !== current) return;
+    const failed = results.find((r) => r.status === "rejected");
+    setIsBackendConnected(!failed);
+    if (failed?.status === "rejected")
+      setDataError(
+        failed.reason instanceof Error
+          ? failed.reason.message
+          : "Some campus data could not be loaded. Please retry.",
+      );
+    setLoading(false);
+  }, [account?.id, account?.onboardingCompleted]);
+  useEffect(() => {
+    void refreshData();
+    return () => {
+      generation.current++;
+    };
+  }, [refreshData]);
+  const previousFilter = useRef(currentFeedPath);
+  useEffect(() => {
+    if (
+      previousFilter.current === currentFeedPath ||
+      !account?.onboardingCompleted
+    )
+      return;
+    previousFilter.current = currentFeedPath;
+    let stopped = false;
+    const timer = window.setTimeout(async () => {
+      setLoading(true);
+      setDataError("");
+      try {
+        const p = await apiRequest<Page<Post>>(currentFeedPath);
+        if (!stopped) {
+          setPosts(p.items.map(mapPost));
+          setCursor(p.nextCursor || null);
+          setHasMorePosts(!!p.hasMore);
+        }
+      } catch (e) {
+        if (!stopped)
+          setDataError(
+            e instanceof Error ? e.message : "Search could not be loaded.",
+          );
+      } finally {
+        if (!stopped) setLoading(false);
+      }
+    }, 300);
+    return () => {
+      stopped = true;
+      window.clearTimeout(timer);
+    };
+  }, [currentFeedPath, account?.onboardingCompleted]);
+  const mutate = async (key: string, operation: () => Promise<void>) => {
+    if (busy.current.has(key)) return false;
+    busy.current.add(key);
+    try {
+      await operation();
+      return true;
+    } catch (error) {
+      window.dispatchEvent(
+        new CustomEvent("compus:action-error", {
+          detail:
+            error instanceof Error
+              ? error.message
+              : "Unable to save your changes. Try again.",
+        }),
+      );
+      return false;
+    } finally {
+      busy.current.delete(key);
+    }
+  };
+  const updateUser = (updated: Partial<UserProfile>) =>
+    mutate("profile", async () => {
+      if (updated.name !== undefined && !updated.name.trim())
+        throw new Error("Your name cannot be empty.");
+      const fields: Record<string, unknown> = {};
+      const mappings = {
+        name: "name",
+        major: "department",
+        gradYear: "year",
+        bio: "bio",
+        avatar: "avatarUrl",
+        banner: "bannerUrl",
+        location: "campusLocation",
+        githubUrl: "githubUrl",
+        linkedinUrl: "linkedinUrl",
+        portfolioUrl: "portfolioUrl",
+      } as const;
+      for (const [key, target] of Object.entries(mappings))
+        if (updated[key as keyof typeof mappings] !== undefined)
+          fields[target] = updated[key as keyof typeof mappings] || null;
+      await apiRequest("/profile/me", "PATCH", fields);
+      setProfile(await apiRequest<Student>("/profile/me"));
+    });
+  const addPost = (
+    content: string,
+    image: string | null = null,
+    tags: string[] = [],
+    _type?: "text" | "image" | "poll",
+  ) =>
+    mutate("create-post", async () => {
+      const categories: Record<string, string> = {
+        projects: "PROJECT",
+        discussions: "DISCUSSION",
+        questions: "QUESTION",
+        announcements: "ANNOUNCEMENT",
+        general: "GENERAL",
+      };
+      const p = await apiRequest<Post>("/feed/posts", "POST", {
+        content,
+        tags,
+        category: categories[tags[0]] || "GENERAL",
+        ...(image ? { media: [{ url: image, type: "IMAGE" }] } : {}),
+      });
+      setPosts((prev) => [mapPost(p), ...prev]);
+    });
+  const deletePost = (id: string | number) =>
+    mutate("post:" + id, async () => {
+      await apiRequest("/feed/posts/" + id, "DELETE");
+      setPosts((prev) => prev.filter((p) => p.id !== id));
+      setSavedPosts((prev) => prev.filter((p) => p.id !== id));
+    });
+  const toggleLikePost = (id: string | number) =>
+    mutate("post:" + id, async () => {
+      const p = posts.find((item) => item.id === id);
+      if (!p) return;
+      await apiRequest(
+        "/feed/posts/" + id + "/like",
+        p.liked ? "DELETE" : "POST",
+      );
+      setPosts((prev) =>
+        prev.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                liked: !p.liked,
+                likes: Math.max(0, item.likes + (p.liked ? -1 : 1)),
+              }
+            : item,
+        ),
+      );
+    });
+  const toggleSavePost = (id: string | number) =>
+    mutate("save:" + id, async () => {
+      const p =
+        posts.find((item) => item.id === id) ||
+        savedPosts.find((item) => item.id === id);
+      if (!p) return;
+      await apiRequest(
+        "/feed/posts/" + id + "/bookmark",
+        p.saved ? "DELETE" : "POST",
+      );
+      setPosts((prev) =>
+        prev.map((item) =>
+          item.id === id ? { ...item, saved: !p.saved } : item,
+        ),
+      );
+      setSavedPosts((prev) =>
+        p.saved
+          ? prev.filter((item) => item.id !== id)
+          : [{ ...p, saved: true }, ...prev],
+      );
+    });
+  const loadPostComments = (id: string | number) =>
+    mutate("comments:" + id, async () => {
+      const p = mapPost(await apiRequest<Post>("/feed/posts/" + id));
+      setPosts((prev) => prev.map((item) => (item.id === id ? p : item)));
+    });
+  const addPostComment = (id: string | number, text: string) =>
+    mutate("comment:" + id, async () => {
+      await apiRequest("/feed/posts/" + id + "/comments", "POST", {
+        content: text.trim(),
+      });
+      const p = mapPost(await apiRequest<Post>("/feed/posts/" + id));
+      setPosts((prev) => prev.map((item) => (item.id === id ? p : item)));
+    });
+  const addEvent = (e: Omit<CampusEvent, "id">) =>
+    mutate("create-event", async () => {
+      const start = new Date(e.startTime || e.date + "T" + (e.time || "09:00"));
+      const end = e.endTime
+        ? new Date(e.endTime)
+        : new Date(start.getTime() + 2 * 3600000);
+      const result = await apiRequest<Event>("/events", "POST", {
+        title: e.title,
+        description: e.description || e.title,
+        venue: e.venue,
+        category: e.category,
+        startTime: start.toISOString(),
+        endTime: end.toISOString(),
+      });
+      const published = await apiRequest<Event>(
+        "/events/" + result.id + "/status",
+        "POST",
+        { status: "REGISTRATION_OPEN" },
+      );
+      setEvents((prev) => [mapEvent(published), ...prev]);
+    });
+  const toggleRegisterEvent = (id: string) =>
+    mutate("event:" + id, async () => {
+      const e = events.find((item) => item.id === id);
+      if (!e) return;
+      await apiRequest(
+        "/events/" + id + "/register",
+        e.isRegistered ? "DELETE" : "POST",
+      );
+      const result = await apiRequest<Event>("/events/" + id);
+      setEvents((prev) =>
+        prev.map((item) => (item.id === id ? mapEvent(result) : item)),
+      );
+    });
+  const addOpportunity = (o: Omit<CampusOpportunity, "id">) =>
+    mutate("create-opportunity", async () => {
+      const result = await apiRequest<Opportunity>("/opportunities", "POST", {
+        title: o.title,
+        companyName: o.company,
+        description: o.description || o.title,
+        category: o.type,
+        location: o.location || "Campus",
+        stipend: o.stipendOrPrize,
+        tags: o.tags || [],
+        ...(o.applicationUrl ? { applicationUrl: o.applicationUrl } : {}),
+        ...(o.deadline ? { deadline: new Date(o.deadline).toISOString() } : {}),
+      });
+      setOpportunities((prev) => [mapOpportunity(result), ...prev]);
+    });
+  const toggleSaveOpportunity = (id: string) =>
+    mutate("opportunity:" + id, async () => {
+      const o = opportunities.find((item) => item.id === id);
+      if (!o) return;
+      await apiRequest(
+        "/opportunities/" + id + "/bookmark",
+        o.isSaved ? "DELETE" : "POST",
+      );
+      setOpportunities((prev) =>
+        prev.map((item) =>
+          item.id === id ? { ...item, isSaved: !o.isSaved } : item,
+        ),
+      );
+    });
+  const loadMorePosts = async () => {
+    if (!cursor || loading) return;
+    setLoading(true);
+    try {
+      const page = await apiRequest<Page<Post>>(
+        feedPath(feedCategory, searchQuery, cursor),
+      );
+      const items = await hydratePosts(page.items);
+      setPosts((prev) => [
+        ...prev,
+        ...items.filter((p) => !prev.some((item) => item.id === p.id)),
+      ]);
+      setCursor(page.nextCursor || null);
+      setHasMorePosts(!!page.hasMore);
+    } catch (error) {
+      setDataError(
+        error instanceof Error ? error.message : "Unable to load more posts.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+  const [activeChatUser, setActiveChatUser] = useState<ChatPartner | null>(
+    null,
+  );
   const [isCreatePostOpen, setIsCreatePostOpen] = useState(false);
   const [createPostCategory, setCreatePostCategory] = useState("general");
   const [createPostMediaOpen, setCreatePostMediaOpen] = useState(false);
   const [isHostEventOpen, setIsHostEventOpen] = useState(false);
   const [isCreateOppOpen, setIsCreateOppOpen] = useState(false);
-
-  const openCreatePost = (category?: string, mediaOpen?: boolean) => {
-    if (category) setCreatePostCategory(category);
-    if (mediaOpen !== undefined) setCreatePostMediaOpen(mediaOpen);
-    setIsCreatePostOpen(true);
+  return {
+    user,
+    profile,
+    updateUser,
+    posts,
+    savedPosts,
+    addPost,
+    deletePost,
+    toggleLikePost,
+    toggleSavePost,
+    addPostComment,
+    loadPostComments,
+    votePollOption: (_id: string | number, _option: string) => undefined,
+    events,
+    addEvent,
+    toggleRegisterEvent,
+    opportunities,
+    addOpportunity,
+    toggleSaveOpportunity,
+    communities,
+    students,
+    activeChatUser,
+    startChatWithUser: setActiveChatUser,
+    searchQuery,
+    setSearchQuery,
+    feedCategory,
+    setFeedCategory,
+    isCreatePostOpen,
+    createPostCategory,
+    createPostMediaOpen,
+    openCreatePost: (category = "general", media = false) => {
+      setCreatePostCategory(category);
+      setCreatePostMediaOpen(media);
+      setIsCreatePostOpen(true);
+    },
+    closeCreatePost: () => setIsCreatePostOpen(false),
+    isHostEventOpen,
+    openHostEvent: () => setIsHostEventOpen(true),
+    closeHostEvent: () => setIsHostEventOpen(false),
+    isCreateOppOpen,
+    openCreateOpp: () => setIsCreateOppOpen(true),
+    closeCreateOpp: () => setIsCreateOppOpen(false),
+    isBackendConnected,
+    loading,
+    dataError,
+    refreshData,
+    hasMorePosts,
+    loadMorePosts,
   };
-  const closeCreatePost = () => {
-    setIsCreatePostOpen(false);
-    setCreatePostMediaOpen(false);
-  };
-
-  const openHostEvent = () => setIsHostEventOpen(true);
-  const closeHostEvent = () => setIsHostEventOpen(false);
-
-  const openCreateOpp = () => setIsCreateOppOpen(true);
-  const closeCreateOpp = () => setIsCreateOppOpen(false);
-
-  return (
-    <AppContext.Provider
-      value={{
-        user,
-        updateUser,
-        posts,
-        addPost,
-        deletePost,
-        toggleLikePost,
-        toggleSavePost,
-        addPostComment,
-        votePollOption,
-        events,
-        addEvent,
-        toggleRegisterEvent,
-        opportunities,
-        addOpportunity,
-        toggleSaveOpportunity,
-        activeChatUser,
-        startChatWithUser,
-        searchQuery,
-        setSearchQuery,
-        isCreatePostOpen,
-        createPostCategory,
-        createPostMediaOpen,
-        openCreatePost,
-        closeCreatePost,
-        isHostEventOpen,
-        openHostEvent,
-        closeHostEvent,
-        isCreateOppOpen,
-        openCreateOpp,
-        closeCreateOpp,
-        isBackendConnected,
-      }}
-    >
-      {children}
-    </AppContext.Provider>
-  );
 }
-
+const AppContext = createContext<ReturnType<typeof useAppState> | undefined>(
+  undefined,
+);
+export function AppProvider({ children }: { children: React.ReactNode }) {
+  const state = useAppState();
+  return <AppContext.Provider value={state}>{children}</AppContext.Provider>;
+}
 export function useApp() {
   const context = useContext(AppContext);
-  if (!context) {
-    throw new Error("useApp must be used within an AppProvider");
-  }
+  if (!context) throw new Error("useApp must be used within an AppProvider");
   return context;
 }
-

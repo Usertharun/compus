@@ -26,13 +26,15 @@ export function CommunityCategorySection({
       case "Technology":
         return {
           title: "Technology & Engineering",
-          subtitle: "AI research, robotics labs, fullstack web guilds & hardware teams",
+          subtitle:
+            "AI research, robotics labs, fullstack web guilds & hardware teams",
           icon: <Cpu className="w-5 h-5 text-indigo-500" />,
         };
       case "Business":
         return {
           title: "Business, VC & Startups",
-          subtitle: "Student venture funds, founder incubators & consulting clubs",
+          subtitle:
+            "Student venture funds, founder incubators & consulting clubs",
           icon: <TrendingUp className="w-5 h-5 text-emerald-500" />,
         };
       case "Creative":
@@ -46,6 +48,12 @@ export function CommunityCategorySection({
           title: "Sports, Outdoor & Recreation",
           subtitle: "Alpine ski clubs, cycling teams & intramural sports",
           icon: <Trophy className="w-5 h-5 text-sky-500" />,
+        };
+      default:
+        return {
+          title: category,
+          subtitle: "Campus communities",
+          icon: <Sparkles className="w-5 h-5" />,
         };
     }
   };

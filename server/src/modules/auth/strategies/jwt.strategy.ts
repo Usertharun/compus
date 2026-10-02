@@ -6,7 +6,7 @@ import { PrismaService } from '@database/prisma.service';
 import * as crypto from 'crypto';
 
 import { Request } from 'express';
-import { isCampusEmail } from '@common/utils/email-validator.util';
+import { isAllowedAccountEmail } from '@common/utils/email-validator.util';
 
 export interface JwtPayload {
   sub: string;
@@ -42,7 +42,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       include: { profile: true },
     });
 
-    if (!user || !user.isActive || !user.isVerified || user.deletedAt || !isCampusEmail(user.email)) {
+    if (!user || !user.isActive || !user.isVerified || user.deletedAt || !isAllowedAccountEmail(user.email, user.role, this.configService.get<string>('OWNER_EMAIL'))) {
       throw new UnauthorizedException('User no longer exists');
     }
 

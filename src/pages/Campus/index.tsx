@@ -1,19 +1,19 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CampusHeroBanner } from "@/components/home/CampusHeroBanner";
 import { CampusPostFeed } from "@/components/home/CampusPostFeed";
 import { useApp } from "@/context/AppContext";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { 
-  Sparkles, 
-  MessageSquare, 
-  Lightbulb, 
-  HelpCircle, 
-  Megaphone, 
-  Image as ImageIcon, 
-  Hash, 
+import {
+  Sparkles,
+  MessageSquare,
+  Lightbulb,
+  HelpCircle,
+  Megaphone,
+  Image as ImageIcon,
+  Hash,
   X,
-  Flame
+  Flame,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -27,8 +27,12 @@ const FEED_CATEGORIES = [
 ];
 
 export default function CampusHome() {
-  const { user, openCreatePost, searchQuery, setSearchQuery } = useApp();
+  const { user, openCreatePost, searchQuery, setSearchQuery, setFeedCategory } =
+    useApp();
   const [activeCategory, setActiveCategory] = useState("all");
+  useEffect(() => {
+    setFeedCategory(activeCategory);
+  }, [activeCategory]);
 
   const handleClearTag = () => {
     setSearchQuery("");
@@ -36,12 +40,11 @@ export default function CampusHome() {
 
   return (
     <div className="flex flex-col gap-6 w-full max-w-3xl mx-auto xl:max-w-none pb-12">
-      
       {/* 1. Natural Campus Greeting & Hero Section */}
       <CampusHeroBanner />
 
       {/* 2. Interactive Post Composer Card */}
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         className="glass-panel rounded-3xl p-4 sm:p-5 shadow-sm border border-border/50 bg-card/60 backdrop-blur-md"
@@ -49,14 +52,17 @@ export default function CampusHome() {
         <div className="flex items-center gap-3">
           <Avatar className="h-10 w-10 border border-border shadow-xs shrink-0">
             <AvatarImage src={user.avatar} />
-            <AvatarFallback>{user.name.slice(0, 2).toUpperCase()}</AvatarFallback>
+            <AvatarFallback>
+              {user.name.slice(0, 2).toUpperCase()}
+            </AvatarFallback>
           </Avatar>
 
           <button
             onClick={() => openCreatePost("general")}
             className="flex-1 text-left px-4 py-3 rounded-2xl bg-secondary/40 hover:bg-secondary/70 border border-border/40 text-xs sm:text-sm text-muted-foreground transition-all cursor-pointer truncate"
           >
-            What's on your mind, {user.name.split(" ")[0]}? Share an update, project, or question...
+            What's on your mind, {user.name.split(" ")[0]}? Share an update,
+            project, or question...
           </button>
         </div>
 
@@ -106,7 +112,10 @@ export default function CampusHome() {
         >
           <div className="flex items-center gap-2">
             <Hash className="w-4 h-4 text-primary" />
-            <span>Showing posts matching: <span className="font-bold text-primary">"{searchQuery}"</span></span>
+            <span>
+              Showing posts matching:{" "}
+              <span className="font-bold text-primary">"{searchQuery}"</span>
+            </span>
           </div>
           <button
             onClick={handleClearTag}
@@ -129,7 +138,9 @@ export default function CampusHome() {
               onClick={() => setActiveCategory(cat.id)}
               className={cn(
                 "relative flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer z-10",
-                isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                isActive
+                  ? "text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
               )}
             >
               {isActive && (
@@ -139,7 +150,12 @@ export default function CampusHome() {
                   transition={{ type: "spring", stiffness: 400, damping: 30 }}
                 />
               )}
-              <Icon className={cn("w-3.5 h-3.5 relative z-20", isActive ? "text-primary" : "text-muted-foreground")} />
+              <Icon
+                className={cn(
+                  "w-3.5 h-3.5 relative z-20",
+                  isActive ? "text-primary" : "text-muted-foreground",
+                )}
+              />
               <span className="relative z-20">{cat.label}</span>
             </button>
           );
@@ -147,7 +163,7 @@ export default function CampusHome() {
       </div>
 
       {/* 4. Dedicated Campus Post Feed */}
-      <CampusPostFeed />
+      <CampusPostFeed category={activeCategory} />
     </div>
   );
 }

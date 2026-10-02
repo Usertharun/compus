@@ -9,6 +9,12 @@ export interface CampusEvent {
   attendeesCount?: number;
   image?: string;
   isRegistered?: boolean;
+  rsvpStatus?: string | null;
+  organizerId?: string;
+  status?: string;
+  description?: string;
+  startTime?: string;
+  endTime?: string;
 }
 
 export const EVENTS_DATA: CampusEvent[] = [

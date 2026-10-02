@@ -1,5 +1,6 @@
+import { avatar } from "@/services/models";
 import { useState, useMemo } from "react";
-import { Bookmark, Trash2, ExternalLink, Calendar, Briefcase, MessageSquare, Heart, Sparkles } from "lucide-react";
+import { Bookmark, Trash2, Calendar, Briefcase } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { useApp } from "@/context/AppContext";
@@ -31,7 +32,14 @@ const SAVED_TABS = [
 ];
 
 export default function Saved() {
-  const { posts, toggleSavePost, opportunities, toggleSaveOpportunity, events, toggleRegisterEvent } = useApp();
+  const {
+    savedPosts: posts,
+    toggleSavePost,
+    opportunities,
+    toggleSaveOpportunity,
+    events,
+    toggleRegisterEvent,
+  } = useApp();
   const toast = useToast();
   const navigate = useNavigate();
   const [activeFilter, setActiveFilter] = useState("all");
@@ -65,7 +73,7 @@ export default function Saved() {
         typeLabel: o.type,
         title: o.title,
         author: o.company,
-        authorAvatar: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=150&auto=format&fit=crop&q=80",
+        authorAvatar: avatar(o.company),
         content: o.description || "University campus partner opportunity.",
         location: o.location,
         dateSaved: o.deadline ? `Deadline: ${o.deadline}` : "Ongoing",
@@ -83,11 +91,11 @@ export default function Saved() {
         typeLabel: e.category || "Event",
         title: e.title,
         author: e.host,
-        authorAvatar: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=150",
-        content: `Venue: ${e.venue} • Time: ${e.time || 'TBD'}`,
+        authorAvatar: avatar(e.host),
+        content: `Venue: ${e.venue} • Time: ${e.time || "TBD"}`,
         image: e.image,
         date: e.date,
-        dateSaved: "Registered Pass",
+        dateSaved: "Campus registration",
       }));
   }, [events]);
 
@@ -95,15 +103,15 @@ export default function Saved() {
     return [...savedPosts, ...savedOpportunities, ...registeredEvents];
   }, [savedPosts, savedOpportunities, registeredEvents]);
 
-  const handleRemove = (item: UnifiedSavedItem) => {
+  const handleRemove = async (item: UnifiedSavedItem) => {
     if (item.category === "posts") {
-      toggleSavePost(item.rawId);
+      if (!(await toggleSavePost(item.rawId))) return;
       toast.info("Post removed from saved bookmarks");
     } else if (item.category === "opportunities") {
-      toggleSaveOpportunity(String(item.rawId));
+      if (!(await toggleSaveOpportunity(String(item.rawId)))) return;
       toast.info("Opportunity removed from saved bookmarks");
     } else if (item.category === "events") {
-      toggleRegisterEvent(String(item.rawId));
+      if (!(await toggleRegisterEvent(String(item.rawId)))) return;
       toast.info("Event RSVP cancelled");
     }
   };
@@ -114,7 +122,13 @@ export default function Saved() {
     if (activeFilter === "opportunities") return savedOpportunities;
     if (activeFilter === "events") return registeredEvents;
     return allItems;
-  }, [activeFilter, allItems, savedPosts, savedOpportunities, registeredEvents]);
+  }, [
+    activeFilter,
+    allItems,
+    savedPosts,
+    savedOpportunities,
+    registeredEvents,
+  ]);
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto pb-12">
@@ -122,7 +136,7 @@ export default function Saved() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground font-sans flex items-center gap-3">
-            <span>Saved Bookmarks & Passes</span>
+            <span>Saved items & registrations</span>
             <span className="text-xs px-3 py-1 rounded-full glass-pill text-primary font-bold">
               {allItems.length} Saved
             </span>
@@ -143,7 +157,9 @@ export default function Saved() {
               onClick={() => setActiveFilter(tab.id)}
               className={cn(
                 "relative px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-colors whitespace-nowrap cursor-pointer z-10 flex-1 text-center",
-                isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                isActive
+                  ? "text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
               )}
             >
               {isActive && (
@@ -163,9 +179,12 @@ export default function Saved() {
       {filteredItems.length === 0 ? (
         <div className="glass-panel rounded-3xl p-12 text-center text-muted-foreground space-y-3">
           <Bookmark className="w-12 h-12 mx-auto text-muted-foreground/40" />
-          <h3 className="font-bold text-lg text-foreground">No saved items found</h3>
+          <h3 className="font-bold text-lg text-foreground">
+            No saved items found
+          </h3>
           <p className="text-xs max-w-sm mx-auto">
-            Click the bookmark icon on posts or opportunities across your campus feed to save them here!
+            Click the bookmark icon on posts or opportunities across your campus
+            feed to save them here!
           </p>
           <button
             onClick={() => navigate("/campus")}
@@ -196,12 +215,16 @@ export default function Saved() {
                     />
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-sm text-foreground">{item.author}</span>
+                        <span className="font-bold text-sm text-foreground">
+                          {item.author}
+                        </span>
                         <span className="text-[11px] px-2 py-0.5 rounded-md glass-pill font-bold text-primary">
                           {item.typeLabel}
                         </span>
                       </div>
-                      <span className="text-[11px] text-muted-foreground">{item.dateSaved}</span>
+                      <span className="text-[11px] text-muted-foreground">
+                        {item.dateSaved}
+                      </span>
                     </div>
                   </div>
 
@@ -215,12 +238,20 @@ export default function Saved() {
                 </div>
 
                 <div>
-                  <h3 className="font-bold text-base text-foreground mb-1">{item.title}</h3>
-                  <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">{item.content}</p>
+                  <h3 className="font-bold text-base text-foreground mb-1">
+                    {item.title}
+                  </h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                    {item.content}
+                  </p>
 
                   {item.image && (
                     <div className="mt-3 rounded-2xl overflow-hidden border border-border/50 max-h-56">
-                      <img src={item.image} alt={item.title} className="w-full h-full object-cover" />
+                      <img
+                        src={item.image}
+                        alt={item.title}
+                        className="w-full h-full object-cover"
+                      />
                     </div>
                   )}
 
@@ -237,7 +268,9 @@ export default function Saved() {
                         <Briefcase className="w-4 h-4" />
                         <span>{item.location}</span>
                       </div>
-                      {item.compensation && <span className="font-bold">{item.compensation}</span>}
+                      {item.compensation && (
+                        <span className="font-bold">{item.compensation}</span>
+                      )}
                     </div>
                   )}
                 </div>

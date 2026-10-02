@@ -3,6 +3,9 @@ import { CommunityItem } from "./types";
 import { Users, Check, Plus, ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
+import { apiRequest } from "@/services/api";
+import { useApp } from "@/context/AppContext";
+import { useToast } from "@/context/ToastContext";
 
 interface CommunityCardProps {
   community: CommunityItem;
@@ -10,16 +13,47 @@ interface CommunityCardProps {
   onToggleJoin?: (id: string, isJoined: boolean) => void;
 }
 
-export function CommunityCard({ community, onCardClick, onToggleJoin }: CommunityCardProps) {
+export function CommunityCard({
+  community,
+  onCardClick,
+  onToggleJoin,
+}: CommunityCardProps) {
+  const { refreshData } = useApp();
+  const toast = useToast();
   const [isJoined, setIsJoined] = useState(community.isJoined || false);
   const [memberCount, setMemberCount] = useState(community.memberCount);
 
-  const handleJoinClick = (e: React.MouseEvent) => {
+  const handleJoinClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
     const nextState = !isJoined;
+    try {
+      await apiRequest(
+        "/communities/" +
+          community.id +
+          (isJoined
+            ? "/leave"
+            : community.joinPolicy === "APPROVAL_REQUIRED"
+              ? "/request"
+              : "/join"),
+        isJoined ? "DELETE" : "POST",
+        !isJoined && community.joinPolicy === "APPROVAL_REQUIRED"
+          ? {}
+          : undefined,
+      );
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Unable to update membership.",
+      );
+      return;
+    }
+    if (!isJoined && community.joinPolicy === "APPROVAL_REQUIRED") {
+      toast.success("Membership request sent.");
+      return;
+    }
     setIsJoined(nextState);
     setMemberCount((prev) => (nextState ? prev + 1 : prev - 1));
     if (onToggleJoin) onToggleJoin(community.id, nextState);
+    void refreshData();
   };
 
   return (
@@ -30,11 +64,16 @@ export function CommunityCard({ community, onCardClick, onToggleJoin }: Communit
       className={cn(
         "group rounded-2xl bg-card border border-border/70 overflow-hidden shadow-xs cursor-pointer",
         "hover:shadow-xl hover:shadow-indigo-500/5 hover:border-border",
-        "transition-all duration-300 flex flex-col justify-between"
+        "transition-all duration-300 flex flex-col justify-between",
       )}
     >
       {/* Banner & Category Pill */}
-      <div className={cn("h-20 w-full bg-gradient-to-r relative p-3", community.bannerGradient)}>
+      <div
+        className={cn(
+          "h-20 w-full bg-gradient-to-r relative p-3",
+          community.bannerGradient,
+        )}
+      >
         <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-black/40 text-white backdrop-blur-xs border border-white/20">
           {community.category}
         </span>
@@ -83,7 +122,7 @@ export function CommunityCard({ community, onCardClick, onToggleJoin }: Communit
               "px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 transition-all duration-200 cursor-pointer",
               isJoined
                 ? "bg-accent text-foreground hover:bg-destructive/10 hover:text-destructive"
-                : "bg-primary text-primary-foreground hover:opacity-90 shadow-xs"
+                : "bg-primary text-primary-foreground hover:opacity-90 shadow-xs",
             )}
           >
             {isJoined ? (

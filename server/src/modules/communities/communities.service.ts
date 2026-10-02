@@ -4,21 +4,21 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
-} from '@nestjs/common';
-import { CommunityRole, JoinPolicy, RequestStatus } from '@prisma/client';
-import { PrismaService } from '@database/prisma.service';
-import { CommunitiesRepository } from './repositories/communities.repository';
-import { FeedRepository } from '@modules/feed/repositories/feed.repository';
+} from "@nestjs/common";
+import { CommunityRole, JoinPolicy, RequestStatus } from "@prisma/client";
+import { PrismaService } from "@database/prisma.service";
+import { CommunitiesRepository } from "./repositories/communities.repository";
+import { FeedRepository } from "@modules/feed/repositories/feed.repository";
 import {
   CreateCommunityDto,
   SearchCommunitiesDto,
   SubmitJoinRequestDto,
   TransferOwnershipDto,
   UpdateCommunityDto,
-} from './dto/communities.dto';
-import { CursorPaginationQueryDto } from '@modules/feed/dto/feed.dto';
-import { PaginatedResponseDto } from '@common/dto/pagination.dto';
-import { AppLoggerService } from '@logger/logger.service';
+} from "./dto/communities.dto";
+import { CursorPaginationQueryDto } from "@modules/feed/dto/feed.dto";
+import { PaginatedResponseDto } from "@common/dto/pagination.dto";
+import { AppLoggerService } from "@logger/logger.service";
 
 @Injectable()
 export class CommunitiesService {
@@ -37,7 +37,9 @@ export class CommunitiesService {
     });
 
     if (existingSlug) {
-      throw new ConflictException(`Community slug '${slug}' is already registered`);
+      throw new ConflictException(
+        `Community slug '${slug}' is already registered`,
+      );
     }
 
     const community = await this.prisma.$transaction(async (tx) => {
@@ -46,7 +48,7 @@ export class CommunitiesService {
           name: dto.name,
           slug,
           description: dto.description,
-          category: dto.category || 'Interest Group',
+          category: dto.category || "Interest Group",
           avatarUrl: dto.avatarUrl,
           bannerUrl: dto.bannerUrl,
           tags: dto.tags || [],
@@ -72,7 +74,10 @@ export class CommunitiesService {
       return comm;
     });
 
-    this.logger.log(`Created new community '${community.name}' (${community.id}) by user: ${userId}`, 'CommunitiesService');
+    this.logger.log(
+      `Created new community '${community.name}' (${community.id}) by user: ${userId}`,
+      "CommunitiesService",
+    );
 
     return this.communitiesRepository.findBySlug(slug);
   }
@@ -88,7 +93,10 @@ export class CommunitiesService {
     let hasPendingRequest = false;
 
     if (viewerId) {
-      userRole = await this.communitiesRepository.findMemberRole(community.id, viewerId);
+      userRole = await this.communitiesRepository.findMemberRole(
+        community.id,
+        viewerId,
+      );
       if (!userRole) {
         const pending = await this.prisma.communityJoinRequest.findUnique({
           where: {
@@ -104,13 +112,18 @@ export class CommunitiesService {
 
     const [moderators, statistics] = await Promise.all([
       this.prisma.communityMember.findMany({
-        where: { communityId: community.id, role: { in: [CommunityRole.OWNER, CommunityRole.MODERATOR] } },
+        where: {
+          communityId: community.id,
+          role: { in: [CommunityRole.OWNER, CommunityRole.MODERATOR] },
+        },
         include: {
           user: {
             select: {
               id: true,
               email: true,
-              profile: { select: { name: true, username: true, avatarUrl: true } },
+              profile: {
+                select: { name: true, username: true, avatarUrl: true },
+              },
             },
           },
         },
@@ -127,11 +140,20 @@ export class CommunitiesService {
     };
   }
 
-  async updateCommunity(userId: string, communityId: string, dto: UpdateCommunityDto) {
-    const role = await this.communitiesRepository.findMemberRole(communityId, userId);
+  async updateCommunity(
+    userId: string,
+    communityId: string,
+    dto: UpdateCommunityDto,
+  ) {
+    const role = await this.communitiesRepository.findMemberRole(
+      communityId,
+      userId,
+    );
 
     if (role !== CommunityRole.OWNER && role !== CommunityRole.MODERATOR) {
-      throw new ForbiddenException('Only community Owner or Moderators can update community settings');
+      throw new ForbiddenException(
+        "Only community Owner or Moderators can update community settings",
+      );
     }
 
     const updated = await this.prisma.community.update({
@@ -144,9 +166,13 @@ export class CommunitiesService {
         ...(dto.bannerUrl !== undefined && { bannerUrl: dto.bannerUrl }),
         ...(dto.tags && { tags: dto.tags }),
         ...(dto.joinPolicy && { joinPolicy: dto.joinPolicy }),
-        ...(dto.contactEmail !== undefined && { contactEmail: dto.contactEmail }),
+        ...(dto.contactEmail !== undefined && {
+          contactEmail: dto.contactEmail,
+        }),
         ...(dto.websiteUrl !== undefined && { websiteUrl: dto.websiteUrl }),
-        ...(dto.instagramUrl !== undefined && { instagramUrl: dto.instagramUrl }),
+        ...(dto.instagramUrl !== undefined && {
+          instagramUrl: dto.instagramUrl,
+        }),
         ...(dto.linkedinUrl !== undefined && { linkedinUrl: dto.linkedinUrl }),
         ...(dto.githubUrl !== undefined && { githubUrl: dto.githubUrl }),
       },
@@ -155,11 +181,20 @@ export class CommunitiesService {
     return this.communitiesRepository.findByIdWithDetails(updated.id);
   }
 
-  async deleteCommunity(userId: string, communityId: string, userRole?: string) {
-    const role = await this.communitiesRepository.findMemberRole(communityId, userId);
+  async deleteCommunity(
+    userId: string,
+    communityId: string,
+    userRole?: string,
+  ) {
+    const role = await this.communitiesRepository.findMemberRole(
+      communityId,
+      userId,
+    );
 
-    if (role !== CommunityRole.OWNER && userRole !== 'SUPER_ADMIN') {
-      throw new ForbiddenException('Only the Community Owner can delete this community');
+    if (role !== CommunityRole.OWNER && userRole !== "SUPER_ADMIN") {
+      throw new ForbiddenException(
+        "Only the Community Owner can delete this community",
+      );
     }
 
     await this.prisma.community.update({
@@ -167,16 +202,37 @@ export class CommunitiesService {
       data: { deletedAt: new Date() },
     });
 
-    this.logger.log(`Soft deleted community: ${communityId}`, 'CommunitiesService');
+    this.logger.log(
+      `Soft deleted community: ${communityId}`,
+      "CommunitiesService",
+    );
 
-    return { message: 'Community deleted successfully' };
+    return { message: "Community deleted successfully" };
   }
 
   // --- DISCOVERY & SEARCH ---
 
-  async browseCommunities(dto: SearchCommunitiesDto) {
-    const { items, total, page, limit } = await this.communitiesRepository.searchCommunities(dto);
-    return new PaginatedResponseDto(items, total, page, limit);
+  async browseCommunities(dto: SearchCommunitiesDto, viewerId?: string) {
+    const { items, total, page, limit } =
+      await this.communitiesRepository.searchCommunities(dto);
+    const memberships = viewerId
+      ? await this.prisma.communityMember.findMany({
+          where: {
+            userId: viewerId,
+            communityId: { in: items.map((i) => i.id) },
+          },
+          select: { communityId: true, role: true },
+        })
+      : [];
+    return new PaginatedResponseDto(
+      items.map((i) => ({
+        ...i,
+        userRole: memberships.find((m) => m.communityId === i.id)?.role || null,
+      })),
+      total,
+      page,
+      limit,
+    );
   }
 
   async getTrendingCommunities() {
@@ -185,7 +241,7 @@ export class CommunitiesService {
 
   async getCategories() {
     const categories = await this.prisma.community.groupBy({
-      by: ['category'],
+      by: ["category"],
       where: { deletedAt: null },
       _count: { category: true },
     });
@@ -203,34 +259,51 @@ export class CommunitiesService {
       where: { id: communityId, deletedAt: null },
     });
 
-    if (!community) throw new NotFoundException('Community not found');
+    if (!community) throw new NotFoundException("Community not found");
 
-    const existingRole = await this.communitiesRepository.findMemberRole(communityId, userId);
+    const existingRole = await this.communitiesRepository.findMemberRole(
+      communityId,
+      userId,
+    );
     if (existingRole) {
-      throw new ConflictException('You are already a member of this community');
+      throw new ConflictException("You are already a member of this community");
     }
 
     if (community.joinPolicy === JoinPolicy.APPROVAL_REQUIRED) {
-      throw new BadRequestException('This community requires approval to join. Please submit a join request.');
+      throw new BadRequestException(
+        "This community requires approval to join. Please submit a join request.",
+      );
     }
 
     if (community.joinPolicy === JoinPolicy.INVITE_ONLY) {
-      throw new ForbiddenException('This community is invite-only.');
+      throw new ForbiddenException("This community is invite-only.");
     }
 
-    const member = await this.communitiesRepository.addMember(communityId, userId, CommunityRole.MEMBER);
-    return { success: true, message: 'Joined community successfully', member };
+    const member = await this.communitiesRepository.addMember(
+      communityId,
+      userId,
+      CommunityRole.MEMBER,
+    );
+    return { success: true, message: "Joined community successfully", member };
   }
 
-  async requestAccess(userId: string, communityId: string, dto: SubmitJoinRequestDto) {
+  async requestAccess(
+    userId: string,
+    communityId: string,
+    dto: SubmitJoinRequestDto,
+  ) {
     const community = await this.prisma.community.findFirst({
       where: { id: communityId, deletedAt: null },
     });
 
-    if (!community) throw new NotFoundException('Community not found');
+    if (!community) throw new NotFoundException("Community not found");
 
-    const existingRole = await this.communitiesRepository.findMemberRole(communityId, userId);
-    if (existingRole) throw new ConflictException('You are already a member of this community');
+    const existingRole = await this.communitiesRepository.findMemberRole(
+      communityId,
+      userId,
+    );
+    if (existingRole)
+      throw new ConflictException("You are already a member of this community");
 
     const request = await this.prisma.communityJoinRequest.upsert({
       where: {
@@ -248,26 +321,37 @@ export class CommunitiesService {
       },
     });
 
-    return { success: true, message: 'Membership request submitted', request };
+    return { success: true, message: "Membership request submitted", request };
   }
 
   async leaveCommunity(userId: string, communityId: string) {
-    const role = await this.communitiesRepository.findMemberRole(communityId, userId);
+    const role = await this.communitiesRepository.findMemberRole(
+      communityId,
+      userId,
+    );
 
-    if (!role) throw new NotFoundException('You are not a member of this community');
+    if (!role)
+      throw new NotFoundException("You are not a member of this community");
     if (role === CommunityRole.OWNER) {
-      throw new BadRequestException('Community Owner cannot leave without transferring ownership first.');
+      throw new BadRequestException(
+        "Community Owner cannot leave without transferring ownership first.",
+      );
     }
 
     await this.communitiesRepository.removeMember(communityId, userId);
-    return { success: true, message: 'Left community successfully' };
+    return { success: true, message: "Left community successfully" };
   }
 
   async getPendingRequests(userId: string, communityId: string) {
-    const role = await this.communitiesRepository.findMemberRole(communityId, userId);
+    const role = await this.communitiesRepository.findMemberRole(
+      communityId,
+      userId,
+    );
 
     if (role !== CommunityRole.OWNER && role !== CommunityRole.MODERATOR) {
-      throw new ForbiddenException('Only Community Owner or Moderators can view join requests');
+      throw new ForbiddenException(
+        "Only Community Owner or Moderators can view join requests",
+      );
     }
 
     return this.prisma.communityJoinRequest.findMany({
@@ -277,11 +361,18 @@ export class CommunitiesService {
           select: {
             id: true,
             email: true,
-            profile: { select: { name: true, username: true, avatarUrl: true, department: true } },
+            profile: {
+              select: {
+                name: true,
+                username: true,
+                avatarUrl: true,
+                department: true,
+              },
+            },
           },
         },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
     });
   }
 
@@ -290,11 +381,16 @@ export class CommunitiesService {
       where: { id: requestId },
     });
 
-    if (!request) throw new NotFoundException('Join request not found');
+    if (!request) throw new NotFoundException("Join request not found");
 
-    const role = await this.communitiesRepository.findMemberRole(request.communityId, userId);
+    const role = await this.communitiesRepository.findMemberRole(
+      request.communityId,
+      userId,
+    );
     if (role !== CommunityRole.OWNER && role !== CommunityRole.MODERATOR) {
-      throw new ForbiddenException('Only Owner or Moderator can accept requests');
+      throw new ForbiddenException(
+        "Only Owner or Moderator can accept requests",
+      );
     }
 
     await this.prisma.$transaction([
@@ -315,7 +411,7 @@ export class CommunitiesService {
       }),
     ]);
 
-    return { success: true, message: 'Join request accepted' };
+    return { success: true, message: "Join request accepted" };
   }
 
   async rejectJoinRequest(userId: string, requestId: string) {
@@ -323,11 +419,16 @@ export class CommunitiesService {
       where: { id: requestId },
     });
 
-    if (!request) throw new NotFoundException('Join request not found');
+    if (!request) throw new NotFoundException("Join request not found");
 
-    const role = await this.communitiesRepository.findMemberRole(request.communityId, userId);
+    const role = await this.communitiesRepository.findMemberRole(
+      request.communityId,
+      userId,
+    );
     if (role !== CommunityRole.OWNER && role !== CommunityRole.MODERATOR) {
-      throw new ForbiddenException('Only Owner or Moderator can reject requests');
+      throw new ForbiddenException(
+        "Only Owner or Moderator can reject requests",
+      );
     }
 
     await this.prisma.communityJoinRequest.update({
@@ -335,33 +436,77 @@ export class CommunitiesService {
       data: { status: RequestStatus.REJECTED },
     });
 
-    return { success: true, message: 'Join request rejected' };
+    return { success: true, message: "Join request rejected" };
   }
 
   // --- ROLES & MODERATION ---
 
-  async assignModerator(ownerId: string, communityId: string, targetUserId: string) {
-    const role = await this.communitiesRepository.findMemberRole(communityId, ownerId);
-    if (role !== CommunityRole.OWNER) throw new ForbiddenException('Only Community Owner can assign moderators');
+  async assignModerator(
+    ownerId: string,
+    communityId: string,
+    targetUserId: string,
+  ) {
+    const role = await this.communitiesRepository.findMemberRole(
+      communityId,
+      ownerId,
+    );
+    if (role !== CommunityRole.OWNER)
+      throw new ForbiddenException(
+        "Only Community Owner can assign moderators",
+      );
 
-    await this.communitiesRepository.updateMemberRole(communityId, targetUserId, CommunityRole.MODERATOR);
-    return { success: true, message: 'User promoted to Community Moderator' };
+    await this.communitiesRepository.updateMemberRole(
+      communityId,
+      targetUserId,
+      CommunityRole.MODERATOR,
+    );
+    return { success: true, message: "User promoted to Community Moderator" };
   }
 
-  async removeModerator(ownerId: string, communityId: string, targetUserId: string) {
-    const role = await this.communitiesRepository.findMemberRole(communityId, ownerId);
-    if (role !== CommunityRole.OWNER) throw new ForbiddenException('Only Community Owner can remove moderators');
+  async removeModerator(
+    ownerId: string,
+    communityId: string,
+    targetUserId: string,
+  ) {
+    const role = await this.communitiesRepository.findMemberRole(
+      communityId,
+      ownerId,
+    );
+    if (role !== CommunityRole.OWNER)
+      throw new ForbiddenException(
+        "Only Community Owner can remove moderators",
+      );
 
-    await this.communitiesRepository.updateMemberRole(communityId, targetUserId, CommunityRole.MEMBER);
-    return { success: true, message: 'User demoted to Community Member' };
+    await this.communitiesRepository.updateMemberRole(
+      communityId,
+      targetUserId,
+      CommunityRole.MEMBER,
+    );
+    return { success: true, message: "User demoted to Community Member" };
   }
 
-  async transferOwnership(ownerId: string, communityId: string, dto: TransferOwnershipDto) {
-    const role = await this.communitiesRepository.findMemberRole(communityId, ownerId);
-    if (role !== CommunityRole.OWNER) throw new ForbiddenException('Only Community Owner can transfer ownership');
+  async transferOwnership(
+    ownerId: string,
+    communityId: string,
+    dto: TransferOwnershipDto,
+  ) {
+    const role = await this.communitiesRepository.findMemberRole(
+      communityId,
+      ownerId,
+    );
+    if (role !== CommunityRole.OWNER)
+      throw new ForbiddenException(
+        "Only Community Owner can transfer ownership",
+      );
 
-    const targetRole = await this.communitiesRepository.findMemberRole(communityId, dto.targetUserId);
-    if (!targetRole) throw new BadRequestException('Target user must be a member of the community first.');
+    const targetRole = await this.communitiesRepository.findMemberRole(
+      communityId,
+      dto.targetUserId,
+    );
+    if (!targetRole)
+      throw new BadRequestException(
+        "Target user must be a member of the community first.",
+      );
 
     await this.prisma.$transaction([
       this.prisma.communityMember.update({
@@ -369,7 +514,9 @@ export class CommunitiesService {
         data: { role: CommunityRole.MODERATOR },
       }),
       this.prisma.communityMember.update({
-        where: { communityId_userId: { communityId, userId: dto.targetUserId } },
+        where: {
+          communityId_userId: { communityId, userId: dto.targetUserId },
+        },
         data: { role: CommunityRole.OWNER },
       }),
       this.prisma.community.update({
@@ -378,16 +525,27 @@ export class CommunitiesService {
       }),
     ]);
 
-    return { success: true, message: 'Community ownership transferred successfully' };
+    return {
+      success: true,
+      message: "Community ownership transferred successfully",
+    };
   }
 
   // --- COMMUNITY FEED REUSE ---
 
-  async getCommunityFeed(communityId: string, dto: CursorPaginationQueryDto) {
+  async getCommunityFeed(
+    communityId: string,
+    dto: CursorPaginationQueryDto,
+    viewerId?: string,
+  ) {
+    const role = viewerId
+      ? await this.communitiesRepository.findMemberRole(communityId, viewerId)
+      : null;
     const limit = dto.limit || 10;
     const where: Record<string, unknown> = {
       communityId,
       deletedAt: null,
+      visibility: role ? { not: "PRIVATE_DRAFT" } : "PUBLIC_CAMPUS",
     };
 
     if (dto.cursor) {
@@ -403,13 +561,15 @@ export class CommunitiesService {
     const items = await this.prisma.post.findMany({
       where,
       take: limit + 1,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
       include: {
         author: {
           select: {
             id: true,
             email: true,
-            profile: { select: { name: true, username: true, avatarUrl: true } },
+            profile: {
+              select: { name: true, username: true, avatarUrl: true },
+            },
           },
         },
         media: true,
@@ -419,16 +579,32 @@ export class CommunitiesService {
     const hasMore = items.length > limit;
     if (hasMore) items.pop();
 
-    const nextCursor = hasMore && items.length > 0 ? items[items.length - 1].id : null;
+    const nextCursor =
+      hasMore && items.length > 0 ? items[items.length - 1].id : null;
 
-    return { items, nextCursor, hasMore };
+    const likes = viewerId
+      ? await this.prisma.like.findMany({
+          where: { userId: viewerId, postId: { in: items.map((p) => p.id) } },
+          select: { postId: true },
+        })
+      : [];
+    return {
+      items: items.map((p) => ({
+        ...p,
+        isLiked: likes.some((l) => l.postId === p.id),
+      })),
+      nextCursor,
+      hasMore,
+    };
   }
 
   private async getCommunityStatistics(communityId: string) {
     const [memberCount, postCount, pendingRequestCount] = await Promise.all([
       this.prisma.communityMember.count({ where: { communityId } }),
       this.prisma.post.count({ where: { communityId, deletedAt: null } }),
-      this.prisma.communityJoinRequest.count({ where: { communityId, status: RequestStatus.PENDING } }),
+      this.prisma.communityJoinRequest.count({
+        where: { communityId, status: RequestStatus.PENDING },
+      }),
     ]);
 
     return {

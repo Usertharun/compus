@@ -52,7 +52,7 @@ export interface HackathonItem {
   dates: string;
   prizePool: string;
   location: string;
-  teamStatus: "Looking for Team" | "Teams Full" | "Solo Allowed";
+  teamStatus: string;
   image: string;
   tags: string[];
   isRegistered?: boolean;

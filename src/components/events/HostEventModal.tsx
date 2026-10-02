@@ -1,187 +1,144 @@
+import { useDialogAccessibility } from "@/hooks/useDialogAccessibility";
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { X, Calendar, MapPin, Clock, Tag, Sparkles } from "lucide-react";
+import { X, Calendar } from "lucide-react";
 import { useApp } from "@/context/AppContext";
-
-interface HostEventModalProps {
+import { useToast } from "@/context/ToastContext";
+export function HostEventModal({
+  isOpen,
+  onClose,
+}: {
   isOpen: boolean;
   onClose: () => void;
-}
-
-export function HostEventModal({ isOpen, onClose }: HostEventModalProps) {
+}) {
   const { user, addEvent } = useApp();
-  const [title, setTitle] = useState("");
-  const [date, setDate] = useState("");
-  const [time, setTime] = useState("");
-  const [location, setLocation] = useState("");
-  const [category, setCategory] = useState("Hackathon");
-  const [description, setDescription] = useState("");
-  const [isSuccess, setIsSuccess] = useState(false);
-
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  useDialogAccessibility(isOpen, () => {
+    if (!busy) onClose();
+  });
   if (!isOpen) return null;
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title.trim() || !date.trim()) return;
-
-    addEvent({
-      title: title.trim(),
-      date: date.trim(),
-      time: time.trim() || "6:00 PM - 8:00 PM",
-      venue: location.trim() || "Main Campus Auditorium",
-      host: user.name,
-      category,
-      image: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=600&auto=format&fit=crop&q=80",
-    });
-
-    setIsSuccess(true);
-    setTimeout(() => {
-      setIsSuccess(false);
-      setTitle("");
-      setDate("");
-      setTime("");
-      setLocation("");
-      setDescription("");
-      onClose();
-    }, 1200);
-  };
-
+  const field =
+    "w-full mt-1 rounded-xl border border-border bg-secondary/30 px-3 py-2.5 text-sm";
   return (
-    <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 15 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 15 }}
-          onClick={(e) => e.stopPropagation()}
-          className="w-full max-w-lg rounded-3xl glass-panel p-6 shadow-2xl space-y-5"
+    <div
+      className="fixed inset-0 z-[110] bg-black/60 backdrop-blur-sm p-4 flex items-center justify-center"
+      onClick={() => !busy && onClose()}
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="event-title"
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-lg max-h-[90dvh] overflow-y-auto rounded-3xl border border-border bg-card p-6 shadow-2xl"
+      >
+        <header className="flex items-center justify-between mb-5">
+          <h2 id="event-title" className="font-bold flex gap-2">
+            <Calendar className="w-5 h-5" />
+            Host a campus event
+          </h2>
+          <button aria-label="Close" disabled={busy} onClick={onClose}>
+            <X />
+          </button>
+        </header>
+        <form
+          className="space-y-4"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (busy) return;
+            const f = new FormData(e.currentTarget);
+            const start = new Date(String(f.get("start")));
+            const end = new Date(String(f.get("end")));
+            if (start <= new Date() || end <= start) {
+              toast.error(
+                "Choose a future start time and an end time after it.",
+              );
+              return;
+            }
+            setBusy(true);
+            const saved = await addEvent({
+              title: String(f.get("title")).trim(),
+              description: String(f.get("description")).trim(),
+              date: start.toISOString(),
+              startTime: start.toISOString(),
+              endTime: end.toISOString(),
+              venue: String(f.get("venue")).trim(),
+              category: String(f.get("category")),
+              host: user.name,
+            });
+            setBusy(false);
+            if (saved) {
+              toast.success("Event published. Registration is open.");
+              onClose();
+            }
+          }}
         >
-          {/* Header */}
-          <div className="flex items-center justify-between border-b border-border/50 pb-3">
-            <h3 className="font-extrabold text-lg text-foreground flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-indigo-500" />
-              Host a Campus Event
-            </h3>
-            <button onClick={onClose} className="p-1.5 rounded-full hover:bg-accent text-muted-foreground transition-colors cursor-pointer">
-              <X className="w-5 h-5" />
-            </button>
+          <label className="block text-sm">
+            Event title
+            <input
+              autoFocus
+              name="title"
+              required
+              maxLength={200}
+              className={field}
+            />
+          </label>
+          <div className="grid sm:grid-cols-2 gap-3">
+            <label className="text-sm">
+              Starts (local time)
+              <input
+                name="start"
+                type="datetime-local"
+                required
+                className={field}
+              />
+            </label>
+            <label className="text-sm">
+              Ends (local time)
+              <input
+                name="end"
+                type="datetime-local"
+                required
+                className={field}
+              />
+            </label>
           </div>
-
-          {isSuccess ? (
-            <div className="py-8 text-center space-y-3">
-              <div className="w-14 h-14 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center mx-auto">
-                <Sparkles className="w-7 h-7" />
-              </div>
-              <h4 className="font-bold text-xl text-foreground">Event Published Live!</h4>
-              <p className="text-xs text-muted-foreground max-w-xs mx-auto">
-                Your event <span className="font-semibold text-foreground">"{title}"</span> is now listed on the Campus Events board.
-              </p>
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-muted-foreground px-1">Event Title</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. AI Innovation Sprint & Hackathon"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl text-sm bg-secondary/30 border border-border/50 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-muted-foreground px-1">Date</label>
-                  <div className="relative flex items-center">
-                    <Calendar className="w-4 h-4 absolute left-3 text-muted-foreground pointer-events-none" />
-                    <input
-                      type="date"
-                      required
-                      value={date}
-                      onChange={(e) => setDate(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2.5 rounded-xl text-xs bg-secondary/30 border border-border/50 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-muted-foreground px-1">Time</label>
-                  <div className="relative flex items-center">
-                    <Clock className="w-4 h-4 absolute left-3 text-muted-foreground pointer-events-none" />
-                    <input
-                      type="text"
-                      placeholder="e.g. 5:00 PM - 8:00 PM"
-                      value={time}
-                      onChange={(e) => setTime(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2.5 rounded-xl text-xs bg-secondary/30 border border-border/50 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-muted-foreground px-1">Location</label>
-                  <div className="relative flex items-center">
-                    <MapPin className="w-4 h-4 absolute left-3 text-muted-foreground pointer-events-none" />
-                    <input
-                      type="text"
-                      placeholder="e.g. Huang Engineering Center"
-                      value={location}
-                      onChange={(e) => setLocation(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2.5 rounded-xl text-xs bg-secondary/30 border border-border/50 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-muted-foreground px-1">Category</label>
-                  <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl text-xs bg-secondary/30 border border-border/50 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                  >
-                    <option value="Hackathon">Hackathon</option>
-                    <option value="Workshop">Workshop</option>
-                    <option value="Social">Social</option>
-                    <option value="Career">Career Fair</option>
-                    <option value="Guest Speaker">Guest Speaker</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-muted-foreground px-1">Description</label>
-                <textarea
-                  rows={3}
-                  placeholder="What is this event about? Who should attend?"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl text-xs bg-secondary/30 border border-border/50 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none"
-                />
-              </div>
-
-              <div className="pt-2 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-muted-foreground hover:bg-secondary transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-6 py-2.5 rounded-xl bg-primary text-primary-foreground font-bold text-xs shadow-md hover:opacity-90 transition-all cursor-pointer"
-                >
-                  Publish Event
-                </button>
-              </div>
-            </form>
-          )}
-        </motion.div>
-      </div>
-    </AnimatePresence>
+          <label className="block text-sm">
+            Venue or meeting link
+            <input name="venue" required maxLength={300} className={field} />
+          </label>
+          <label className="block text-sm">
+            Category
+            <select name="category" className={field}>
+              {[
+                "Hackathon",
+                "Workshop",
+                "Social",
+                "Career",
+                "Guest Speaker",
+                "Sports",
+              ].map((c) => (
+                <option key={c}>{c}</option>
+              ))}
+            </select>
+          </label>
+          <label className="block text-sm">
+            Description
+            <textarea
+              name="description"
+              required
+              rows={4}
+              maxLength={10000}
+              className={field}
+            />
+          </label>
+          <button
+            disabled={busy}
+            className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-bold disabled:opacity-50"
+          >
+            {busy ? "Publishing…" : "Publish event"}
+          </button>
+        </form>
+      </section>
+    </div>
   );
 }

@@ -1,7 +1,7 @@
-import { useState } from "react";
+
 import { DiscoverOpportunity } from "./types";
-import { DISCOVER_OPPORTUNITIES } from "@/data/discoverMockData";
-import { Briefcase, Calendar, ExternalLink, Bookmark, Check } from "lucide-react";
+import { useDiscoveryData } from "@/hooks/useDiscoveryData";
+import { Briefcase, Calendar, ExternalLink, Bookmark } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -10,18 +10,25 @@ interface OpportunitiesGridProps {
   selectedSkill?: string | null;
 }
 
-export function OpportunitiesGrid({ onCardClick, selectedSkill }: OpportunitiesGridProps) {
-  const [opportunities, setOpportunities] = useState<DiscoverOpportunity[]>(DISCOVER_OPPORTUNITIES);
+export function OpportunitiesGrid({
+  onCardClick,
+  selectedSkill,
+}: OpportunitiesGridProps) {
+  const { DISCOVER_OPPORTUNITIES, toggleSaveOpportunity } = useDiscoveryData();
+  const opportunities = DISCOVER_OPPORTUNITIES;
 
   const toggleSave = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setOpportunities((prev) =>
-      prev.map((o) => (o.id === id ? { ...o, isSaved: !o.isSaved } : o))
-    );
+    void toggleSaveOpportunity(id);
   };
 
   const filtered = selectedSkill
-    ? opportunities.filter((o) => o.tags.some((t) => t.toLowerCase().includes(selectedSkill.toLowerCase())) || o.title.toLowerCase().includes(selectedSkill.toLowerCase()))
+    ? opportunities.filter(
+        (o) =>
+          o.tags.some((t) =>
+            t.toLowerCase().includes(selectedSkill.toLowerCase()),
+          ) || o.title.toLowerCase().includes(selectedSkill.toLowerCase()),
+      )
     : opportunities;
 
   if (filtered.length === 0) return null;
@@ -34,7 +41,9 @@ export function OpportunitiesGrid({ onCardClick, selectedSkill }: OpportunitiesG
             <Briefcase className="w-5 h-5 text-indigo-500" />
             Campus Fellowships & Grants
           </h2>
-          <p className="text-xs text-muted-foreground">Paid research roles, student VC funds & technical workshops</p>
+          <p className="text-xs text-muted-foreground">
+            Paid research roles, student VC funds & technical workshops
+          </p>
         </div>
       </div>
 
@@ -52,7 +61,7 @@ export function OpportunitiesGrid({ onCardClick, selectedSkill }: OpportunitiesG
               className={cn(
                 "p-5 rounded-2xl bg-card border border-border/70 shadow-xs space-y-3 group",
                 "hover:-translate-y-1 hover:shadow-xl hover:shadow-indigo-500/5 hover:border-border",
-                "transition-all duration-300 cursor-pointer flex flex-col justify-between"
+                "transition-all duration-300 cursor-pointer flex flex-col justify-between",
               )}
             >
               <div className="space-y-2">
@@ -64,7 +73,12 @@ export function OpportunitiesGrid({ onCardClick, selectedSkill }: OpportunitiesG
                     onClick={(e) => toggleSave(opp.id, e)}
                     className="text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-accent transition-colors"
                   >
-                    <Bookmark className={cn("w-4 h-4", opp.isSaved && "fill-indigo-500 text-indigo-500")} />
+                    <Bookmark
+                      className={cn(
+                        "w-4 h-4",
+                        opp.isSaved && "fill-indigo-500 text-indigo-500",
+                      )}
+                    />
                   </button>
                 </div>
 
@@ -72,7 +86,9 @@ export function OpportunitiesGrid({ onCardClick, selectedSkill }: OpportunitiesG
                   <h3 className="font-bold text-sm text-foreground group-hover:text-primary transition-colors line-clamp-1">
                     {opp.title}
                   </h3>
-                  <p className="text-xs text-muted-foreground">{opp.organization}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {opp.organization}
+                  </p>
                 </div>
 
                 <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">

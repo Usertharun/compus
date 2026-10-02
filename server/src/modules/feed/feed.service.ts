@@ -3,9 +3,11 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
-} from '@nestjs/common';
-import { PrismaService } from '@database/prisma.service';
-import { FeedRepository } from './repositories/feed.repository';
+  Optional,
+} from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
+import { PrismaService } from "@database/prisma.service";
+import { FeedRepository } from "./repositories/feed.repository";
 import {
   AddCommentDto,
   CreatePostDto,
@@ -13,8 +15,8 @@ import {
   EditCommentDto,
   ReportPostDto,
   UpdatePostDto,
-} from './dto/feed.dto';
-import { AppLoggerService } from '@logger/logger.service';
+} from "./dto/feed.dto";
+import { AppLoggerService } from "@logger/logger.service";
 
 @Injectable()
 export class FeedService {
@@ -22,33 +24,49 @@ export class FeedService {
     private readonly feedRepository: FeedRepository,
     private readonly prisma: PrismaService,
     private readonly logger: AppLoggerService,
+    @Optional() private readonly eventEmitter?: EventEmitter2,
   ) {}
 
   async createPost(userId: string, dto: CreatePostDto) {
+    if (dto.visibility === "COMMUNITY_ONLY" && !dto.communityId)
+      throw new BadRequestException(
+        "A community is required for community-only posts.",
+      );
+    if (dto.communityId) {
+      const membership = await this.prisma.communityMember.findUnique({
+        where: { communityId_userId: { communityId: dto.communityId, userId } },
+      });
+      if (!membership)
+        throw new ForbiddenException("Join this community before posting.");
+    }
     if (!dto.content || dto.content.trim().length === 0) {
-      throw new BadRequestException('Post content cannot be empty');
+      throw new BadRequestException("Post content cannot be empty");
     }
 
     const post = await this.prisma.post.create({
       data: {
         authorId: userId,
+        communityId: dto.communityId,
         title: dto.title,
         content: dto.content,
-        category: dto.category || 'GENERAL',
-        visibility: dto.visibility || 'PUBLIC_CAMPUS',
+        category: dto.category || "GENERAL",
+        visibility:
+          dto.visibility ||
+          (dto.communityId ? "COMMUNITY_ONLY" : "PUBLIC_CAMPUS"),
         tags: dto.tags || [],
-        media: dto.media && dto.media.length > 0
-          ? {
-              create: dto.media.map((m) => ({
-                url: m.url,
-                type: m.type,
-                fileName: m.fileName,
-                fileSize: m.fileSize,
-                mimeType: m.mimeType,
-                caption: m.caption,
-              })),
-            }
-          : undefined,
+        media:
+          dto.media && dto.media.length > 0
+            ? {
+                create: dto.media.map((m) => ({
+                  url: m.url,
+                  type: m.type,
+                  fileName: m.fileName,
+                  fileSize: m.fileSize,
+                  mimeType: m.mimeType,
+                  caption: m.caption,
+                })),
+              }
+            : undefined,
       },
     });
 
@@ -58,7 +76,10 @@ export class FeedService {
       this.processMentions(post.id, dto.content),
     ]);
 
-    this.logger.log(`Created new post: ${post.id} by author: ${userId}`, 'FeedService');
+    this.logger.log(
+      `Created new post: ${post.id} by author: ${userId}`,
+      "FeedService",
+    );
 
     return this.feedRepository.findPostById(post.id);
   }
@@ -68,6 +89,24 @@ export class FeedService {
 
     if (!post) {
       throw new NotFoundException(`Post with ID '${postId}' was not found`);
+    }
+
+    if (post.visibility === "PRIVATE_DRAFT" && post.authorId !== viewerId)
+      throw new ForbiddenException("This post is private.");
+    if (post.visibility === "COMMUNITY_ONLY" && post.authorId !== viewerId) {
+      const membership =
+        viewerId && post.communityId
+          ? await this.prisma.communityMember.findUnique({
+              where: {
+                communityId_userId: {
+                  communityId: post.communityId,
+                  userId: viewerId,
+                },
+              },
+            })
+          : null;
+      if (!membership)
+        throw new ForbiddenException("Join this community to view this post.");
     }
 
     // Increment view count
@@ -88,7 +127,7 @@ export class FeedService {
           where: {
             userId_targetType_targetId: {
               userId: viewerId,
-              targetType: 'POST',
+              targetType: "POST",
               targetId: postId,
             },
           },
@@ -116,7 +155,7 @@ export class FeedService {
     }
 
     if (post.authorId !== userId) {
-      throw new ForbiddenException('You are not authorized to edit this post');
+      throw new ForbiddenException("You are not authorized to edit this post");
     }
 
     const updated = await this.prisma.post.update({
@@ -146,8 +185,10 @@ export class FeedService {
       throw new NotFoundException(`Post '${postId}' was not found`);
     }
 
-    if (post.authorId !== userId && userRole !== 'SUPER_ADMIN') {
-      throw new ForbiddenException('You are not authorized to delete this post');
+    if (post.authorId !== userId && userRole !== "SUPER_ADMIN") {
+      throw new ForbiddenException(
+        "You are not authorized to delete this post",
+      );
     }
 
     await this.prisma.post.update({
@@ -155,15 +196,35 @@ export class FeedService {
       data: { deletedAt: new Date() },
     });
 
-    this.logger.log(`Soft deleted post: ${postId}`, 'FeedService');
+    this.logger.log(`Soft deleted post: ${postId}`, "FeedService");
 
-    return { message: 'Post deleted successfully' };
+    return { message: "Post deleted successfully" };
   }
 
   // --- FEEDS ---
 
-  async getLatestFeed(dto: CursorPaginationQueryDto) {
-    return this.feedRepository.findLatestFeed(dto);
+  async getLatestFeed(dto: CursorPaginationQueryDto, viewerId?: string) {
+    const page = await this.feedRepository.findLatestFeed(dto);
+    if (!viewerId) return page;
+    const ids = page.items.map((p) => p.id as string);
+    const [likes, bookmarks] = await Promise.all([
+      this.prisma.like.findMany({
+        where: { userId: viewerId, postId: { in: ids } },
+        select: { postId: true },
+      }),
+      this.prisma.bookmark.findMany({
+        where: { userId: viewerId, targetType: "POST", targetId: { in: ids } },
+        select: { targetId: true },
+      }),
+    ]);
+    return {
+      ...page,
+      items: page.items.map((p) => ({
+        ...p,
+        isLiked: likes.some((l) => l.postId === p.id),
+        isBookmarked: bookmarks.some((b) => b.targetId === p.id),
+      })),
+    };
   }
 
   async getHomeFeed(dto: CursorPaginationQueryDto) {
@@ -185,35 +246,46 @@ export class FeedService {
   // --- LIKES & BOOKMARKS ---
 
   async likePost(postId: string, userId: string) {
+    await this.assertPostAccess(postId, userId);
     const post = await this.prisma.post.findFirst({
       where: { id: postId, deletedAt: null },
     });
 
-    if (!post) throw new NotFoundException('Post not found');
+    if (!post) throw new NotFoundException("Post not found");
 
-    await this.feedRepository.likePost(postId, userId);
-    return { success: true, message: 'Liked post' };
+    const like = await this.feedRepository.likePost(postId, userId);
+    if (like.created && post.authorId !== userId)
+      this.eventEmitter?.emit("notification.publish", {
+        userId: post.authorId,
+        type: "POST_LIKE",
+        title: "Your post received a like",
+        body: post.content.slice(0, 100),
+        category: "FEED",
+        link: "/campus#" + postId,
+      });
+    return { success: true, message: "Liked post" };
   }
 
   async unlikePost(postId: string, userId: string) {
     await this.feedRepository.unlikePost(postId, userId);
-    return { success: true, message: 'Unliked post' };
+    return { success: true, message: "Unliked post" };
   }
 
   async bookmarkPost(postId: string, userId: string) {
+    await this.assertPostAccess(postId, userId);
     const post = await this.prisma.post.findFirst({
       where: { id: postId, deletedAt: null },
     });
 
-    if (!post) throw new NotFoundException('Post not found');
+    if (!post) throw new NotFoundException("Post not found");
 
     await this.feedRepository.addBookmark(postId, userId);
-    return { success: true, message: 'Post saved to bookmarks' };
+    return { success: true, message: "Post saved to bookmarks" };
   }
 
   async removeBookmark(postId: string, userId: string) {
     await this.feedRepository.removeBookmark(postId, userId);
-    return { success: true, message: 'Removed post from bookmarks' };
+    return { success: true, message: "Removed post from bookmarks" };
   }
 
   async getUserBookmarks(userId: string, dto: CursorPaginationQueryDto) {
@@ -223,20 +295,22 @@ export class FeedService {
   // --- COMMENTS & REPLIES ---
 
   async addComment(postId: string, userId: string, dto: AddCommentDto) {
+    await this.assertPostAccess(postId, userId);
     const post = await this.prisma.post.findFirst({
       where: { id: postId, deletedAt: null },
     });
 
-    if (!post) throw new NotFoundException('Post not found');
+    if (!post) throw new NotFoundException("Post not found");
 
     if (dto.parentId) {
       const parentComment = await this.prisma.comment.findFirst({
         where: { id: dto.parentId, postId, deletedAt: null },
       });
-      if (!parentComment) throw new NotFoundException('Parent comment not found');
+      if (!parentComment)
+        throw new NotFoundException("Parent comment not found");
     }
 
-    const [comment] = await Promise.all([
+    const [comment] = await this.prisma.$transaction([
       this.prisma.comment.create({
         data: {
           postId,
@@ -248,7 +322,9 @@ export class FeedService {
           author: {
             select: {
               id: true,
-              profile: { select: { name: true, username: true, avatarUrl: true } },
+              profile: {
+                select: { name: true, username: true, avatarUrl: true },
+              },
             },
           },
         },
@@ -259,6 +335,15 @@ export class FeedService {
       }),
     ]);
 
+    if (post.authorId !== userId)
+      this.eventEmitter?.emit("notification.publish", {
+        userId: post.authorId,
+        type: "POST_COMMENT",
+        title: "New comment on your post",
+        body: dto.content.slice(0, 100),
+        category: "FEED",
+        link: "/campus#" + postId,
+      });
     return comment;
   }
 
@@ -267,8 +352,9 @@ export class FeedService {
       where: { id: commentId, deletedAt: null },
     });
 
-    if (!comment) throw new NotFoundException('Comment not found');
-    if (comment.authorId !== userId) throw new ForbiddenException('Cannot edit comment');
+    if (!comment) throw new NotFoundException("Comment not found");
+    if (comment.authorId !== userId)
+      throw new ForbiddenException("Cannot edit comment");
 
     return this.prisma.comment.update({
       where: { id: commentId },
@@ -281,8 +367,9 @@ export class FeedService {
       where: { id: commentId, deletedAt: null },
     });
 
-    if (!comment) throw new NotFoundException('Comment not found');
-    if (comment.authorId !== userId) throw new ForbiddenException('Cannot delete comment');
+    if (!comment) throw new NotFoundException("Comment not found");
+    if (comment.authorId !== userId)
+      throw new ForbiddenException("Cannot delete comment");
 
     await Promise.all([
       this.prisma.comment.update({
@@ -295,7 +382,7 @@ export class FeedService {
       }),
     ]);
 
-    return { message: 'Comment deleted successfully' };
+    return { message: "Comment deleted successfully" };
   }
 
   // --- HASHTAGS & MENTIONS ---
@@ -304,14 +391,14 @@ export class FeedService {
     return this.prisma.hashtag.findMany({
       where: { tag: { contains: query.toLowerCase() } },
       take: 10,
-      orderBy: { postCount: 'desc' },
+      orderBy: { postCount: "desc" },
     });
   }
 
   async getTrendingHashtags() {
     return this.prisma.hashtag.findMany({
       take: 10,
-      orderBy: { postCount: 'desc' },
+      orderBy: { postCount: "desc" },
     });
   }
 
@@ -327,7 +414,7 @@ export class FeedService {
 
     const where: Record<string, unknown> = {
       hashtagId: hashtag.id,
-      post: { deletedAt: null, visibility: 'PUBLIC_CAMPUS' },
+      post: { deletedAt: null, visibility: "PUBLIC_CAMPUS" },
     };
 
     if (dto.cursor) {
@@ -337,7 +424,7 @@ export class FeedService {
     const postHashtags = await this.prisma.postHashtag.findMany({
       where,
       take: limit + 1,
-      orderBy: { id: 'desc' },
+      orderBy: { id: "desc" },
       include: {
         post: {
           include: {
@@ -345,7 +432,9 @@ export class FeedService {
               select: {
                 id: true,
                 email: true,
-                profile: { select: { name: true, username: true, avatarUrl: true } },
+                profile: {
+                  select: { name: true, username: true, avatarUrl: true },
+                },
               },
             },
             media: true,
@@ -358,7 +447,10 @@ export class FeedService {
     if (hasMore) postHashtags.pop();
 
     const items = postHashtags.map((ph) => ph.post);
-    const nextCursor = hasMore && postHashtags.length > 0 ? postHashtags[postHashtags.length - 1].id : null;
+    const nextCursor =
+      hasMore && postHashtags.length > 0
+        ? postHashtags[postHashtags.length - 1].id
+        : null;
 
     return { items, nextCursor, hasMore };
   }
@@ -370,7 +462,7 @@ export class FeedService {
       where: { id: postId, deletedAt: null },
     });
 
-    if (!post) throw new NotFoundException('Post not found');
+    if (!post) throw new NotFoundException("Post not found");
 
     const report = await this.prisma.postReport.create({
       data: {
@@ -381,14 +473,42 @@ export class FeedService {
       },
     });
 
-    this.logger.log(`Post ${postId} reported by user ${reporterId}`, 'FeedService');
+    this.logger.log(
+      `Post ${postId} reported by user ${reporterId}`,
+      "FeedService",
+    );
 
-    return { success: true, message: 'Report submitted for review', reportId: report.id };
+    return {
+      success: true,
+      message: "Report submitted for review",
+      reportId: report.id,
+    };
   }
 
   // --- PRIVATE HELPER METHODS ---
 
-  private async processHashtags(postId: string, content: string, extraTags: string[] = []) {
+  private async assertPostAccess(postId: string, userId: string) {
+    const post = await this.prisma.post.findFirst({
+      where: { id: postId, deletedAt: null },
+    });
+    if (!post) throw new NotFoundException("Post not found");
+    if (post.authorId === userId || post.visibility === "PUBLIC_CAMPUS") return;
+    if (post.visibility === "COMMUNITY_ONLY" && post.communityId) {
+      const member = await this.prisma.communityMember.findUnique({
+        where: {
+          communityId_userId: { communityId: post.communityId, userId },
+        },
+      });
+      if (member) return;
+    }
+    throw new ForbiddenException("You cannot access this post.");
+  }
+
+  private async processHashtags(
+    postId: string,
+    content: string,
+    extraTags: string[] = [],
+  ) {
     const regex = /#([a-zA-Z0-9_]+)/g;
     const extractedTags = new Set<string>();
 

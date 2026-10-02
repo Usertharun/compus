@@ -1,17 +1,8 @@
+import { apiRequest } from "@/services/api";
+import type { Preferences } from "@/services/models";
 import { useAuth } from "@/context/AuthContext";
-import { useState } from "react";
-import { 
-  User, 
-  Moon, 
-  Sun, 
-  Bell, 
-  ShieldCheck, 
-  Key, 
-  LogOut, 
-  Save, 
-  Laptop,
-  CheckCircle2
-} from "lucide-react";
+import { useState, useEffect } from "react";
+import { User, Moon, Sun, Bell, ShieldCheck, LogOut, Save, Laptop, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
@@ -27,21 +18,26 @@ const SETTINGS_TABS = [
 
 export default function Settings() {
   const navigate = useNavigate();
-  const { user, updateUser } = useApp();
-  const { logout } = useAuth();
+  const { user, profile, updateUser, refreshData } = useApp();
+  const { logout, user: account } = useAuth();
   const toast = useToast();
 
   const [activeTab, setActiveTab] = useState("account");
   const [isSaved, setIsSaved] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
 
   // Form states
-  const [name, setName] = useState(user.name || "Alex Rivera");
-  const [email, setEmail] = useState(user.email || "arivera@stanford.edu");
-  const [major, setMajor] = useState(user.major || "Computer Science");
-  const [bio, setBio] = useState(user.bio || "Building open-source tools and capstone projects.");
-  const [themeMode, setThemeMode] = useState<"light" | "dark" | "system">(() => {
-    return document.documentElement.classList.contains("dark") ? "dark" : "light";
-  });
+  const [name, setName] = useState(user.name);
+  const [email, setEmail] = useState(user.email);
+  const [major, setMajor] = useState(user.major);
+  const [bio, setBio] = useState(user.bio);
+  const [themeMode, setThemeMode] = useState<"light" | "dark" | "system">(
+    () => {
+      return document.documentElement.classList.contains("dark")
+        ? "dark"
+        : "light";
+    },
+  );
 
   // Toggles
   const [notifications, setNotifications] = useState({
@@ -58,7 +54,7 @@ export default function Settings() {
   });
 
   const handleThemeChange = (mode: "light" | "dark" | "system") => {
-    setThemeMode(mode as any);
+    setThemeMode(mode);
     if (mode === "dark") {
       document.documentElement.classList.add("dark");
       localStorage.setItem("theme", "dark");
@@ -76,19 +72,77 @@ export default function Settings() {
     toast.success(`Theme set to ${mode}`);
   };
 
-  const handleSave = () => {
-    updateUser({ name, email, major, bio });
+  useEffect(() => {
+    setName(user.name);
+    setEmail(user.email);
+    setMajor(user.major);
+    setBio(user.bio);
+    setPrivacy({
+      profilePublic: profile?.visibility !== "PRIVATE",
+      showLocation: profile?.showLocation !== false,
+      allowDirectMessages: profile?.allowDirectMessages !== false,
+    });
+  }, [profile]);
+  useEffect(() => {
+    void apiRequest<Preferences>("/notifications/preferences")
+      .then((p) =>
+        setNotifications({
+          dm: p.messages,
+          events: p.events,
+          communities: p.communities,
+          digest: p.opportunities,
+        }),
+      )
+      .catch((error) => toast.error(error.message));
+  }, []);
+  const handleSave = async () => {
+    if (activeTab === "account" && !(await updateUser({ name, major, bio })))
+      return;
+    try {
+      if (activeTab === "notifications")
+        await apiRequest("/notifications/preferences", "PATCH", {
+          messages: notifications.dm,
+          events: notifications.events,
+          communities: notifications.communities,
+          opportunities: notifications.digest,
+        });
+      if (activeTab === "security") {
+        await apiRequest("/profile/me", "PATCH", {
+          visibility: privacy.profilePublic ? "CAMPUS_ONLY" : "PRIVATE",
+          showLocation: privacy.showLocation,
+          allowDirectMessages: privacy.allowDirectMessages,
+        });
+        await refreshData();
+      }
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Settings could not be saved.",
+      );
+      return;
+    }
     setIsSaved(true);
     toast.success("Settings saved successfully!");
     setTimeout(() => setIsSaved(false), 2000);
   };
 
   const handleLogout = async () => {
-    try { await logout(); } catch { /* Local session is cleared even if the server is unavailable. */ }
+    try {
+      await logout();
+    } catch {
+      /* Local session is cleared even if the server is unavailable. */
+    }
   };
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto pb-12">
+      {account?.role === "SUPER_ADMIN" && (
+        <button
+          onClick={() => navigate("/admin")}
+          className="rounded-xl bg-primary/10 text-primary px-4 py-3 font-semibold text-sm"
+        >
+          Open owner tools: feedback & reports
+        </button>
+      )}
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -120,7 +174,9 @@ export default function Settings() {
               onClick={() => setActiveTab(tab.id)}
               className={cn(
                 "relative flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-colors whitespace-nowrap cursor-pointer z-10 flex-1 justify-center",
-                isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                isActive
+                  ? "text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
               )}
             >
               {isActive && (
@@ -148,11 +204,15 @@ export default function Settings() {
               exit={{ opacity: 0, y: -10 }}
               className="space-y-6"
             >
-              <h2 className="text-lg font-bold text-foreground">Profile Details</h2>
+              <h2 className="text-lg font-bold text-foreground">
+                Profile Details
+              </h2>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-muted-foreground px-1">Full Name</label>
+                  <label className="text-xs font-bold text-muted-foreground px-1">
+                    Full Name
+                  </label>
                   <input
                     type="text"
                     value={name}
@@ -161,18 +221,22 @@ export default function Settings() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-muted-foreground px-1">University Email</label>
+                  <label className="text-xs font-bold text-muted-foreground px-1">
+                    University Email
+                  </label>
                   <input
                     type="email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    readOnly
                     className="w-full px-4 py-3 rounded-xl bg-secondary/30 border border-border/50 text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-muted-foreground px-1">Major / Field of Study</label>
+                <label className="text-xs font-bold text-muted-foreground px-1">
+                  Major / Field of Study
+                </label>
                 <input
                   type="text"
                   value={major}
@@ -182,7 +246,9 @@ export default function Settings() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-muted-foreground px-1">Bio</label>
+                <label className="text-xs font-bold text-muted-foreground px-1">
+                  Bio
+                </label>
                 <textarea
                   rows={3}
                   value={bio}
@@ -201,7 +267,9 @@ export default function Settings() {
               exit={{ opacity: 0, y: -10 }}
               className="space-y-6"
             >
-              <h2 className="text-lg font-bold text-foreground">Theme Preference</h2>
+              <h2 className="text-lg font-bold text-foreground">
+                Theme Preference
+              </h2>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <button
@@ -210,11 +278,13 @@ export default function Settings() {
                     "p-5 rounded-2xl border text-center flex flex-col items-center gap-3 transition-all cursor-pointer",
                     themeMode === "light"
                       ? "bg-primary/10 border-primary/40 ring-1 ring-primary/20 shadow-sm"
-                      : "bg-secondary/20 border-border/50 hover:bg-secondary/40"
+                      : "bg-secondary/20 border-border/50 hover:bg-secondary/40",
                   )}
                 >
                   <Sun className="w-6 h-6 text-amber-500" />
-                  <span className="text-sm font-bold text-foreground">Light Mode</span>
+                  <span className="text-sm font-bold text-foreground">
+                    Light Mode
+                  </span>
                 </button>
 
                 <button
@@ -223,11 +293,13 @@ export default function Settings() {
                     "p-5 rounded-2xl border text-center flex flex-col items-center gap-3 transition-all cursor-pointer",
                     themeMode === "dark"
                       ? "bg-primary/10 border-primary/40 ring-1 ring-primary/20 shadow-sm"
-                      : "bg-secondary/20 border-border/50 hover:bg-secondary/40"
+                      : "bg-secondary/20 border-border/50 hover:bg-secondary/40",
                   )}
                 >
                   <Moon className="w-6 h-6 text-indigo-400" />
-                  <span className="text-sm font-bold text-foreground">Dark Mode</span>
+                  <span className="text-sm font-bold text-foreground">
+                    Dark Mode
+                  </span>
                 </button>
 
                 <button
@@ -236,11 +308,13 @@ export default function Settings() {
                     "p-5 rounded-2xl border text-center flex flex-col items-center gap-3 transition-all cursor-pointer",
                     themeMode === "system"
                       ? "bg-primary/10 border-primary/40 ring-1 ring-primary/20 shadow-sm"
-                      : "bg-secondary/20 border-border/50 hover:bg-secondary/40"
+                      : "bg-secondary/20 border-border/50 hover:bg-secondary/40",
                   )}
                 >
                   <Laptop className="w-6 h-6 text-muted-foreground" />
-                  <span className="text-sm font-bold text-foreground">System Auto</span>
+                  <span className="text-sm font-bold text-foreground">
+                    System Auto
+                  </span>
                 </button>
               </div>
             </motion.div>
@@ -254,27 +328,45 @@ export default function Settings() {
               exit={{ opacity: 0, y: -10 }}
               className="space-y-4"
             >
-              <h2 className="text-lg font-bold text-foreground mb-4">Notification Preferences</h2>
+              <h2 className="text-lg font-bold text-foreground mb-4">
+                Notification Preferences
+              </h2>
 
               {Object.entries({
                 dm: "Direct Message Notifications",
-                events: "Upcoming Event Reminders",
-                communities: "Community Post Updates",
-                digest: "Weekly Campus Digest Email",
+                events: "Event Notifications",
+                communities: "Community Notifications",
+                digest: "Opportunity Notifications",
               }).map(([key, label]) => (
-                <div key={key} className="flex items-center justify-between p-4 rounded-2xl bg-secondary/20 border border-border/40">
-                  <span className="text-sm font-semibold text-foreground">{label}</span>
+                <div
+                  key={key}
+                  className="flex items-center justify-between p-4 rounded-2xl bg-secondary/20 border border-border/40"
+                >
+                  <span className="text-sm font-semibold text-foreground">
+                    {label}
+                  </span>
                   <button
-                    onClick={() => setNotifications(prev => ({ ...prev, [key]: !prev[key as keyof typeof notifications] }))}
+                    onClick={() =>
+                      setNotifications((prev) => ({
+                        ...prev,
+                        [key]: !prev[key as keyof typeof notifications],
+                      }))
+                    }
                     className={cn(
                       "w-12 h-6 rounded-full transition-colors relative cursor-pointer",
-                      notifications[key as keyof typeof notifications] ? "bg-primary" : "bg-muted"
+                      notifications[key as keyof typeof notifications]
+                        ? "bg-primary"
+                        : "bg-muted",
                     )}
                   >
-                    <div className={cn(
-                      "w-5 h-5 rounded-full bg-white transition-transform absolute top-0.5",
-                      notifications[key as keyof typeof notifications] ? "left-6" : "left-1"
-                    )} />
+                    <div
+                      className={cn(
+                        "w-5 h-5 rounded-full bg-white transition-transform absolute top-0.5",
+                        notifications[key as keyof typeof notifications]
+                          ? "left-6"
+                          : "left-1",
+                      )}
+                    />
                   </button>
                 </div>
               ))}
@@ -289,26 +381,122 @@ export default function Settings() {
               exit={{ opacity: 0, y: -10 }}
               className="space-y-6"
             >
-              <h2 className="text-lg font-bold text-foreground">Privacy & Security</h2>
+              <h2 className="text-lg font-bold text-foreground">
+                Privacy & Security
+              </h2>
+              <details className="rounded-2xl border border-border p-4">
+                <summary className="text-sm font-semibold cursor-pointer">
+                  Change password
+                </summary>
+                <form
+                  className="space-y-3 mt-4"
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    if (changingPassword) return;
+                    const form = e.currentTarget;
+                    const f = new FormData(form);
+                    if (f.get("new") !== f.get("confirm")) {
+                      toast.error("New passwords do not match.");
+                      return;
+                    }
+                    setChangingPassword(true);
+                    try {
+                      await apiRequest("/auth/change-password", "POST", {
+                        currentPassword: f.get("current"),
+                        newPassword: f.get("new"),
+                      });
+                      form.reset();
+                      toast.success("Password changed.");
+                    } catch (e) {
+                      toast.error(
+                        e instanceof Error
+                          ? e.message
+                          : "Password change failed.",
+                      );
+                    } finally {
+                      setChangingPassword(false);
+                    }
+                  }}
+                >
+                  <label className="block text-sm">
+                    Current password
+                    <input
+                      name="current"
+                      type="password"
+                      autoComplete="current-password"
+                      required
+                      className="w-full rounded-xl border border-border bg-secondary/30 p-3 mt-1"
+                    />
+                  </label>
+                  <label className="block text-sm">
+                    New password
+                    <input
+                      name="new"
+                      type="password"
+                      autoComplete="new-password"
+                      minLength={8}
+                      required
+                      className="w-full rounded-xl border border-border bg-secondary/30 p-3 mt-1"
+                    />
+                  </label>
+                  <label className="block text-sm">
+                    Confirm new password
+                    <input
+                      name="confirm"
+                      type="password"
+                      autoComplete="new-password"
+                      minLength={8}
+                      required
+                      className="w-full rounded-xl border border-border bg-secondary/30 p-3 mt-1"
+                    />
+                  </label>
+                  <p className="text-xs text-muted-foreground">
+                    Use at least eight characters with uppercase, lowercase, a
+                    number, and a symbol.
+                  </p>
+                  <button
+                    disabled={changingPassword}
+                    className="rounded-xl bg-primary text-primary-foreground px-4 py-2 text-sm"
+                  >
+                    {changingPassword ? "Changing…" : "Change password"}
+                  </button>
+                </form>
+              </details>
 
               {Object.entries({
                 profilePublic: "Public Profile Visibility on Campus",
                 showLocation: "Display Study Location Status",
                 allowDirectMessages: "Allow Direct DMs from Students",
               }).map(([key, label]) => (
-                <div key={key} className="flex items-center justify-between p-4 rounded-2xl bg-secondary/20 border border-border/40">
-                  <span className="text-sm font-semibold text-foreground">{label}</span>
+                <div
+                  key={key}
+                  className="flex items-center justify-between p-4 rounded-2xl bg-secondary/20 border border-border/40"
+                >
+                  <span className="text-sm font-semibold text-foreground">
+                    {label}
+                  </span>
                   <button
-                    onClick={() => setPrivacy(prev => ({ ...prev, [key]: !prev[key as keyof typeof privacy] }))}
+                    onClick={() =>
+                      setPrivacy((prev) => ({
+                        ...prev,
+                        [key]: !prev[key as keyof typeof privacy],
+                      }))
+                    }
                     className={cn(
                       "w-12 h-6 rounded-full transition-colors relative cursor-pointer",
-                      privacy[key as keyof typeof privacy] ? "bg-primary" : "bg-muted"
+                      privacy[key as keyof typeof privacy]
+                        ? "bg-primary"
+                        : "bg-muted",
                     )}
                   >
-                    <div className={cn(
-                      "w-5 h-5 rounded-full bg-white transition-transform absolute top-0.5",
-                      privacy[key as keyof typeof privacy] ? "left-6" : "left-1"
-                    )} />
+                    <div
+                      className={cn(
+                        "w-5 h-5 rounded-full bg-white transition-transform absolute top-0.5",
+                        privacy[key as keyof typeof privacy]
+                          ? "left-6"
+                          : "left-1",
+                      )}
+                    />
                   </button>
                 </div>
               ))}

@@ -1,4 +1,4 @@
-import { IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, validateSync } from 'class-validator';
+import { IsEmail, IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, validateSync } from 'class-validator';
 import { plainToInstance } from 'class-transformer';
 
 export enum Environment {
@@ -8,6 +8,9 @@ export enum Environment {
 }
 
 export class EnvironmentVariables {
+  @IsOptional()
+  @IsEmail()
+  OWNER_EMAIL?: string;
   @IsEnum(Environment)
   @IsOptional()
   NODE_ENV: Environment = Environment.Development;

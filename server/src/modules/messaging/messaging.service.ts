@@ -3,9 +3,11 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
-} from '@nestjs/common';
-import { PrismaService } from '@database/prisma.service';
-import { MessagingRepository } from './repositories/messaging.repository';
+  Optional,
+} from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
+import { PrismaService } from "@database/prisma.service";
+import { MessagingRepository } from "./repositories/messaging.repository";
 import {
   AddReactionDto,
   CreateDirectConversationDto,
@@ -13,8 +15,8 @@ import {
   CursorMessageQueryDto,
   EditMessageDto,
   SendMessageDto,
-} from './dto/messaging.dto';
-import { AppLoggerService } from '@logger/logger.service';
+} from "./dto/messaging.dto";
+import { AppLoggerService } from "@logger/logger.service";
 
 @Injectable()
 export class MessagingService {
@@ -22,36 +24,95 @@ export class MessagingService {
     private readonly messagingRepository: MessagingRepository,
     private readonly prisma: PrismaService,
     private readonly logger: AppLoggerService,
+    @Optional() private readonly eventEmitter?: EventEmitter2,
   ) {}
 
-  async getOrCreateDirectConversation(userAId: string, dto: CreateDirectConversationDto) {
+  async getOrCreateDirectConversation(
+    userAId: string,
+    dto: CreateDirectConversationDto,
+  ) {
     if (userAId === dto.targetUserId) {
-      throw new BadRequestException('You cannot start a direct conversation with yourself.');
+      throw new BadRequestException(
+        "You cannot start a direct conversation with yourself.",
+      );
     }
 
     const targetUser = await this.prisma.user.findUnique({
       where: { id: dto.targetUserId },
     });
-    if (!targetUser || !targetUser.isActive) {
-      throw new NotFoundException('Target student user not found');
+    if (!targetUser || !targetUser.isActive || !targetUser.isVerified) {
+      throw new NotFoundException("Target student user not found");
     }
 
-    const existing = await this.messagingRepository.findDirectConversation(userAId, dto.targetUserId);
+    const privacy = await this.prisma.profile.findUnique({
+      where: { userId: dto.targetUserId },
+      select: { allowDirectMessages: true },
+    });
+    if (privacy?.allowDirectMessages === false)
+      throw new ForbiddenException(
+        "This student is not accepting direct messages.",
+      );
+
+    const existing = await this.messagingRepository.findDirectConversation(
+      userAId,
+      dto.targetUserId,
+    );
     if (existing) return existing;
 
-    const newConversation = await this.messagingRepository.createDirectConversation(userAId, dto.targetUserId);
-    this.logger.log(`Created direct conversation ${newConversation.id} between ${userAId} and ${dto.targetUserId}`, 'MessagingService');
+    const newConversation =
+      await this.messagingRepository.createDirectConversation(
+        userAId,
+        dto.targetUserId,
+      );
+    this.logger.log(
+      `Created direct conversation ${newConversation.id} between ${userAId} and ${dto.targetUserId}`,
+      "MessagingService",
+    );
 
     return newConversation;
   }
 
-  async createGroupConversation(creatorId: string, dto: CreateGroupConversationDto) {
+  async createGroupConversation(
+    creatorId: string,
+    dto: CreateGroupConversationDto,
+  ) {
     if (!dto.participantUserIds || dto.participantUserIds.length === 0) {
-      throw new BadRequestException('Group conversation requires at least one other participant');
+      throw new BadRequestException(
+        "Group conversation requires at least one other participant",
+      );
     }
 
-    const group = await this.messagingRepository.createGroupConversation(dto, creatorId);
-    this.logger.log(`Created group conversation ${group.id} with ${group.participants.length} members`, 'MessagingService');
+    const ids = [
+      ...new Set(dto.participantUserIds.filter((id) => id !== creatorId)),
+    ];
+    if (!ids.length || ids.length > 50)
+      throw new BadRequestException("Choose between 1 and 50 other students.");
+    const allowed = await this.prisma.user.count({
+      where: {
+        id: { in: ids },
+        isActive: true,
+        isVerified: true,
+        deletedAt: null,
+        profile: { allowDirectMessages: true },
+      },
+    });
+    if (allowed !== ids.length)
+      throw new BadRequestException(
+        "Some students are unavailable or do not accept messages.",
+      );
+    if (dto.communityId || dto.eventId)
+      throw new BadRequestException(
+        "Use a regular group conversation. Community and event rooms are not supported yet.",
+      );
+
+    const group = await this.messagingRepository.createGroupConversation(
+      dto,
+      creatorId,
+    );
+    this.logger.log(
+      `Created group conversation ${group.id} with ${group.participants.length} members`,
+      "MessagingService",
+    );
 
     return group;
   }
@@ -61,51 +122,122 @@ export class MessagingService {
   }
 
   async getConversationDetails(conversationId: string, userId: string) {
-    const isParticipant = await this.messagingRepository.isParticipant(conversationId, userId);
+    const isParticipant = await this.messagingRepository.isParticipant(
+      conversationId,
+      userId,
+    );
     if (!isParticipant) {
-      throw new ForbiddenException('You are not a participant of this conversation');
+      throw new ForbiddenException(
+        "You are not a participant of this conversation",
+      );
     }
 
-    const conversation = await this.messagingRepository.findConversationById(conversationId);
-    if (!conversation) throw new NotFoundException('Conversation not found');
+    const conversation =
+      await this.messagingRepository.findConversationById(conversationId);
+    if (!conversation) throw new NotFoundException("Conversation not found");
 
     return conversation;
   }
 
   async leaveConversation(userId: string, conversationId: string) {
-    const isParticipant = await this.messagingRepository.isParticipant(conversationId, userId);
-    if (!isParticipant) throw new NotFoundException('Conversation membership not found');
+    const isParticipant = await this.messagingRepository.isParticipant(
+      conversationId,
+      userId,
+    );
+    if (!isParticipant)
+      throw new NotFoundException("Conversation membership not found");
 
     await this.prisma.conversationParticipant.deleteMany({
       where: { conversationId, userId },
     });
 
-    return { success: true, message: 'Left conversation successfully' };
+    return { success: true, message: "Left conversation successfully" };
   }
 
   // --- MESSAGES ---
 
-  async sendMessage(senderId: string, conversationId: string, dto: SendMessageDto) {
-    const isParticipant = await this.messagingRepository.isParticipant(conversationId, senderId);
+  async sendMessage(
+    senderId: string,
+    conversationId: string,
+    dto: SendMessageDto,
+  ) {
+    const isParticipant = await this.messagingRepository.isParticipant(
+      conversationId,
+      senderId,
+    );
     if (!isParticipant) {
-      throw new ForbiddenException('You are not authorized to send messages in this conversation');
+      throw new ForbiddenException(
+        "You are not authorized to send messages in this conversation",
+      );
     }
 
     if (!dto.content || dto.content.trim().length === 0) {
-      throw new BadRequestException('Message content cannot be empty');
+      throw new BadRequestException("Message content cannot be empty");
     }
 
-    const message = await this.messagingRepository.createMessage(conversationId, senderId, dto);
+    const conversation =
+      await this.messagingRepository.findConversationById(conversationId);
+    if (!conversation) throw new NotFoundException("Conversation not found");
+    if (conversation.type === "ONE_TO_ONE") {
+      const recipients = conversation.participants
+        .filter((p) => p.userId !== senderId)
+        .map((p) => p.userId);
+      const blocked = await this.prisma.profile.count({
+        where: { userId: { in: recipients }, allowDirectMessages: false },
+      });
+      if (blocked)
+        throw new ForbiddenException(
+          "This student is not accepting direct messages.",
+        );
+    }
+    if (
+      dto.parentId &&
+      !(await this.prisma.message.findFirst({
+        where: { id: dto.parentId, conversationId, deletedAt: null },
+      }))
+    )
+      throw new BadRequestException(
+        "The reply must reference a message in this conversation.",
+      );
+
+    const message = await this.messagingRepository.createMessage(
+      conversationId,
+      senderId,
+      dto,
+    );
+    for (const participant of conversation?.participants || []) {
+      if (participant.userId !== senderId)
+        this.eventEmitter?.emit("notification.publish", {
+          userId: participant.userId,
+          type: "NEW_MESSAGE",
+          title: "New campus message",
+          body: dto.content.slice(0, 100),
+          category: "MESSAGES",
+          link: "/messages?conversation=" + conversationId,
+        });
+    }
     return message;
   }
 
-  async getMessages(userId: string, conversationId: string, dto: CursorMessageQueryDto) {
-    const isParticipant = await this.messagingRepository.isParticipant(conversationId, userId);
+  async getMessages(
+    userId: string,
+    conversationId: string,
+    dto: CursorMessageQueryDto,
+  ) {
+    const isParticipant = await this.messagingRepository.isParticipant(
+      conversationId,
+      userId,
+    );
     if (!isParticipant) {
-      throw new ForbiddenException('You are not a participant of this conversation');
+      throw new ForbiddenException(
+        "You are not a participant of this conversation",
+      );
     }
 
-    return this.messagingRepository.findMessagesByConversation(conversationId, dto);
+    return this.messagingRepository.findMessagesByConversation(
+      conversationId,
+      dto,
+    );
   }
 
   async editMessage(userId: string, messageId: string, dto: EditMessageDto) {
@@ -113,8 +245,9 @@ export class MessagingService {
       where: { id: messageId, deletedAt: null },
     });
 
-    if (!message) throw new NotFoundException('Message not found');
-    if (message.senderId !== userId) throw new ForbiddenException('Cannot edit message');
+    if (!message) throw new NotFoundException("Message not found");
+    if (message.senderId !== userId)
+      throw new ForbiddenException("Cannot edit message");
 
     return this.prisma.message.update({
       where: { id: messageId },
@@ -127,15 +260,16 @@ export class MessagingService {
       where: { id: messageId, deletedAt: null },
     });
 
-    if (!message) throw new NotFoundException('Message not found');
-    if (message.senderId !== userId) throw new ForbiddenException('Cannot delete message');
+    if (!message) throw new NotFoundException("Message not found");
+    if (message.senderId !== userId)
+      throw new ForbiddenException("Cannot delete message");
 
     await this.prisma.message.update({
       where: { id: messageId },
       data: { deletedAt: new Date() },
     });
 
-    return { success: true, message: 'Message deleted for everyone' };
+    return { success: true, message: "Message deleted for everyone" };
   }
 
   async togglePinMessage(userId: string, messageId: string) {
@@ -143,9 +277,12 @@ export class MessagingService {
       where: { id: messageId, deletedAt: null },
     });
 
-    if (!message) throw new NotFoundException('Message not found');
-    const isParticipant = await this.messagingRepository.isParticipant(message.conversationId, userId);
-    if (!isParticipant) throw new ForbiddenException('Not authorized');
+    if (!message) throw new NotFoundException("Message not found");
+    const isParticipant = await this.messagingRepository.isParticipant(
+      message.conversationId,
+      userId,
+    );
+    if (!isParticipant) throw new ForbiddenException("Not authorized");
 
     const updated = await this.prisma.message.update({
       where: { id: messageId },
@@ -160,15 +297,27 @@ export class MessagingService {
       where: { id: messageId, deletedAt: null },
     });
 
-    if (!message) throw new NotFoundException('Message not found');
+    if (!message) throw new NotFoundException("Message not found");
 
-    const reaction = await this.messagingRepository.addReaction(messageId, userId, dto.emoji);
+    if (
+      !(await this.messagingRepository.isParticipant(
+        message.conversationId,
+        userId,
+      ))
+    )
+      throw new ForbiddenException("Not authorized");
+
+    const reaction = await this.messagingRepository.addReaction(
+      messageId,
+      userId,
+      dto.emoji,
+    );
     return reaction;
   }
 
   async removeReaction(userId: string, messageId: string, emoji: string) {
     await this.messagingRepository.removeReaction(messageId, userId, emoji);
-    return { success: true, message: 'Reaction removed' };
+    return { success: true, message: "Reaction removed" };
   }
 
   async markRead(userId: string, messageId: string) {
@@ -176,7 +325,15 @@ export class MessagingService {
       where: { id: messageId, deletedAt: null },
     });
 
-    if (!message) throw new NotFoundException('Message not found');
+    if (!message) throw new NotFoundException("Message not found");
+
+    if (
+      !(await this.messagingRepository.isParticipant(
+        message.conversationId,
+        userId,
+      ))
+    )
+      throw new ForbiddenException("Not authorized");
 
     await Promise.all([
       this.messagingRepository.markMessageRead(messageId, userId),
@@ -186,6 +343,10 @@ export class MessagingService {
       }),
     ]);
 
-    return { success: true, message: 'Message marked as read' };
+    return {
+      success: true,
+      conversationId: message.conversationId,
+      message: "Message marked as read",
+    };
   }
 }

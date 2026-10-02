@@ -1,5 +1,5 @@
-import { TRENDING_SKILLS } from "@/data/discoverMockData";
-import { Sparkles, Tag, Check } from "lucide-react";
+import { useDiscoveryData } from "@/hooks/useDiscoveryData";
+import { Tag, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 
@@ -8,7 +8,11 @@ interface TrendingSkillsBarProps {
   onSkillSelect: (skillName: string | null) => void;
 }
 
-export function TrendingSkillsBar({ selectedSkill, onSkillSelect }: TrendingSkillsBarProps) {
+export function TrendingSkillsBar({
+  selectedSkill,
+  onSkillSelect,
+}: TrendingSkillsBarProps) {
+  const { TRENDING_SKILLS } = useDiscoveryData();
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
@@ -40,7 +44,7 @@ export function TrendingSkillsBar({ selectedSkill, onSkillSelect }: TrendingSkil
                 "flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold shrink-0 cursor-pointer transition-all duration-200 border",
                 isSelected
                   ? "bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-500/20 scale-105"
-                  : "bg-card border-border/70 text-foreground hover:bg-accent hover:border-border"
+                  : "bg-card border-border/70 text-foreground hover:bg-accent hover:border-border",
               )}
             >
               {isSelected ? (
@@ -52,7 +56,9 @@ export function TrendingSkillsBar({ selectedSkill, onSkillSelect }: TrendingSkil
               <span
                 className={cn(
                   "text-[10px] px-1.5 py-0.5 rounded-md font-mono",
-                  isSelected ? "bg-white/20 text-white" : "bg-accent text-muted-foreground"
+                  isSelected
+                    ? "bg-white/20 text-white"
+                    : "bg-accent text-muted-foreground",
                 )}
               >
                 {skill.count}

@@ -1,12 +1,13 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import {
   MediaType,
   OpportunityMode,
   OpportunityStatus,
   OrganizationType,
   PersonalOpportunityStatus,
-} from '@prisma/client';
-import { Type } from 'class-transformer';
+  ApplicationStatus,
+} from "@prisma/client";
+import { Type } from "class-transformer";
 import {
   IsArray,
   IsDate,
@@ -16,11 +17,13 @@ import {
   IsString,
   IsUrl,
   ValidateNested,
-} from 'class-validator';
-import { PaginationQueryDto } from '@common/dto/pagination.dto';
+} from "class-validator";
+import { PaginationQueryDto } from "@common/dto/pagination.dto";
 
 export class OpportunityMediaDto {
-  @ApiProperty({ example: 'https://storage.supabase.co/v1/object/public/opps/brochure.pdf' })
+  @ApiProperty({
+    example: "https://storage.supabase.co/v1/object/public/opps/brochure.pdf",
+  })
   @IsUrl()
   url: string;
 
@@ -28,115 +31,144 @@ export class OpportunityMediaDto {
   @IsEnum(MediaType)
   type: MediaType;
 
-  @ApiPropertyOptional({ example: 'Official Internship Brochure' })
+  @ApiPropertyOptional({ example: "Official Internship Brochure" })
   @IsOptional()
   @IsString()
   caption?: string;
 }
 
+export class ApplyOpportunityDto {
+  @IsOptional()
+  @IsUrl()
+  resumeUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  coverLetter?: string;
+}
+
+export class ReviewApplicationDto {
+  @IsEnum(ApplicationStatus)
+  status: ApplicationStatus;
+}
+
 export class CreateOpportunityDto {
-  @ApiProperty({ example: 'Software Engineering Summer Internship 2026' })
+  @ApiProperty({ example: "Software Engineering Summer Internship 2026" })
   @IsString()
   @IsNotEmpty()
   title: string;
 
-  @ApiPropertyOptional({ example: '12-week paid software engineering internship.' })
+  @ApiPropertyOptional({
+    example: "12-week paid software engineering internship.",
+  })
   @IsOptional()
   @IsString()
   shortDescription?: string;
 
-  @ApiProperty({ example: 'Build scalable backend services using NestJS and PostgreSQL.' })
+  @ApiProperty({
+    example: "Build scalable backend services using NestJS and PostgreSQL.",
+  })
   @IsString()
   @IsNotEmpty()
   description: string;
 
-  @ApiPropertyOptional({ example: 'INTERNSHIP' })
+  @ApiPropertyOptional({ example: "INTERNSHIP" })
   @IsOptional()
   @IsString()
   category?: string;
 
-  @ApiProperty({ example: 'Google' })
+  @ApiProperty({ example: "Google" })
   @IsString()
   @IsNotEmpty()
   companyName: string;
 
-  @ApiPropertyOptional({ example: 'https://example.com/google-logo.png' })
+  @ApiPropertyOptional({ example: "https://example.com/google-logo.png" })
   @IsOptional()
   @IsString()
   companyLogo?: string;
 
-  @ApiPropertyOptional({ enum: OrganizationType, default: OrganizationType.COMPANY })
+  @ApiPropertyOptional({
+    enum: OrganizationType,
+    default: OrganizationType.COMPANY,
+  })
   @IsOptional()
   @IsEnum(OrganizationType)
   organizationType?: OrganizationType;
 
-  @ApiPropertyOptional({ example: 'https://careers.google.com/jobs/12345' })
+  @ApiPropertyOptional({ example: "https://careers.google.com/jobs/12345" })
   @IsOptional()
   @IsUrl()
   applicationUrl?: string;
 
-  @ApiPropertyOptional({ example: 'https://forms.gle/xyz' })
+  @ApiPropertyOptional({ example: "https://forms.gle/xyz" })
   @IsOptional()
   @IsUrl()
   registrationUrl?: string;
 
-  @ApiProperty({ example: 'Bengaluru / Remote' })
+  @ApiProperty({ example: "Bengaluru / Remote" })
   @IsString()
   @IsNotEmpty()
   location: string;
 
-  @ApiPropertyOptional({ enum: OpportunityMode, default: OpportunityMode.HYBRID })
+  @ApiPropertyOptional({
+    enum: OpportunityMode,
+    default: OpportunityMode.HYBRID,
+  })
   @IsOptional()
   @IsEnum(OpportunityMode)
   mode?: OpportunityMode;
 
-  @ApiPropertyOptional({ example: ['B.Tech 3rd/4th Year', 'CGPA > 7.5'] })
+  @ApiPropertyOptional({ example: ["B.Tech 3rd/4th Year", "CGPA > 7.5"] })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
   eligibility?: string[];
 
-  @ApiPropertyOptional({ example: ['TypeScript', 'React', 'Node.js', 'PostgreSQL'] })
+  @ApiPropertyOptional({
+    example: ["TypeScript", "React", "Node.js", "PostgreSQL"],
+  })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
   requiredSkills?: string[];
 
-  @ApiPropertyOptional({ example: ['Full-time return offer possibility', 'Mentorship'] })
+  @ApiPropertyOptional({
+    example: ["Full-time return offer possibility", "Mentorship"],
+  })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
   benefits?: string[];
 
-  @ApiPropertyOptional({ example: '₹50,000 / month' })
+  @ApiPropertyOptional({ example: "₹50,000 / month" })
   @IsOptional()
   @IsString()
   stipend?: string;
 
-  @ApiPropertyOptional({ example: '2026-08-30T23:59:59Z' })
+  @ApiPropertyOptional({ example: "2026-08-30T23:59:59Z" })
   @IsOptional()
   @Type(() => Date)
   @IsDate()
   deadline?: Date;
 
-  @ApiPropertyOptional({ example: '2026-09-01' })
+  @ApiPropertyOptional({ example: "2026-09-01" })
   @IsOptional()
   @Type(() => Date)
   @IsDate()
   startDate?: Date;
 
-  @ApiPropertyOptional({ example: '2026-11-30' })
+  @ApiPropertyOptional({ example: "2026-11-30" })
   @IsOptional()
   @Type(() => Date)
   @IsDate()
   endDate?: Date;
 
-  @ApiPropertyOptional({ example: 'https://example.com/banner.png' })
+  @ApiPropertyOptional({ example: "https://example.com/banner.png" })
   @IsOptional()
   @IsString()
   bannerUrl?: string;
 
-  @ApiPropertyOptional({ example: ['Tech', 'Backend', 'Internship'] })
+  @ApiPropertyOptional({ example: ["Tech", "Backend", "Internship"] })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
@@ -237,7 +269,7 @@ export class UpdateOpportunityDto {
 }
 
 export class SearchOpportunitiesDto extends PaginationQueryDto {
-  @ApiPropertyOptional({ example: 'INTERNSHIP' })
+  @ApiPropertyOptional({ example: "INTERNSHIP" })
   @IsOptional()
   @IsString()
   category?: string;
@@ -247,30 +279,33 @@ export class SearchOpportunitiesDto extends PaginationQueryDto {
   @IsEnum(OpportunityMode)
   mode?: OpportunityMode;
 
-  @ApiPropertyOptional({ example: 'TypeScript' })
+  @ApiPropertyOptional({ example: "TypeScript" })
   @IsOptional()
   @IsString()
   skill?: string;
 
-  @ApiPropertyOptional({ example: 'Google' })
+  @ApiPropertyOptional({ example: "Google" })
   @IsOptional()
   @IsString()
   organization?: string;
 }
 
 export class UpdatePersonalStatusDto {
-  @ApiProperty({ enum: PersonalOpportunityStatus, default: PersonalOpportunityStatus.INTERESTED })
+  @ApiProperty({
+    enum: PersonalOpportunityStatus,
+    default: PersonalOpportunityStatus.INTERESTED,
+  })
   @IsEnum(PersonalOpportunityStatus)
   status: PersonalOpportunityStatus;
 }
 
 export class AddOppCommentDto {
-  @ApiProperty({ example: 'Does this internship accept 2nd year students?' })
+  @ApiProperty({ example: "Does this internship accept 2nd year students?" })
   @IsString()
   @IsNotEmpty()
   content: string;
 
-  @ApiPropertyOptional({ description: 'Parent comment ID if replying' })
+  @ApiPropertyOptional({ description: "Parent comment ID if replying" })
   @IsOptional()
   @IsString()
   parentId?: string;

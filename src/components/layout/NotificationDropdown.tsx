@@ -1,65 +1,81 @@
+import { apiRequest } from "@/services/api";
+import { formatDate, type Page, type Notification } from "@/services/models";
+import { useToast } from "@/context/ToastContext";
 import { useState, useRef, useEffect } from "react";
-import { 
-  Bell, 
-  Calendar, 
-  Users, 
-  MessageSquare, 
-  Sparkles, 
-  Check, 
+import {
+  Bell,
+  Calendar,
+  Users,
+  MessageSquare,
+  Sparkles,
+  Check,
   X,
-  ExternalLink
+  ExternalLink,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { NotificationItem } from "./types";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 
-const INITIAL_NOTIFICATIONS: NotificationItem[] = [
-  {
-    id: "1",
-    title: "ACM Hackathon 2026",
-    description: "Registration for the annual Campus Hackathon is now live! Sign up before Friday.",
-    time: "10m ago",
-    unread: true,
-    type: "event",
-  },
-  {
-    id: "2",
-    title: "AI & ML Club",
-    description: "Sarah joined the group and posted a new discussion: 'Transformers in 2026'.",
-    time: "45m ago",
-    unread: true,
-    type: "community",
-  },
-  {
-    id: "3",
-    title: "Alex Rivera sent a message",
-    description: "Hey! Are we still meeting at the campus library for the group project?",
-    time: "2h ago",
-    unread: true,
-    type: "message",
-  },
-  {
-    id: "4",
-    title: "Campus Announcement",
-    description: "Student Center room bookings for Spring term open tomorrow at 9 AM.",
-    time: "5h ago",
-    unread: false,
-    type: "system",
-  },
-];
-
 export function NotificationDropdown() {
   const navigate = useNavigate();
+  const toast = useToast();
   const [isOpen, setIsOpen] = useState(false);
-  const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    let stopped = false;
+    const load = async () => {
+      try {
+        const page = await apiRequest<
+          Page<Notification & { category: string }>
+        >("/notifications?limit=50");
+        if (!stopped)
+          setNotifications(
+            page.items.map((n) => ({
+              id: n.id,
+              link: n.link,
+              title: n.title,
+              description: n.body,
+              time: formatDate(n.createdAt),
+              unread: !n.isRead,
+              type:
+                n.category === "MESSAGES"
+                  ? "message"
+                  : n.category === "EVENTS"
+                    ? "event"
+                    : n.category === "COMMUNITIES"
+                      ? "community"
+                      : "system",
+            })),
+          );
+      } catch (error) {
+        if (!stopped)
+          toast.error(
+            error instanceof Error
+              ? error.message
+              : "Notifications could not be loaded.",
+          );
+      }
+    };
+    void load();
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") void load();
+    }, 30000);
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+    };
+  }, []);
 
   const unreadCount = notifications.filter((n) => n.unread).length;
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
         setIsOpen(false);
       }
     }
@@ -67,13 +83,33 @@ export function NotificationDropdown() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const markAllAsRead = () => {
+  const markAllAsRead = async () => {
+    try {
+      await apiRequest("/notifications/read-all", "PATCH");
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to update notifications.",
+      );
+      return;
+    }
     setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
   };
 
-  const markAsRead = (id: string) => {
+  const markAsRead = async (id: string) => {
+    try {
+      await apiRequest("/notifications/" + id + "/read", "PATCH");
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to update notification.",
+      );
+      return;
+    }
     setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, unread: false } : n))
+      prev.map((n) => (n.id === id ? { ...n, unread: false } : n)),
     );
   };
 
@@ -98,7 +134,9 @@ export function NotificationDropdown() {
         className={cn(
           "relative p-2.5 rounded-xl transition-all duration-200 cursor-pointer",
           "hover:bg-accent/80 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
-          isOpen ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground"
+          isOpen
+            ? "bg-accent text-foreground"
+            : "text-muted-foreground hover:text-foreground",
         )}
         aria-label="View notifications"
       >
@@ -122,13 +160,15 @@ export function NotificationDropdown() {
             className={cn(
               "absolute right-0 mt-3 w-80 sm:w-96 rounded-2xl z-50 overflow-hidden",
               "bg-background/95 backdrop-blur-2xl border border-border/80",
-              "shadow-2xl shadow-black/15 ring-1 ring-black/5"
+              "shadow-2xl shadow-black/15 ring-1 ring-black/5",
             )}
           >
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-border/60 bg-muted/30">
               <div className="flex items-center gap-2">
-                <h3 className="font-semibold text-sm text-foreground">Notifications</h3>
+                <h3 className="font-semibold text-sm text-foreground">
+                  Notifications
+                </h3>
                 {unreadCount > 0 && (
                   <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                     {unreadCount} new
@@ -162,30 +202,41 @@ export function NotificationDropdown() {
                 </div>
               ) : (
                 notifications.map((item) => (
-                    <div
-                      key={item.id}
-                      onClick={() => {
-                        markAsRead(item.id);
-                        setIsOpen(false);
-                        if (item.type === "event") navigate("/events");
-                        else if (item.type === "community") navigate("/communities");
-                        else if (item.type === "message") navigate("/messages");
-                        else navigate("/campus");
-                      }}
-                      className={cn(
-                        "p-3.5 flex gap-3 text-left transition-colors cursor-pointer group hover:bg-accent/50",
-                        item.unread ? "bg-accent/20" : "opacity-80"
-                      )}
-                    >
+                  <div
+                    key={item.id}
+                    onClick={() => {
+                      markAsRead(item.id);
+                      setIsOpen(false);
+                      if (item.link?.startsWith('/') && !item.link.startsWith('//')) navigate(item.link);
+                      else if (item.type === "event") navigate("/events");
+                      else if (item.type === "community")
+                        navigate("/communities");
+                      else if (item.type === "message") navigate("/messages");
+                      else navigate("/campus");
+                    }}
+                    className={cn(
+                      "p-3.5 flex gap-3 text-left transition-colors cursor-pointer group hover:bg-accent/50",
+                      item.unread ? "bg-accent/20" : "opacity-80",
+                    )}
+                  >
                     <div className="mt-0.5 p-2 rounded-xl bg-background border border-border/60 shadow-xs group-hover:border-border">
                       {getIcon(item.type)}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
-                        <p className={cn("text-xs font-semibold truncate", item.unread ? "text-foreground" : "text-muted-foreground")}>
+                        <p
+                          className={cn(
+                            "text-xs font-semibold truncate",
+                            item.unread
+                              ? "text-foreground"
+                              : "text-muted-foreground",
+                          )}
+                        >
                           {item.title}
                         </p>
-                        <span className="text-[10px] text-muted-foreground shrink-0">{item.time}</span>
+                        <span className="text-[10px] text-muted-foreground shrink-0">
+                          {item.time}
+                        </span>
                       </div>
                       <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 leading-relaxed">
                         {item.description}
@@ -205,7 +256,7 @@ export function NotificationDropdown() {
                 onClick={() => setIsOpen(false)}
                 className="w-full py-1.5 text-xs text-muted-foreground hover:text-foreground font-medium flex items-center justify-center gap-1 hover:bg-accent/60 rounded-xl transition-colors"
               >
-                View all notifications <ExternalLink className="w-3 h-3" />
+                Close notifications <ExternalLink className="w-3 h-3" />
               </button>
             </div>
           </motion.div>

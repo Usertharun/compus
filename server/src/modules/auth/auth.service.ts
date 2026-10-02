@@ -10,7 +10,7 @@ import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '@database/prisma.service';
 import { AppLoggerService } from '@logger/logger.service';
 import { EmailService } from '@modules/email/email.service';
-import { isCampusEmail, validateCollegeEmail } from '@common/utils/email-validator.util';
+import { isOwnerEmail, isAllowedAccountEmail, validateCollegeEmail } from '@common/utils/email-validator.util';
 import { Prisma, User, UserRole, VerificationType } from '@prisma/client';
 import * as argon2 from '@node-rs/argon2';
 import * as crypto from 'crypto';
@@ -27,6 +27,14 @@ import {
 
 @Injectable()
 export class AuthService {
+  private validateAccountEmail(email: string): string {
+    if (isOwnerEmail(email, this.configService.get<string>('OWNER_EMAIL'))) return email.trim().toLowerCase();
+    return validateCollegeEmail(email);
+  }
+
+  private isAllowedAccount(user: Pick<User, 'email' | 'role'>): boolean {
+    return isAllowedAccountEmail(user.email, user.role, this.configService.get<string>('OWNER_EMAIL'));
+  }
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
@@ -36,7 +44,7 @@ export class AuthService {
   ) {}
 
   async requestRegistrationOtp(dto: RequestOtpDto): Promise<{ message: string }> {
-    const email = validateCollegeEmail(dto.email);
+    const email = this.validateAccountEmail(dto.email);
     this.emailService.assertConfigured();
 
     const existingUser = await this.prisma.user.findUnique({
@@ -44,7 +52,7 @@ export class AuthService {
     });
 
     if (existingUser) {
-      throw new ConflictException('A verified account with this college email address already exists.');
+      throw new ConflictException('An account with this email address already exists. Please sign in.');
     }
 
     const recent = await this.prisma.emailVerification.findFirst({ where: { email, type: VerificationType.REGISTRATION, createdAt: { gt: new Date(Date.now() - 60000) } } });
@@ -74,7 +82,7 @@ export class AuthService {
     }
     this.logger.log(`Generated OTP for college email: ${email}`, 'AuthService');
 
-    return { message: 'Verification OTP sent to your college email address' };
+    return { message: 'Verification code sent to your email address' };
   }
 
   private async checkRegistrationOtp(email: string, otp: string) {
@@ -94,12 +102,12 @@ export class AuthService {
   }
 
   async verifyOtp(dto: VerifyOtpDto) {
-    await this.checkRegistrationOtp(validateCollegeEmail(dto.email), dto.otp);
+    await this.checkRegistrationOtp(this.validateAccountEmail(dto.email), dto.otp);
     return { verified: true, message: 'Code verified. Complete registration before it expires.' };
   }
 
   async registerWithOtp(dto: RegisterWithOtpDto, userAgent?: string, ipAddress?: string): Promise<AuthResponseDto> {
-    const email = validateCollegeEmail(dto.email);
+    const email = this.validateAccountEmail(dto.email);
     const verification = await this.checkRegistrationOtp(email, dto.otp);
     const passwordHash = await argon2.hash(dto.password);
     try {
@@ -109,7 +117,7 @@ export class AuthService {
         });
         if (consumed.count !== 1) throw new BadRequestException('This code has already been used or expired.');
         const user = await tx.user.create({
-          data: { email, passwordHash, role: UserRole.VERIFIED_USER, isVerified: true, onboardingCompleted: false,
+          data: { email, passwordHash, role: isOwnerEmail(email, this.configService.get<string>('OWNER_EMAIL')) ? UserRole.SUPER_ADMIN : UserRole.VERIFIED_USER, isVerified: true, onboardingCompleted: isOwnerEmail(email, this.configService.get<string>('OWNER_EMAIL')),
             profile: { create: { name: dto.name.trim(), registerNumber: dto.registerNumber, department: dto.department, year: dto.year, section: dto.section } },
             passwordHistories: { create: { passwordHash } },
           }, include: { profile: true },
@@ -132,14 +140,14 @@ export class AuthService {
     userAgent?: string,
     ipAddress?: string,
   ): Promise<AuthResponseDto> {
-    const email = validateCollegeEmail(dto.email);
+    const email = this.validateAccountEmail(dto.email);
 
     const user = await this.prisma.user.findUnique({
       where: { email },
       include: { profile: true },
     });
 
-    if (!user || user.deletedAt || !user.isActive || !user.isVerified) {
+    if (!user || user.deletedAt || !user.isActive || !user.isVerified || !this.isAllowedAccount(user)) {
       throw new UnauthorizedException('Invalid email address or password credentials');
     }
 
@@ -167,7 +175,7 @@ export class AuthService {
       const stored = await tx.refreshToken.findUnique({ where: { tokenHash }, include: { session: true } });
       if (!stored || stored.userId !== payload.sub || stored.isRevoked || stored.expiresAt <= new Date() || !stored.session || stored.session.isRevoked || stored.session.expiresAt <= new Date()) throw new UnauthorizedException('Session expired. Please sign in again.');
       const user = await tx.user.findUnique({ where: { id: payload.sub }, include: { profile: true } });
-      if (!user || !user.isActive || !user.isVerified || user.deletedAt || !isCampusEmail(user.email)) throw new UnauthorizedException('Account is unavailable.');
+      if (!user || !user.isActive || !user.isVerified || user.deletedAt || !this.isAllowedAccount(user)) throw new UnauthorizedException('Account is unavailable.');
       const consumed = await tx.refreshToken.updateMany({ where: { id: stored.id, isRevoked: false }, data: { isRevoked: true } });
       if (consumed.count !== 1) throw new UnauthorizedException('Refresh token has already been used.');
       await tx.session.update({ where: { id: stored.session.id }, data: { isRevoked: true } });
@@ -184,13 +192,13 @@ export class AuthService {
   }
 
   async forgotPassword(dto: ForgotPasswordDto): Promise<{ message: string }> {
-    const email = validateCollegeEmail(dto.email);
+    const email = this.validateAccountEmail(dto.email);
     this.emailService.assertConfigured();
     const user = await this.prisma.user.findUnique({
       where: { email },
     });
 
-    if (user && user.isActive) {
+    if (user && user.isActive && !user.deletedAt && this.isAllowedAccount(user)) {
       const token = crypto.randomBytes(32).toString('hex');
       const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
       const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15m
@@ -206,7 +214,7 @@ export class AuthService {
       await this.emailService.sendPasswordResetEmail(user.email, token);
     }
 
-    return { message: 'If a matching college account exists, password reset instructions have been dispatched.' };
+    return { message: 'If a matching account exists, password reset instructions have been sent.' };
   }
 
   async resetPassword(dto: ResetPasswordDto): Promise<{ message: string }> {
@@ -217,7 +225,7 @@ export class AuthService {
       include: { user: true },
     });
 
-    if (!resetRecord || resetRecord.isUsed || resetRecord.expiresAt < new Date() || !isCampusEmail(resetRecord.user.email) || !resetRecord.user.isActive || resetRecord.user.deletedAt) {
+    if (!resetRecord || resetRecord.isUsed || resetRecord.expiresAt < new Date() || !this.isAllowedAccount(resetRecord.user) || !resetRecord.user.isActive || resetRecord.user.deletedAt) {
       throw new BadRequestException('Password reset token is invalid or has expired.');
     }
 

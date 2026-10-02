@@ -1,4 +1,4 @@
-export type CommunityCategory = "Technology" | "Business" | "Creative" | "Sports";
+export type CommunityCategory = string;
 
 export interface CommunityPost {
   id: string;
@@ -30,6 +30,8 @@ export interface CommunityMember {
 }
 
 export interface CommunityItem {
+  slug?: string;
+  joinPolicy?: string;
   id: string;
   name: string;
   category: CommunityCategory;

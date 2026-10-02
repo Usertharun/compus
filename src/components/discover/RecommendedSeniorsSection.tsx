@@ -1,7 +1,7 @@
-import { useState } from "react";
+
 import { SeniorMentor } from "./types";
-import { RECOMMENDED_SENIORS } from "@/data/discoverMockData";
-import { Coffee, ShieldCheck, GraduationCap, Users, Check, Sparkles } from "lucide-react";
+import { useDiscoveryData } from "@/hooks/useDiscoveryData";
+import { Coffee, ShieldCheck, GraduationCap, Users, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -10,18 +10,24 @@ interface RecommendedSeniorsSectionProps {
   selectedSkill?: string | null;
 }
 
-export function RecommendedSeniorsSection({ onCardClick, selectedSkill }: RecommendedSeniorsSectionProps) {
-  const [seniors, setSeniors] = useState<SeniorMentor[]>(RECOMMENDED_SENIORS);
+export function RecommendedSeniorsSection({
+  onCardClick,
+  selectedSkill,
+}: RecommendedSeniorsSectionProps) {
+  const { RECOMMENDED_SENIORS, requestCoffee } = useDiscoveryData();
+  const seniors = RECOMMENDED_SENIORS;
 
   const toggleCoffee = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setSeniors((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, isCoffeeRequested: !s.isCoffeeRequested } : s))
-    );
+    void requestCoffee(id);
   };
 
   const filtered = selectedSkill
-    ? seniors.filter((s) => s.skills.some((sk) => sk.toLowerCase().includes(selectedSkill.toLowerCase())))
+    ? seniors.filter((s) =>
+        [s.name, s.major, ...s.skills].some((sk) =>
+          sk.toLowerCase().includes(selectedSkill.toLowerCase()),
+        ),
+      )
     : seniors;
 
   if (filtered.length === 0) return null;
@@ -32,9 +38,11 @@ export function RecommendedSeniorsSection({ onCardClick, selectedSkill }: Recomm
         <div>
           <h2 className="text-lg font-bold text-foreground tracking-tight flex items-center gap-2">
             <GraduationCap className="w-5 h-5 text-indigo-500" />
-            Recommended Seniors & Alumni Mentors
+            Senior students
           </h2>
-          <p className="text-xs text-muted-foreground">Experienced upperclassmen ready for 1-on-1 coffee chats & advice</p>
+          <p className="text-xs text-muted-foreground">
+            Connect with senior students and ask about their experience.
+          </p>
         </div>
       </div>
 
@@ -52,7 +60,7 @@ export function RecommendedSeniorsSection({ onCardClick, selectedSkill }: Recomm
               className={cn(
                 "p-5 rounded-2xl bg-card border border-border/70 shadow-xs space-y-4 group",
                 "hover:-translate-y-1 hover:shadow-xl hover:shadow-indigo-500/5 hover:border-border",
-                "transition-all duration-300 cursor-pointer flex flex-col justify-between"
+                "transition-all duration-300 cursor-pointer flex flex-col justify-between",
               )}
             >
               <div className="space-y-3">
@@ -64,7 +72,6 @@ export function RecommendedSeniorsSection({ onCardClick, selectedSkill }: Recomm
                       alt={senior.name}
                       className="w-12 h-12 rounded-full object-cover ring-2 ring-indigo-500/20 group-hover:ring-indigo-500/40 transition-all"
                     />
-                    <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 ring-2 ring-background" />
                   </div>
 
                   <div className="flex-1 min-w-0">
@@ -83,7 +90,9 @@ export function RecommendedSeniorsSection({ onCardClick, selectedSkill }: Recomm
 
                 {/* Major & Bio */}
                 <div>
-                  <p className="text-xs font-semibold text-foreground">{senior.major} · {senior.year}</p>
+                  <p className="text-xs font-semibold text-foreground">
+                    {senior.major} · {senior.year}
+                  </p>
                   <p className="text-xs text-muted-foreground mt-1 line-clamp-2 leading-relaxed">
                     {senior.bio}
                   </p>
@@ -106,7 +115,10 @@ export function RecommendedSeniorsSection({ onCardClick, selectedSkill }: Recomm
               <div className="pt-3 border-t border-border/50 flex items-center justify-between gap-2">
                 <span className="text-[11px] text-muted-foreground flex items-center gap-1">
                   <Users className="w-3.5 h-3.5 text-muted-foreground" />
-                  <strong className="text-foreground">{senior.mutualCount}</strong> mutuals
+                  <strong className="text-foreground">
+                    {senior.mutualCount}
+                  </strong>{" "}
+                  mutuals
                 </span>
 
                 <button
@@ -115,12 +127,13 @@ export function RecommendedSeniorsSection({ onCardClick, selectedSkill }: Recomm
                     "px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all duration-200 cursor-pointer",
                     senior.isCoffeeRequested
                       ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30"
-                      : "bg-indigo-600 text-white hover:bg-indigo-500 shadow-xs active:scale-95"
+                      : "bg-indigo-600 text-white hover:bg-indigo-500 shadow-xs active:scale-95",
                   )}
                 >
                   {senior.isCoffeeRequested ? (
                     <>
-                      <Check className="w-3.5 h-3.5 text-amber-500" /> Requested ☕
+                      <Check className="w-3.5 h-3.5 text-amber-500" /> Requested
+                      ☕
                     </>
                   ) : (
                     <>

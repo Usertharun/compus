@@ -1,18 +1,18 @@
 import { FullUserProfile } from "./types";
-import { 
-  ShieldCheck, 
-  GraduationCap, 
-  MapPin, 
-  Code, 
-  Briefcase, 
-  Globe, 
-  Edit3, 
+import {
+  ShieldCheck,
+  GraduationCap,
+  MapPin,
+  Code,
+  Briefcase,
+  Globe,
+  Edit3,
   Settings,
   Camera,
   ExternalLink,
-  Plus
+  Plus,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+
 import { useRef } from "react";
 
 interface ProfileHeaderProps {
@@ -22,7 +22,12 @@ interface ProfileHeaderProps {
   onDirectPhotoUpload?: (file: File) => void;
 }
 
-export function ProfileHeader({ user, onEditProfile, onOpenSettings, onDirectPhotoUpload }: ProfileHeaderProps) {
+export function ProfileHeader({
+  user,
+  onEditProfile,
+  onOpenSettings,
+  onDirectPhotoUpload,
+}: ProfileHeaderProps) {
   const avatarFileRef = useRef<HTMLInputElement>(null);
 
   const handleAvatarSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -38,11 +43,13 @@ export function ProfileHeader({ user, onEditProfile, onOpenSettings, onDirectPho
     <div className="rounded-[2.5rem] bg-card border border-border/40 overflow-hidden shadow-sm relative">
       {/* Cover Banner */}
       <div className="h-44 sm:h-56 w-full relative overflow-hidden bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500">
-        <img
-          src={user.banner}
-          alt="Profile Banner"
-          className="w-full h-full object-cover opacity-85"
-        />
+        {user.banner && (
+          <img
+            src={user.banner}
+            alt="Profile Banner"
+            className="w-full h-full object-cover opacity-85"
+          />
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-transparent to-black/20" />
 
         <button
@@ -64,15 +71,14 @@ export function ProfileHeader({ user, onEditProfile, onOpenSettings, onDirectPho
                 alt={user.name}
                 className="w-24 h-24 sm:w-32 sm:h-32 rounded-[2rem] object-cover ring-4 ring-card shadow-lg bg-card"
               />
-              <span className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-emerald-500 ring-4 ring-card" />
 
               {/* Direct Camera Button on Avatar */}
-              <input 
-                type="file" 
-                ref={avatarFileRef} 
-                onChange={handleAvatarSelect} 
-                accept="image/*" 
-                className="hidden" 
+              <input
+                type="file"
+                ref={avatarFileRef}
+                onChange={handleAvatarSelect}
+                accept="image/*"
+                className="hidden"
               />
               <button
                 type="button"
@@ -135,7 +141,11 @@ export function ProfileHeader({ user, onEditProfile, onOpenSettings, onDirectPho
           {/* GitHub */}
           {user.githubUrl ? (
             <a
-              href={user.githubUrl.startsWith("http") ? user.githubUrl : `https://${user.githubUrl}`}
+              href={
+                user.githubUrl.startsWith("http")
+                  ? user.githubUrl
+                  : `https://${user.githubUrl}`
+              }
               target="_blank"
               rel="noreferrer"
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-secondary/50 border border-border/40 text-xs sm:text-sm font-semibold text-foreground hover:bg-secondary transition-colors group"
@@ -157,7 +167,11 @@ export function ProfileHeader({ user, onEditProfile, onOpenSettings, onDirectPho
           {/* LinkedIn */}
           {user.linkedinUrl ? (
             <a
-              href={user.linkedinUrl.startsWith("http") ? user.linkedinUrl : `https://${user.linkedinUrl}`}
+              href={
+                user.linkedinUrl.startsWith("http")
+                  ? user.linkedinUrl
+                  : `https://${user.linkedinUrl}`
+              }
               target="_blank"
               rel="noreferrer"
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-secondary/50 border border-border/40 text-xs sm:text-sm font-semibold text-foreground hover:bg-secondary transition-colors group"
@@ -179,7 +193,11 @@ export function ProfileHeader({ user, onEditProfile, onOpenSettings, onDirectPho
           {/* Portfolio */}
           {user.portfolioUrl ? (
             <a
-              href={user.portfolioUrl.startsWith("http") ? user.portfolioUrl : `https://${user.portfolioUrl}`}
+              href={
+                user.portfolioUrl.startsWith("http")
+                  ? user.portfolioUrl
+                  : `https://${user.portfolioUrl}`
+              }
               target="_blank"
               rel="noreferrer"
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-secondary/50 border border-border/40 text-xs sm:text-sm font-semibold text-foreground hover:bg-secondary transition-colors group"

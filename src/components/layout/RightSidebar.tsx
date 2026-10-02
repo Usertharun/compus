@@ -1,23 +1,27 @@
-import { useState } from "react";
+import { avatar } from "@/services/models";
+
 import { useNavigate } from "react-router-dom";
-import { MapPin, Plus, UserPlus, Hash, Flame, Sparkles, MessageSquare, ArrowUpRight } from "lucide-react";
+import { MapPin, Plus, UserPlus, Hash, Flame, MessageSquare, ArrowUpRight } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
+
 import { useApp } from "@/context/AppContext";
 import { useToast } from "@/context/ToastContext";
 import { cn } from "@/lib/utils";
 
-const TRENDING_TOPICS = [
-  { tag: "TreeHacks2026", posts: "128 posts" },
-  { tag: "AI_Agents", posts: "86 posts" },
-  { tag: "FoundersMeetup", posts: "64 posts" },
-  { tag: "ExamPrep", posts: "35 posts" },
-];
-
 export function RightSidebar() {
   const navigate = useNavigate();
   const toast = useToast();
-  const { openHostEvent, openCreateOpp, searchQuery, setSearchQuery, startChatWithUser, events, opportunities } = useApp();
+  const {
+    openHostEvent,
+    openCreateOpp,
+    searchQuery,
+    setSearchQuery,
+    startChatWithUser,
+    events,
+    opportunities,
+    students,
+    posts,
+  } = useApp();
 
   const handleTagClick = (tag: string) => {
     if (searchQuery === tag) {
@@ -29,25 +33,45 @@ export function RightSidebar() {
     }
   };
 
-  const handleMessageClassmate = (student: { name: string; avatar: string }) => {
-    startChatWithUser({ name: student.name, avatar: student.avatar, isOnline: true });
+  const handleMessageClassmate = (student: {
+    id: string;
+    name: string;
+    avatar: string;
+  }) => {
+    startChatWithUser({
+      id: student.id,
+      name: student.name,
+      avatar: student.avatar,
+    });
     navigate("/messages");
   };
 
-  const classmates = [
-    { name: "Sarah Chen", location: "Main Library", avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80" },
-    { name: "Marcus Vance", location: "Student Union", avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80" },
-    { name: "Elena Rostova", location: "Engineering Lab", avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80" },
-  ];
+  const classmates = students
+    .slice(0, 3)
+    .map((s) => ({
+      id: s.userId,
+      name: s.name,
+      location: s.department || "",
+      avatar: avatar(s.name, s.avatarUrl),
+    }));
+  const topicCounts = new Map<string, number>();
+  posts.forEach((p) =>
+    p.tags?.forEach((tag) =>
+      topicCounts.set(tag, (topicCounts.get(tag) || 0) + 1),
+    ),
+  );
+  const TRENDING_TOPICS = [...topicCounts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 4)
+    .map(([tag, count]) => ({ tag, posts: count + " posts" }));
 
-  const totalEvents = events ? events.length : 14;
-  const totalRoles = opportunities ? opportunities.length : 28;
+  const totalEvents = events.length;
+  const totalRoles = opportunities.length;
 
   return (
     <aside className="sticky top-[5.25rem] self-start w-full hidden lg:flex flex-col max-h-[calc(100vh-6.5rem)] overflow-y-auto scrollbar-hide no-scrollbar">
       {/* Unified Monolithic Panel matching LeftSidebar */}
       <div className="glass-panel rounded-3xl p-4 sm:p-5 shadow-sm border border-border/50 bg-card/75 backdrop-blur-xl flex flex-col">
-        
         {/* Section 1: Golden Minor (38.2%) - Campus Pulse & Quick Actions */}
         <div className="flex flex-col">
           <div className="flex items-center justify-between mb-2.5">
@@ -61,25 +85,31 @@ export function RightSidebar() {
               </h3>
             </div>
             <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-              Live
+              Campus
             </span>
           </div>
 
           <div className="grid grid-cols-3 gap-2 text-center mb-3">
             <div className="p-2 rounded-2xl bg-secondary/40 border border-border/40">
-              <div className="font-black text-foreground text-sm leading-none mb-0.5">1.4k</div>
+              <div className="font-black text-foreground text-sm leading-none mb-0.5">
+                {students.length}
+              </div>
               <div className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider">
-                Online
+                Students
               </div>
             </div>
             <div className="p-2 rounded-2xl bg-secondary/40 border border-border/40">
-              <div className="font-black text-foreground text-sm leading-none mb-0.5">{totalEvents}</div>
+              <div className="font-black text-foreground text-sm leading-none mb-0.5">
+                {totalEvents}
+              </div>
               <div className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider">
                 Events
               </div>
             </div>
             <div className="p-2 rounded-2xl bg-secondary/40 border border-border/40">
-              <div className="font-black text-foreground text-sm leading-none mb-0.5">{totalRoles}</div>
+              <div className="font-black text-foreground text-sm leading-none mb-0.5">
+                {totalRoles}
+              </div>
               <div className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider">
                 Roles
               </div>
@@ -105,9 +135,13 @@ export function RightSidebar() {
               <span className="truncate">Role</span>
             </button>
             <button
-              onClick={() => {
-                navigator.clipboard?.writeText?.(window.location.origin);
-                toast.success("Campus invite link copied to clipboard!");
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(window.location.origin);
+                  toast.success("Campus invite link copied.");
+                } catch {
+                  toast.error("Unable to copy the link.");
+                }
               }}
               className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl bg-secondary/40 hover:bg-purple-500/15 hover:text-purple-600 dark:hover:text-purple-400 text-muted-foreground text-xs font-semibold border border-border/40 transition-all cursor-pointer"
               title="Invite Classmate"
@@ -144,7 +178,8 @@ export function RightSidebar() {
 
             <div className="flex flex-col gap-1">
               {TRENDING_TOPICS.map((item) => {
-                const isSelected = searchQuery.toLowerCase() === item.tag.toLowerCase();
+                const isSelected =
+                  searchQuery.toLowerCase() === item.tag.toLowerCase();
                 return (
                   <button
                     key={item.tag}
@@ -153,7 +188,7 @@ export function RightSidebar() {
                       "flex items-center justify-between px-2.5 py-1.5 rounded-xl text-left transition-all cursor-pointer group text-xs",
                       isSelected
                         ? "bg-primary/15 text-primary font-bold border border-primary/20"
-                        : "hover:bg-secondary/60 text-muted-foreground hover:text-foreground"
+                        : "hover:bg-secondary/60 text-muted-foreground hover:text-foreground",
                     )}
                   >
                     <div className="flex items-center gap-2 min-w-0">
@@ -162,13 +197,13 @@ export function RightSidebar() {
                           "w-3.5 h-3.5 shrink-0",
                           isSelected
                             ? "text-primary"
-                            : "text-muted-foreground/60 group-hover:text-primary"
+                            : "text-muted-foreground/60 group-hover:text-primary",
                         )}
                       />
                       <span
                         className={cn(
                           "truncate font-semibold",
-                          isSelected ? "text-primary" : "text-foreground"
+                          isSelected ? "text-primary" : "text-foreground",
                         )}
                       >
                         {item.tag}
@@ -215,7 +250,6 @@ export function RightSidebar() {
                         <AvatarImage src={student.avatar} />
                         <AvatarFallback>{student.name[0]}</AvatarFallback>
                       </Avatar>
-                      <div className="absolute bottom-0 right-0 w-2 h-2 bg-emerald-500 rounded-full border border-card ring-1 ring-emerald-500/30" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="font-bold text-xs text-foreground truncate leading-tight">

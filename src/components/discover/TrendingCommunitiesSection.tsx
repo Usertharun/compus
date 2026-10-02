@@ -1,7 +1,7 @@
-import { useState } from "react";
+
 import { DiscoverCommunity } from "./types";
-import { TRENDING_COMMUNITIES } from "@/data/discoverMockData";
-import { Users, Check, Plus, MessageSquare, Flame } from "lucide-react";
+import { useDiscoveryData } from "@/hooks/useDiscoveryData";
+import { Users, Check, Plus, Flame } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -10,20 +10,24 @@ interface TrendingCommunitiesSectionProps {
   selectedSkill?: string | null;
 }
 
-export function TrendingCommunitiesSection({ onCardClick, selectedSkill }: TrendingCommunitiesSectionProps) {
-  const [communities, setCommunities] = useState<DiscoverCommunity[]>(TRENDING_COMMUNITIES);
+export function TrendingCommunitiesSection({
+  onCardClick,
+  selectedSkill,
+}: TrendingCommunitiesSectionProps) {
+  const { TRENDING_COMMUNITIES, toggleCommunity } = useDiscoveryData();
+  const communities = TRENDING_COMMUNITIES;
 
   const toggleJoin = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setCommunities((prev) =>
-      prev.map((c) =>
-        c.id === id ? { ...c, isJoined: !c.isJoined, membersCount: c.isJoined ? c.membersCount - 1 : c.membersCount + 1 } : c
-      )
-    );
+    void toggleCommunity(id);
   };
 
   const filtered = selectedSkill
-    ? communities.filter((c) => c.name.toLowerCase().includes(selectedSkill.toLowerCase()) || c.category.toLowerCase().includes(selectedSkill.toLowerCase()))
+    ? communities.filter(
+        (c) =>
+          c.name.toLowerCase().includes(selectedSkill.toLowerCase()) ||
+          c.category.toLowerCase().includes(selectedSkill.toLowerCase()),
+      )
     : communities;
 
   if (filtered.length === 0) return null;
@@ -36,7 +40,9 @@ export function TrendingCommunitiesSection({ onCardClick, selectedSkill }: Trend
             <Flame className="w-5 h-5 text-amber-500" />
             Trending Communities
           </h2>
-          <p className="text-xs text-muted-foreground">Most active student societies and research groups on campus</p>
+          <p className="text-xs text-muted-foreground">
+            Most active student societies and research groups on campus
+          </p>
         </div>
       </div>
 
@@ -54,11 +60,16 @@ export function TrendingCommunitiesSection({ onCardClick, selectedSkill }: Trend
               className={cn(
                 "rounded-2xl bg-card border border-border/70 shadow-xs overflow-hidden group",
                 "hover:-translate-y-1 hover:shadow-xl hover:shadow-amber-500/5 hover:border-border",
-                "transition-all duration-300 cursor-pointer flex flex-col justify-between"
+                "transition-all duration-300 cursor-pointer flex flex-col justify-between",
               )}
             >
               {/* Banner Top */}
-              <div className={cn("h-16 w-full bg-gradient-to-r relative p-3", comm.bannerGradient)}>
+              <div
+                className={cn(
+                  "h-16 w-full bg-gradient-to-r relative p-3",
+                  comm.bannerGradient,
+                )}
+              >
                 <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-black/40 text-white backdrop-blur-xs border border-white/20">
                   {comm.category}
                 </span>
@@ -104,12 +115,13 @@ export function TrendingCommunitiesSection({ onCardClick, selectedSkill }: Trend
                       "px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 transition-all duration-200 cursor-pointer",
                       comm.isJoined
                         ? "bg-accent text-foreground hover:bg-destructive/10 hover:text-destructive"
-                        : "bg-amber-600 text-white hover:bg-amber-500 shadow-xs active:scale-95"
+                        : "bg-amber-600 text-white hover:bg-amber-500 shadow-xs active:scale-95",
                     )}
                   >
                     {comm.isJoined ? (
                       <>
-                        <Check className="w-3.5 h-3.5 text-emerald-500" /> Joined
+                        <Check className="w-3.5 h-3.5 text-emerald-500" />{" "}
+                        Joined
                       </>
                     ) : (
                       <>

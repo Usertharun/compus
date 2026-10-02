@@ -1,8 +1,13 @@
-import { Injectable } from '@nestjs/common';
-import { Event, EventStatus, RsvpStatus } from '@prisma/client';
-import { BaseAbstractRepository } from '@common/repositories/base.repository';
-import { PrismaService } from '@database/prisma.service';
-import { SearchEventsDto } from '../dto/events.dto';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
+import { Event, EventStatus, RsvpStatus } from "@prisma/client";
+import { BaseAbstractRepository } from "@common/repositories/base.repository";
+import { PrismaService } from "@database/prisma.service";
+import { SearchEventsDto } from "../dto/events.dto";
 
 @Injectable()
 export class EventsRepository extends BaseAbstractRepository<Event> {
@@ -34,7 +39,9 @@ export class EventsRepository extends BaseAbstractRepository<Event> {
           author: {
             select: {
               id: true,
-              profile: { select: { name: true, username: true, avatarUrl: true } },
+              profile: {
+                select: { name: true, username: true, avatarUrl: true },
+              },
             },
           },
           replies: {
@@ -43,14 +50,16 @@ export class EventsRepository extends BaseAbstractRepository<Event> {
               author: {
                 select: {
                   id: true,
-                  profile: { select: { name: true, username: true, avatarUrl: true } },
+                  profile: {
+                    select: { name: true, username: true, avatarUrl: true },
+                  },
                 },
               },
             },
-            orderBy: { createdAt: 'asc' as const },
+            orderBy: { createdAt: "asc" as const },
           },
         },
-        orderBy: { createdAt: 'desc' as const },
+        orderBy: { createdAt: "desc" as const },
       },
     };
   }
@@ -67,22 +76,30 @@ export class EventsRepository extends BaseAbstractRepository<Event> {
     const limit = dto.limit || 10;
     const skip = (page - 1) * limit;
 
-    const whereConditions: Record<string, unknown>[] = [{ deletedAt: null }];
+    const whereConditions: Record<string, unknown>[] = [
+      {
+        deletedAt: null,
+        visibility: "PUBLIC_CAMPUS",
+        status: { not: "DRAFT" },
+      },
+    ];
 
     if (dto.search) {
       const q = dto.search;
       whereConditions.push({
         OR: [
-          { title: { contains: q, mode: 'insensitive' } },
-          { description: { contains: q, mode: 'insensitive' } },
-          { venue: { contains: q, mode: 'insensitive' } },
-          { category: { contains: q, mode: 'insensitive' } },
+          { title: { contains: q, mode: "insensitive" } },
+          { description: { contains: q, mode: "insensitive" } },
+          { venue: { contains: q, mode: "insensitive" } },
+          { category: { contains: q, mode: "insensitive" } },
         ],
       });
     }
 
     if (dto.category) {
-      whereConditions.push({ category: { contains: dto.category, mode: 'insensitive' } });
+      whereConditions.push({
+        category: { contains: dto.category, mode: "insensitive" },
+      });
     }
 
     if (dto.communityId) {
@@ -104,7 +121,7 @@ export class EventsRepository extends BaseAbstractRepository<Event> {
         where,
         skip,
         take: limit,
-        orderBy: { startTime: 'asc' },
+        orderBy: { startTime: "asc" },
         include: this.eventIncludeSelect(),
       }),
       this.prisma.event.count({ where }),
@@ -121,7 +138,7 @@ export class EventsRepository extends BaseAbstractRepository<Event> {
         status: { in: [EventStatus.PUBLISHED, EventStatus.REGISTRATION_OPEN] },
       },
       take: limit,
-      orderBy: { startTime: 'asc' },
+      orderBy: { startTime: "asc" },
       include: this.eventIncludeSelect(),
     });
   }
@@ -136,65 +153,97 @@ export class EventsRepository extends BaseAbstractRepository<Event> {
         status: { not: EventStatus.CANCELLED },
       },
       take: limit,
-      orderBy: { startTime: 'asc' },
+      orderBy: { startTime: "asc" },
       include: this.eventIncludeSelect(),
     });
   }
 
-  async registerUser(eventId: string, userId: string, status: RsvpStatus) {
+  async registerUser(
+    eventId: string,
+    userId: string,
+    _requestedStatus: RsvpStatus,
+  ) {
     return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM events WHERE id = ${eventId} FOR UPDATE`;
+      const event = await tx.event.findFirst({
+        where: { id: eventId, deletedAt: null },
+      });
+      if (!event) throw new NotFoundException("Event not found");
+      if (
+        event.status !== "REGISTRATION_OPEN" ||
+        event.startTime <= new Date() ||
+        (event.registrationDeadline && event.registrationDeadline < new Date())
+      )
+        throw new BadRequestException(
+          "Registration is not open for this event.",
+        );
+      const existing = await tx.eventRsvp.findUnique({
+        where: { eventId_userId: { eventId, userId } },
+      });
+      if (existing && existing.status !== "CANCELLED")
+        throw new ConflictException(
+          "You are already registered for this event.",
+        );
+      const status =
+        event.capacity && event.rsvpCount >= event.capacity
+          ? RsvpStatus.WAITLISTED
+          : RsvpStatus.GOING;
       const rsvp = await tx.eventRsvp.upsert({
         where: { eventId_userId: { eventId, userId } },
         update: { status },
         create: { eventId, userId, status },
       });
-
-      if (status === RsvpStatus.GOING) {
-        await tx.event.update({
-          where: { id: eventId },
-          data: { rsvpCount: { increment: 1 } },
-        });
-      } else if (status === RsvpStatus.WAITLISTED) {
-        await tx.event.update({
-          where: { id: eventId },
-          data: { waitlistCount: { increment: 1 } },
-        });
-      }
-
+      await tx.event.update({
+        where: { id: eventId },
+        data:
+          status === "GOING"
+            ? { rsvpCount: { increment: 1 } }
+            : { waitlistCount: { increment: 1 } },
+      });
       return rsvp;
     });
   }
 
   async cancelRegistration(eventId: string, userId: string) {
-    const existing = await this.prisma.eventRsvp.findUnique({
-      where: { eventId_userId: { eventId, userId } },
-    });
-
-    if (!existing) return null;
-
-    await this.prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM events WHERE id = ${eventId} FOR UPDATE`;
+      const existing = await tx.eventRsvp.findUnique({
+        where: { eventId_userId: { eventId, userId } },
+      });
+      if (!existing) return null;
       await tx.eventRsvp.delete({ where: { id: existing.id } });
-
-      if (existing.status === RsvpStatus.GOING) {
+      let promotedUserId: string | null = null;
+      if (existing.status === "GOING") {
+        const next = await tx.eventRsvp.findFirst({
+          where: { eventId, status: "WAITLISTED" },
+          orderBy: { createdAt: "asc" },
+        });
+        if (next) {
+          await tx.eventRsvp.update({
+            where: { id: next.id },
+            data: { status: "GOING" },
+          });
+          promotedUserId = next.userId;
+        }
         await tx.event.update({
           where: { id: eventId },
-          data: { rsvpCount: { decrement: 1 } },
+          data: next
+            ? { waitlistCount: { decrement: 1 } }
+            : { rsvpCount: { decrement: 1 } },
         });
-      } else if (existing.status === RsvpStatus.WAITLISTED) {
+      } else if (existing.status === "WAITLISTED")
         await tx.event.update({
           where: { id: eventId },
           data: { waitlistCount: { decrement: 1 } },
         });
-      }
+      return { ...existing, promotedUserId };
     });
-
-    return existing;
   }
 
   async promoteNextWaitlisted(eventId: string) {
     const nextWaitlisted = await this.prisma.eventRsvp.findFirst({
       where: { eventId, status: RsvpStatus.WAITLISTED },
-      orderBy: { createdAt: 'asc' },
+      orderBy: { createdAt: "asc" },
     });
 
     if (!nextWaitlisted) return null;
@@ -221,14 +270,14 @@ export class EventsRepository extends BaseAbstractRepository<Event> {
       where: {
         userId_targetType_targetId: {
           userId,
-          targetType: 'EVENT',
+          targetType: "EVENT",
           targetId: eventId,
         },
       },
       update: {},
       create: {
         userId,
-        targetType: 'EVENT',
+        targetType: "EVENT",
         targetId: eventId,
         eventId,
       },
@@ -237,7 +286,7 @@ export class EventsRepository extends BaseAbstractRepository<Event> {
 
   async removeBookmark(eventId: string, userId: string) {
     await this.prisma.bookmark.deleteMany({
-      where: { userId, targetType: 'EVENT', targetId: eventId },
+      where: { userId, targetType: "EVENT", targetId: eventId },
     });
   }
 

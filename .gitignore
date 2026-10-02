@@ -37,3 +37,6 @@ dist-ssr
 !.env.production
 !**/.env.example
 !server/.env.test
+
+# Local verification artifacts and temporary QA credentials
+/output/

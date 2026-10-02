@@ -1,188 +1,269 @@
-import { useState } from "react";
-import { COMMUNITIES_DATA } from "@/data/communitiesMockData";
-import { CommunityItem, CommunityCategory } from "@/components/communities/types";
-import { CommunityCategorySection, CommunityDetailView } from "@/components/communities";
-import { Search, X, Users, Sparkles, SlidersHorizontal } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { motion, AnimatePresence } from "framer-motion";
-
+import { useDialogAccessibility } from "@/hooks/useDialogAccessibility";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
+import { useApp } from "@/context/AppContext";
+import { useToast } from "@/context/ToastContext";
+import { apiRequest } from "@/services/api";
+import { avatar, type Community } from "@/services/models";
+import { CommunityCard, CommunityDetailView } from "@/components/communities";
+import type { CommunityItem } from "@/components/communities/types";
+import { Search, Plus, X, Users } from "lucide-react";
+export const mapCommunity = (c: Community): CommunityItem => ({
+  id: c.id,
+  slug: c.slug,
+  joinPolicy: c.joinPolicy,
+  name: c.name,
+  category: c.category,
+  description: c.description,
+  fullBio: c.description,
+  memberCount: c.memberCount,
+  iconName: "Users",
+  avatarUrl: avatar(c.name, c.avatarUrl),
+  bannerGradient: "from-indigo-600 to-purple-600",
+  bannerImage: c.bannerUrl,
+  isJoined: !!c.userRole,
+  recentPosts: [],
+  upcomingEvents: [],
+  featuredMembers: (c.members || []).map((m) => ({
+    id: m.user.id,
+    name: m.user.profile?.name || "Student",
+    avatar: avatar(
+      m.user.profile?.name || "Student",
+      m.user.profile?.avatarUrl,
+    ),
+    role: m.role,
+    major: "",
+  })),
+});
 export default function CommunitiesPage() {
-  const [selectedCommunity, setSelectedCommunity] = useState<CommunityItem | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string>("All");
-
-  const categories = ["All", "Featured", "Technology", "Business", "Creative", "Sports"];
-
-  // Filter communities by query & selected tab
-  const filteredCommunities = COMMUNITIES_DATA.filter((comm) => {
-    const matchesSearch =
-      comm.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      comm.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      comm.category.toLowerCase().includes(searchQuery.toLowerCase());
-
-    if (!matchesSearch) return false;
-    if (selectedCategory === "All") return true;
-    if (selectedCategory === "Featured") return comm.isFeatured;
-    return comm.category === selectedCategory;
+  const { communities, refreshData, loading } = useApp();
+  const toast = useToast();
+  const [params, setParams] = useSearchParams();
+  const [selected, setSelected] = useState<CommunityItem | null>(null);
+  const [query, setQuery] = useState("");
+  const [category, setCategory] = useState("All");
+  const [creating, setCreating] = useState(false);
+  const [busy, setBusy] = useState(false);
+  useDialogAccessibility(creating, () => {
+    if (!busy) setCreating(false);
   });
-
-  const featuredCommunities = filteredCommunities.filter((c) => c.isFeatured);
-  const techCommunities = filteredCommunities.filter((c) => c.category === "Technology");
-  const bizCommunities = filteredCommunities.filter((c) => c.category === "Business");
-  const creativeCommunities = filteredCommunities.filter((c) => c.category === "Creative");
-  const sportsCommunities = filteredCommunities.filter((c) => c.category === "Sports");
-
-  if (selectedCommunity) {
+  const slug = params.get("community");
+  useEffect(() => {
+    let stopped = false;
+    setSelected(null);
+    if (slug)
+      void apiRequest<Community>("/communities/" + encodeURIComponent(slug))
+        .then((c) => {
+          if (!stopped) setSelected(mapCommunity(c));
+        })
+        .catch((e) => toast.error(e.message));
+    return () => {
+      stopped = true;
+    };
+  }, [slug]);
+  const categories = ["All", ...new Set(communities.map((c) => c.category))];
+  const filtered = communities.filter(
+    (c) =>
+      (category === "All" || c.category === category) &&
+      (c.name + " " + c.description)
+        .toLowerCase()
+        .includes(query.toLowerCase()),
+  );
+  const field =
+    "w-full mt-1 rounded-xl bg-secondary/30 border border-border px-3 py-2.5 text-sm";
+  if (selected)
     return (
       <CommunityDetailView
-        community={selectedCommunity}
-        onBack={() => setSelectedCommunity(null)}
+        community={selected}
+        onBack={() => {
+          setParams({});
+          setSelected(null);
+        }}
       />
     );
-  }
-
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.3 }}
-      className="space-y-8 max-w-7xl mx-auto"
-    >
-      {/* Directory Header */}
-      <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-1">
-          <div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-xs font-bold border border-indigo-500/20 mb-2">
-              <Users className="w-3.5 h-3.5" />
-              Campus Directory
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
-              Explore Campus Communities & Clubs
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1 font-normal">
-              Join active student societies, research labs, founder collectives, and sports clubs.
-            </p>
-          </div>
+    <div className="space-y-6 pb-12">
+      <header className="flex flex-wrap gap-4 items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-extrabold flex gap-2 items-center">
+            <Users />
+            Campus communities
+          </h1>
+          <p className="text-sm text-muted-foreground mt-2">
+            Find your people, share ideas, and build together.
+          </p>
         </div>
-
-        {/* Search Bar */}
-        <div className="relative flex items-center group">
-          <div className="absolute left-5 text-muted-foreground group-focus-within:text-primary transition-colors pointer-events-none">
-            <Search className="w-5 h-5" />
-          </div>
-
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search communities by name, topic, or keyword (e.g. AI, VC, Ski, Figma)..."
-            className={cn(
-              "w-full pl-14 pr-12 py-4 rounded-3xl text-sm font-medium",
-              "bg-card text-foreground border border-border/40 shadow-sm",
-              "placeholder:text-muted-foreground/70",
-              "focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/50",
-              "transition-all duration-300"
-            )}
+        <button
+          onClick={() => setCreating(true)}
+          className="rounded-2xl bg-primary text-primary-foreground font-bold text-sm px-4 py-3 flex gap-2"
+        >
+          <Plus className="w-4 h-4" />
+          Create community
+        </button>
+      </header>
+      <label className="flex items-center gap-3 p-3 rounded-2xl border border-border bg-card">
+        <Search className="w-5 h-5" />
+        <input
+          aria-label="Search communities"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search communities…"
+          className="w-full bg-transparent outline-none"
+        />
+      </label>
+      <div className="flex gap-2 overflow-x-auto">
+        {categories.map((c) => (
+          <button
+            key={c}
+            onClick={() => setCategory(c)}
+            className={
+              "rounded-xl px-4 py-2 shrink-0 text-sm " +
+              (c === category
+                ? "bg-primary text-primary-foreground"
+                : "bg-card border border-border")
+            }
+          >
+            {c}
+          </button>
+        ))}
+      </div>
+      {filtered.length === 0 && (
+        <p className="rounded-3xl border border-border bg-card p-10 text-center text-muted-foreground">
+          {loading
+            ? "Loading communities…"
+            : "No communities found. Create one or try another search."}
+        </p>
+      )}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+        {filtered.map((c) => (
+          <CommunityCard
+            key={c.id}
+            community={mapCommunity(c)}
+            onCardClick={() => setParams({ community: c.slug })}
           />
-
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery("")}
-              className="absolute right-5 p-1 rounded-xl text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          )}
-        </div>
-
-        {/* Category Pills */}
-        <div className="flex items-center gap-3 overflow-x-auto pb-2 no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-1">
-          {categories.map((cat) => {
-            const isActive = selectedCategory === cat;
-            return (
+        ))}
+      </div>
+      {creating && (
+        <div className="fixed inset-0 z-[110] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="create-community-title"
+            className="bg-card border border-border rounded-3xl p-6 w-full max-w-lg max-h-[90dvh] overflow-y-auto"
+          >
+            <header className="flex justify-between mb-5">
+              <h2 id="create-community-title" className="font-bold">
+                Create a community
+              </h2>
               <button
-                key={cat}
-                onClick={() => setSelectedCategory(cat)}
-                className={cn(
-                  "relative px-5 py-2.5 rounded-2xl text-sm font-bold transition-all duration-200 cursor-pointer shrink-0",
-                  isActive
-                    ? "text-primary-foreground shadow-sm"
-                    : "bg-card border border-border/30 text-muted-foreground hover:text-foreground hover:bg-accent/60"
-                )}
+                aria-label="Close"
+                disabled={busy}
+                onClick={() => setCreating(false)}
               >
-                {isActive && (
-                  <motion.div
-                    layoutId="activeCommunityCategory"
-                    className="absolute inset-0 bg-primary rounded-2xl"
-                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                  />
-                )}
-                <span className="relative z-10">{cat}</span>
+                <X />
               </button>
-            );
-          })}
+            </header>
+            <form
+              className="space-y-4"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (busy) return;
+                const f = new FormData(e.currentTarget);
+                setBusy(true);
+                try {
+                  const c = await apiRequest<Community>(
+                    "/communities",
+                    "POST",
+                    {
+                      name: String(f.get("name")).trim(),
+                      slug: String(f.get("slug")).trim(),
+                      description: String(f.get("description")).trim(),
+                      category: String(f.get("category")),
+                      joinPolicy: String(f.get("policy")),
+                    },
+                  );
+                  await refreshData();
+                  setCreating(false);
+                  setParams({ community: c.slug });
+                  toast.success("Community created. You are its owner.");
+                } catch (e) {
+                  toast.error(
+                    e instanceof Error
+                      ? e.message
+                      : "Unable to create community.",
+                  );
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              <label className="block text-sm">
+                Name
+                <input
+                  autoFocus
+                  name="name"
+                  required
+                  maxLength={100}
+                  className={field}
+                />
+              </label>
+              <label className="block text-sm">
+                Community address
+                <input
+                  name="slug"
+                  required
+                  pattern="[a-z0-9-]+"
+                  maxLength={80}
+                  placeholder="srm-design-club"
+                  className={field}
+                />
+                <span className="text-xs text-muted-foreground">
+                  Lowercase letters, numbers, and hyphens.
+                </span>
+              </label>
+              <label className="block text-sm">
+                Category
+                <select name="category" className={field}>
+                  {[
+                    "Technology",
+                    "Business",
+                    "Creative",
+                    "Sports",
+                    "Interest Group",
+                  ].map((c) => (
+                    <option key={c}>{c}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="block text-sm">
+                Membership
+                <select name="policy" className={field}>
+                  <option value="OPEN">Anyone on campus can join</option>
+                  <option value="APPROVAL_REQUIRED">
+                    Owner approval required
+                  </option>
+                </select>
+              </label>
+              <label className="block text-sm">
+                Description
+                <textarea
+                  name="description"
+                  rows={4}
+                  required
+                  maxLength={10000}
+                  className={field}
+                />
+              </label>
+              <button
+                disabled={busy}
+                className="bg-primary text-primary-foreground font-bold rounded-xl w-full py-3 disabled:opacity-50"
+              >
+                {busy ? "Creating…" : "Create community"}
+              </button>
+            </form>
+          </section>
         </div>
-      </div>
-
-      {/* Categorized Sections */}
-      <div className="space-y-12 pt-2">
-        <AnimatePresence mode="popLayout">
-          {/* Featured */}
-          {(selectedCategory === "All" || selectedCategory === "Featured") && featuredCommunities.length > 0 && (
-            <motion.div key="featured" layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-              <CommunityCategorySection
-                category="Featured"
-                communities={featuredCommunities}
-                onCardClick={setSelectedCommunity}
-              />
-            </motion.div>
-          )}
-
-          {/* Technology */}
-          {(selectedCategory === "All" || selectedCategory === "Technology") && techCommunities.length > 0 && (
-            <motion.div key="tech" layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-              <CommunityCategorySection
-                category="Technology"
-                communities={techCommunities}
-                onCardClick={setSelectedCommunity}
-              />
-            </motion.div>
-          )}
-
-          {/* Business */}
-          {(selectedCategory === "All" || selectedCategory === "Business") && bizCommunities.length > 0 && (
-            <motion.div key="biz" layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-              <CommunityCategorySection
-                category="Business"
-                communities={bizCommunities}
-                onCardClick={setSelectedCommunity}
-              />
-            </motion.div>
-          )}
-
-          {/* Creative */}
-          {(selectedCategory === "All" || selectedCategory === "Creative") && creativeCommunities.length > 0 && (
-            <motion.div key="creative" layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-              <CommunityCategorySection
-                category="Creative"
-                communities={creativeCommunities}
-                onCardClick={setSelectedCommunity}
-              />
-            </motion.div>
-          )}
-
-          {/* Sports */}
-          {(selectedCategory === "All" || selectedCategory === "Sports") && sportsCommunities.length > 0 && (
-            <motion.div key="sports" layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-              <CommunityCategorySection
-                category="Sports"
-                communities={sportsCommunities}
-                onCardClick={setSelectedCommunity}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-    </motion.div>
+      )}
+    </div>
   );
 }

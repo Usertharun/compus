@@ -1,88 +1,105 @@
-import { useAuth } from "@/context/AuthContext";
+import { ProfilePortfolio } from "@/components/profile/ProfilePortfolio";
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { USER_PROFILE_DATA } from "@/data/profileMockData";
 import { FullUserProfile } from "@/components/profile/types";
-import {
-  ProfileHeader,
-  ProfileBioSection,
-  SkillsSection,
-  BadgesSection,
-  AchievementsSection,
-  CommunitiesJoinedSection,
-  UpcomingEventsSection,
-  EditProfileModal,
-} from "@/components/profile";
+import { ProfileHeader, ProfileBioSection, AchievementsSection, CommunitiesJoinedSection, UpcomingEventsSection, EditProfileModal } from "@/components/profile";
 import { motion } from "framer-motion";
 import { useApp } from "@/context/AppContext";
-
+import { useToast } from "@/context/ToastContext";
+import { uploadImage } from "@/services/uploads";
+import { avatar } from "@/services/models";
 export default function ProfilePage() {
   const navigate = useNavigate();
-  const { user: account } = useAuth();
-  const { user: appUser, updateUser: updateAppUser } = useApp();
-  const [profileData, setProfileData] = useState<FullUserProfile>(() => {
-    const saved = localStorage.getItem("compus_profile_extended:" + account?.id);
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { /* fallback */ }
-    }
-    return USER_PROFILE_DATA;
-  });
-
+  const toast = useToast();
+  const { user: appUser, profile, communities, events, updateUser } = useApp();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [editModalTab, setEditModalTab] = useState<"info" | "photos" | "links">("info");
-
-  const displayUser = useMemo(() => {
-    return {
-      ...profileData,
-      name: appUser.name || profileData.name,
-      department: appUser.major || profileData.department,
-      year: appUser.gradYear ? `Class of '${appUser.gradYear.slice(-2)}` : profileData.year,
-      avatar: appUser.avatar || profileData.avatar,
-      banner: appUser.banner || profileData.banner,
-      bio: appUser.bio || profileData.bio,
-      githubUrl: appUser.githubUrl !== undefined ? appUser.githubUrl : profileData.githubUrl,
-      linkedinUrl: appUser.linkedinUrl !== undefined ? appUser.linkedinUrl : profileData.linkedinUrl,
-      portfolioUrl: appUser.portfolioUrl !== undefined ? appUser.portfolioUrl : profileData.portfolioUrl,
-    };
-  }, [profileData, appUser]);
-
-  const handleSaveProfile = (updated: Partial<FullUserProfile>) => {
-    setProfileData((prev) => {
-      const next = { ...prev, ...updated };
-      localStorage.setItem("compus_profile_extended:" + account?.id, JSON.stringify(next));
-      return next;
-    });
-
-    updateAppUser({
+  const [editModalTab, setEditModalTab] = useState<"info" | "photos" | "links">(
+    "info",
+  );
+  const displayUser: FullUserProfile = useMemo(
+    () => ({
+      name: appUser.name,
+      department: appUser.major,
+      year: appUser.gradYear,
+      avatar: appUser.avatar,
+      banner: appUser.banner || "",
+      bio: appUser.bio,
+      campus: appUser.university,
+      statusText: appUser.location,
+      githubUrl: appUser.githubUrl || "",
+      linkedinUrl: appUser.linkedinUrl || "",
+      portfolioUrl: appUser.portfolioUrl || "",
+      profileViews: profile?.metrics?.viewsCount || 0,
+      connectionsCount: profile?.metrics?.followersCount || 0,
+      projectsCount: profile?.projects?.length || 0,
+      skills: (profile?.skills || []).map((s) => ({
+        name: s.skill.name,
+        level: 0,
+        category: "Systems",
+      })),
+      badges: [],
+      achievements: (profile?.achievements || []).map((a) => ({
+        id: a.id,
+        title: a.title,
+        description: a.description,
+        current: 1,
+        max: 1,
+        iconName: "Trophy",
+        color: "text-primary",
+      })),
+      communities: communities
+        .filter((c) => c.userRole)
+        .map((c) => ({
+          id: c.id,
+          name: c.name,
+          role: c.userRole || "Member",
+          avatar: avatar(c.name, c.avatarUrl),
+          category: c.category,
+          membersCount: c.memberCount,
+        })),
+      events: events
+        .filter((e) => e.isRegistered)
+        .map((e) => ({
+          id: e.id,
+          title: e.title,
+          date: e.date,
+          time: e.time || "",
+          location: e.venue,
+          status: "Registered",
+        })),
+    }),
+    [appUser, profile, communities, events],
+  );
+  const handleSaveProfile = async (updated: Partial<FullUserProfile>) => {
+    const saved = await updateUser({
       name: updated.name,
       major: updated.department,
       gradYear: updated.year,
       avatar: updated.avatar,
       banner: updated.banner,
       bio: updated.bio,
+      location: updated.statusText,
       githubUrl: updated.githubUrl,
       linkedinUrl: updated.linkedinUrl,
       portfolioUrl: updated.portfolioUrl,
     });
+    if (saved) toast.success("Profile saved.");
+    return saved;
   };
-
-  const handleDirectPhotoUpload = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
-      handleSaveProfile({ avatar: dataUrl });
-    };
-    reader.readAsDataURL(file);
+  const handleDirectPhotoUpload = async (file: File) => {
+    try {
+      const url = await uploadImage(file);
+      await handleSaveProfile({ avatar: url });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Upload failed.");
+    }
   };
-
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={{ duration: 0.3 }}
       className="space-y-8 max-w-7xl mx-auto pb-12"
     >
-      {/* 1. Header (Cover, Avatar, Name, Dept, Year, Action Buttons & Social Links) */}
       <ProfileHeader
         user={displayUser}
         onEditProfile={(tab) => {
@@ -92,26 +109,14 @@ export default function ProfilePage() {
         onOpenSettings={() => navigate("/settings")}
         onDirectPhotoUpload={handleDirectPhotoUpload}
       />
-
-      {/* 2. Bio & Analytics Stats */}
       <ProfileBioSection user={displayUser} />
+      <ProfilePortfolio />
 
-      {/* 3. Skills with Progress Bars */}
-      <SkillsSection skills={displayUser.skills} />
-
-      {/* 4. Earned Badges */}
-      <BadgesSection badges={displayUser.badges} />
-
-      {/* 5. Campus Milestones & Achievements (Progress Bars) */}
       <AchievementsSection achievements={displayUser.achievements} />
-
-      {/* 6. Communities Joined & 7. Upcoming Events */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <CommunitiesJoinedSection communities={displayUser.communities} />
         <UpcomingEventsSection events={displayUser.events} />
       </div>
-
-      {/* Edit Profile Modal */}
       <EditProfileModal
         isOpen={isEditModalOpen}
         user={displayUser}

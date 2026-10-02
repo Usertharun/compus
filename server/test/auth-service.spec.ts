@@ -26,6 +26,44 @@ function setup() {
 beforeEach(() => jest.clearAllMocks());
 
 describe('Server authentication and onboarding', () => {
+  it('only grants administrator privileges to the configured owner after a valid OTP', async () => {
+    const { db, config, service } = setup();
+    config.set('OWNER_EMAIL', 'tharunrajr2007@gmail.com');
+    await service.registerWithOtp({ email: 'THARUNRAJR2007@gmail.com', password: 'Password1!', otp: '123456', name: 'Owner' });
+    expect(db.user.create.mock.calls[0][0].data).toMatchObject({ email: 'tharunrajr2007@gmail.com', role: 'SUPER_ADMIN', isVerified: true, onboardingCompleted: true });
+    db.user.create.mockClear();
+    await service.registerWithOtp({ email: user.email, password: 'Password1!', otp: '123456', name: 'Student' });
+    expect(db.user.create.mock.calls[0][0].data.role).toBe('VERIFIED_USER');
+  });
+  it('rejects every other Gmail address before registration or sending email', async () => {
+    const { db, config, service, email } = setup();
+    config.set('OWNER_EMAIL', 'tharunrajr2007@gmail.com');
+    await expect(service.requestRegistrationOtp({ email: 'someone@gmail.com' })).rejects.toThrow('@srmist.edu.in');
+    await expect(service.registerWithOtp({ email: 'someone@gmail.com', password: 'Password1!', otp: '123456', name: 'Other' })).rejects.toThrow('@srmist.edu.in');
+    expect(email.sendOtpEmail).not.toHaveBeenCalled();
+    expect(db.user.create).not.toHaveBeenCalled();
+  });
+  it('never creates an owner account for an incorrect verification code', async () => {
+    const { db, config, service } = setup();
+    config.set('OWNER_EMAIL', 'tharunrajr2007@gmail.com');
+    (argon2.verify as jest.Mock).mockResolvedValueOnce(false);
+    await expect(service.registerWithOtp({ email: 'tharunrajr2007@gmail.com', password: 'Password1!', otp: '000000', name: 'Owner' })).rejects.toThrow('Invalid verification');
+    expect(db.user.create).not.toHaveBeenCalled();
+  });
+  it('requires both the configured owner email and administrator role to restore an external-email session', async () => {
+    const { db, config } = setup();
+    config.set('OWNER_EMAIL', 'tharunrajr2007@gmail.com');
+    db.session.findUnique.mockResolvedValue({ userId: user.id, isRevoked: false, expiresAt: new Date(Date.now() + 60000) });
+    const strategy = new JwtStrategy(config, db);
+    const request = { headers: { authorization: 'Bearer token' } } as any;
+    const payload = { sub: user.id, email: 'tharunrajr2007@gmail.com', role: 'SUPER_ADMIN' };
+    db.user.findUnique.mockResolvedValue({ ...user, email: payload.email, role: 'VERIFIED_USER' });
+    await expect(strategy.validate(request, payload)).rejects.toThrow();
+    db.user.findUnique.mockResolvedValue({ ...user, email: 'other@gmail.com', role: 'SUPER_ADMIN' });
+    await expect(strategy.validate(request, payload)).rejects.toThrow();
+    db.user.findUnique.mockResolvedValue({ ...user, email: payload.email, role: 'SUPER_ADMIN' });
+    await expect(strategy.validate(request, payload)).resolves.toMatchObject({ role: 'SUPER_ADMIN', email: payload.email });
+  });
   it('cannot reuse a reset token consumed by a concurrent request', async () => {
     const { db, service } = setup();
     db.passwordResetToken = { findUnique: jest.fn().mockResolvedValue({ id: 'reset-1', userId: user.id, user, isUsed: false, expiresAt: new Date(Date.now() + 60000) }), updateMany: jest.fn().mockResolvedValue({ count: 0 }) };

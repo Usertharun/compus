@@ -10,3 +10,11 @@ export function validateCollegeEmail(email: string): string {
   if (!isCampusEmail(email)) throw new BadRequestException('Use your SRM email address ending in @srmist.edu.in.');
   return email.trim().toLowerCase();
 }
+
+export function isOwnerEmail(email: string, ownerEmail?: string): boolean {
+  return typeof email === 'string' && typeof ownerEmail === 'string' && ownerEmail.trim().length > 0 && email.trim().toLowerCase() === ownerEmail.trim().toLowerCase();
+}
+
+export function isAllowedAccountEmail(email: string, role: string, ownerEmail?: string): boolean {
+  return isCampusEmail(email) || (role === 'SUPER_ADMIN' && isOwnerEmail(email, ownerEmail));
+}

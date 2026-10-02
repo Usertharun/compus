@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useState, useCallback } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useEffect,
+} from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle2, AlertCircle, Info, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -28,19 +34,29 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  const addToast = useCallback((type: ToastType, message: string) => {
-    const id = `${Date.now()}-${Math.random()}`;
-    setToasts((prev) => [...prev, { id, type, message }]);
-    setTimeout(() => {
-      removeToast(id);
-    }, 3500);
-  }, [removeToast]);
+  const addToast = useCallback(
+    (type: ToastType, message: string) => {
+      const id = `${Date.now()}-${Math.random()}`;
+      setToasts((prev) => [...prev, { id, type, message }]);
+      setTimeout(() => {
+        removeToast(id);
+      }, 3500);
+    },
+    [removeToast],
+  );
 
   const toast = {
     success: (msg: string) => addToast("success", msg),
     error: (msg: string) => addToast("error", msg),
     info: (msg: string) => addToast("info", msg),
   };
+
+  useEffect(() => {
+    const onError = (event: Event) =>
+      addToast("error", (event as CustomEvent<string>).detail);
+    window.addEventListener("compus:action-error", onError);
+    return () => window.removeEventListener("compus:action-error", onError);
+  }, [addToast]);
 
   return (
     <ToastContext.Provider value={{ toast }}>
@@ -57,14 +73,23 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               transition={{ duration: 0.2 }}
               className={cn(
                 "pointer-events-auto p-4 rounded-2xl border shadow-xl backdrop-blur-2xl flex items-center gap-3 text-xs font-semibold",
-                t.type === "success" && "bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300",
-                t.type === "error" && "bg-rose-500/10 border-rose-500/30 text-rose-700 dark:text-rose-300",
-                t.type === "info" && "bg-indigo-500/10 border-indigo-500/30 text-indigo-700 dark:text-indigo-300"
+                t.type === "success" &&
+                  "bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300",
+                t.type === "error" &&
+                  "bg-rose-500/10 border-rose-500/30 text-rose-700 dark:text-rose-300",
+                t.type === "info" &&
+                  "bg-indigo-500/10 border-indigo-500/30 text-indigo-700 dark:text-indigo-300",
               )}
             >
-              {t.type === "success" && <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />}
-              {t.type === "error" && <AlertCircle className="w-5 h-5 text-rose-500 shrink-0" />}
-              {t.type === "info" && <Info className="w-5 h-5 text-indigo-500 shrink-0" />}
+              {t.type === "success" && (
+                <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+              )}
+              {t.type === "error" && (
+                <AlertCircle className="w-5 h-5 text-rose-500 shrink-0" />
+              )}
+              {t.type === "info" && (
+                <Info className="w-5 h-5 text-indigo-500 shrink-0" />
+              )}
 
               <span className="flex-1 leading-normal">{t.message}</span>
 
