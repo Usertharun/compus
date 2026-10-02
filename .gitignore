@@ -34,5 +34,6 @@ dist-ssr
 **/.env
 **/.env.*
 !.env.example
+!.env.production
 !**/.env.example
 !server/.env.test
