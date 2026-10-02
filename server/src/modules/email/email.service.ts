@@ -29,18 +29,66 @@ export class EmailService {
   }
 
   assertConfigured(): void {
-    if (!this.configService.get<string>('SMTP_HOST') || !this.configService.get<string>('SMTP_FROM') || (['smtp.resend.com', 'smtp.gmail.com'].includes(this.configService.get<string>('SMTP_HOST') || '') && (!this.configService.get<string>('SMTP_PASS') || !this.configService.get<string>('SMTP_USER')))) {
+    const brevoConfigured = Boolean(
+      this.configService.get<string>('BREVO_API_KEY') &&
+      this.configService.get<string>('BREVO_SENDER_EMAIL'),
+    );
+    const smtpConfigured = Boolean(
+      this.configService.get<string>('SMTP_HOST') &&
+      this.configService.get<string>('SMTP_FROM') &&
+      this.configService.get<string>('SMTP_USER') &&
+      this.configService.get<string>('SMTP_PASS'),
+    );
+
+    if (!brevoConfigured && !smtpConfigured) {
       throw new ServiceUnavailableException('Email delivery is not available yet. Please try again later.');
     }
   }
 
+  private async sendEmail(to: string, subject: string, html: string): Promise<void> {
+    const apiKey = this.configService.get<string>('BREVO_API_KEY');
+    const senderEmail = this.configService.get<string>('BREVO_SENDER_EMAIL');
+
+    if (apiKey && senderEmail) {
+      const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          accept: 'application/json',
+          'api-key': apiKey,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          sender: {
+            email: senderEmail,
+            name: this.configService.get<string>('BREVO_SENDER_NAME', 'Compus'),
+          },
+          to: [{ email: to }],
+          subject,
+          htmlContent: html,
+        }),
+      });
+
+      if (!response.ok) {
+        throw Object.assign(new Error('Brevo email API request failed'), {
+          code: 'BREVO_API_ERROR',
+          responseCode: response.status,
+        });
+      }
+      return;
+    }
+
+    await this.transporter.sendMail({
+      from: this.configService.get<string>('SMTP_FROM'),
+      to,
+      subject,
+      html,
+    });
+  }
+
   async sendOtpEmail(email: string, otp: string): Promise<void> {
     this.assertConfigured();
-    const mailOptions = {
-      from: this.configService.get<string>('SMTP_FROM'),
-      to: email,
-      subject: 'Compus - Verification OTP Code',
-      html: `
+    const subject = 'Compus - Verification OTP Code';
+    const html = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
           <h2 style="color: #4f46e5; text-align: center;">Compus Verification Code</h2>
           <p>Hello,</p>
@@ -52,18 +100,16 @@ export class EmailService {
             This OTP code is valid for <strong>10 minutes</strong>. Do not share this code with anyone.
           </p>
         </div>
-      `,
-    };
+      `;
 
     try {
-      await this.transporter.sendMail(mailOptions);
+      await this.sendEmail(email, subject, html);
       this.logger.log(`📧 OTP email dispatched successfully to: ${email}`, 'EmailService');
     } catch (error) {
       const smtpError = error as Error & { code?: string; responseCode?: number };
       const diagnostic = [
         smtpError.code,
         smtpError.responseCode,
-        smtpError.message,
       ].filter(Boolean).join(' | ');
       this.logger.warn(
         `Verification email delivery failed${diagnostic ? `: ${diagnostic}` : ''}`,
@@ -74,21 +120,17 @@ export class EmailService {
   }
 
   async sendWelcomeEmail(email: string, name: string): Promise<void> {
-    const mailOptions = {
-      from: this.configService.get<string>('SMTP_FROM'),
-      to: email,
-      subject: 'Welcome to Compus!',
-      html: `
+    const subject = 'Welcome to Compus!';
+    const html = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
           <h2 style="color: #4f46e5;">Welcome to Compus, ${name}!</h2>
           <p>Your official campus account has been successfully verified.</p>
           <p>You can now connect with fellow students, join communities, track campus events, and discover opportunities.</p>
         </div>
-      `,
-    };
+      `;
 
     try {
-      await this.transporter.sendMail(mailOptions);
+      await this.sendEmail(email, subject, html);
     } catch {
       this.logger.warn('Welcome email delivery failed', 'EmailService');
     }
@@ -98,22 +140,18 @@ export class EmailService {
     this.assertConfigured();
     const resetUrl = new URL('/reset-password', this.configService.get<string>('APP_URL', 'http://localhost:5173'));
     resetUrl.searchParams.set('token', resetToken);
-    const mailOptions = {
-      from: this.configService.get<string>('SMTP_FROM'),
-      to: email,
-      subject: 'Compus - Password Reset Instructions',
-      html: `
+    const subject = 'Compus - Password Reset Instructions';
+    const html = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
           <h2 style="color: #dc2626;">Password Reset Request</h2>
           <p>We received a request to reset your Compus account password.</p>
           <p><a href="${resetUrl}" style="background-color: #4f46e5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; display: inline-block;">Reset Password</a></p>
           <p style="color: #6b7280; font-size: 14px;">This link will expire in 15 minutes.</p>
         </div>
-      `,
-    };
+      `;
 
     try {
-      await this.transporter.sendMail(mailOptions);
+      await this.sendEmail(email, subject, html);
     } catch {
       this.logger.warn('Password reset email delivery failed', 'EmailService');
       throw new ServiceUnavailableException('Unable to send the reset link. Please try again later.');

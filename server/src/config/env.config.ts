@@ -94,6 +94,18 @@ export class EnvironmentVariables {
 
   @IsString()
   @IsOptional()
+  BREVO_API_KEY?: string;
+
+  @IsString()
+  @IsOptional()
+  BREVO_SENDER_EMAIL?: string;
+
+  @IsString()
+  @IsOptional()
+  BREVO_SENDER_NAME: string = 'Compus';
+
+  @IsString()
+  @IsOptional()
   REDIS_URL?: string;
 
   @IsString()
