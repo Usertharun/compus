@@ -26,7 +26,7 @@ The public policy is served at `/privacy`. Deletion requests enter owner feedbac
 ## Deployment order
 
 1. Take a recoverable database snapshot and record the deployment revision. Verify the provider's actual restore retention window.
-2. From `server`, run `npm ci`, `npm run prisma:deploy`, `npm run prisma:generate` and `npm run build`. The two new migrations add permanent community login registration and optional object storage metadata/budgets.
+2. From `server`, run `npm ci`, `npm run prisma:deploy`, `npm run prisma:generate` and `npm run build`. The two new migrations add permanent community login registration and secure Cloudinary image URLs. Production containers also run `prisma migrate deploy` before starting the API so later additive migrations are not silently skipped.
 3. Deploy backend, then frontend. Verify student, owner and approved-club login, personal pages beyond 50 records, event cancellation notifications, and attendance with separate accounts.
 4. Confirm `/privacy` is publicly accessible on the deployed domain. Confirm the listed support address is monitored.
 

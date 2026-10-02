@@ -20,6 +20,7 @@ const requiredFiles = [
   'server/scripts/restore-drill.cjs',
   'server/scripts/migrate-images.ts',
   'server/scripts/cloudinary-smoke.ts',
+  'server/scripts/image-migration-status.ts',
   'src/pages/Privacy/index.tsx',
 ];
 

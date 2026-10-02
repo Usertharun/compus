@@ -51,4 +51,4 @@ COPY --from=builder /app/prisma ./prisma
 EXPOSE 3000
 
 # Start production server
-CMD ["node", "dist/src/main"]
+CMD ["sh", "-c", "node node_modules/prisma/build/index.js migrate deploy && node dist/src/main"]
