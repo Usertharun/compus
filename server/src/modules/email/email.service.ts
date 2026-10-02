@@ -58,8 +58,17 @@ export class EmailService {
     try {
       await this.transporter.sendMail(mailOptions);
       this.logger.log(`📧 OTP email dispatched successfully to: ${email}`, 'EmailService');
-    } catch {
-      this.logger.warn('Verification email delivery failed', 'EmailService');
+    } catch (error) {
+      const smtpError = error as Error & { code?: string; responseCode?: number };
+      const diagnostic = [
+        smtpError.code,
+        smtpError.responseCode,
+        smtpError.message,
+      ].filter(Boolean).join(' | ');
+      this.logger.warn(
+        `Verification email delivery failed${diagnostic ? `: ${diagnostic}` : ''}`,
+        'EmailService',
+      );
       throw new ServiceUnavailableException('Unable to deliver your verification code. Please try again later.');
     }
   }
@@ -80,7 +89,7 @@ export class EmailService {
 
     try {
       await this.transporter.sendMail(mailOptions);
-    } catch (error) {
+    } catch {
       this.logger.warn('Welcome email delivery failed', 'EmailService');
     }
   }
@@ -105,7 +114,7 @@ export class EmailService {
 
     try {
       await this.transporter.sendMail(mailOptions);
-    } catch (error) {
+    } catch {
       this.logger.warn('Password reset email delivery failed', 'EmailService');
       throw new ServiceUnavailableException('Unable to send the reset link. Please try again later.');
     }
