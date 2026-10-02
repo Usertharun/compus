@@ -1,4 +1,4 @@
-import { PrismaClient, UserRole, PostCategory, OpportunityType, EventStatus } from '@prisma/client';
+import { PrismaClient, UserRole, PostCategory, EventStatus } from '@prisma/client';
 import * as argon2 from '@node-rs/argon2';
 
 const prisma = new PrismaClient();
@@ -31,6 +31,11 @@ async function main() {
     });
   }
   console.log(`✅ Seeded ${SYSTEM_PERMISSIONS.length} PBAC permissions`);
+  // Demo identities and sample content must never be created in production.
+  if (process.env.NODE_ENV === 'production' || process.env.DEMO_SEED !== 'true') {
+    console.log('System permissions ready. Demo content skipped.');
+    return;
+  }
 
   // 2. Seed Super Admin User
   const adminEmail = 'admin@compus.edu.in';

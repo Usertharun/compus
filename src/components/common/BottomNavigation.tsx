@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { 
   Home, 
@@ -60,7 +60,6 @@ export const DEFAULT_BOTTOM_NAV_ITEMS: BottomNavItemProps[] = [
     label: "Messages",
     path: "/messages",
     icon: MessageSquare,
-    badge: 2,
   },
   {
     id: "profile",
