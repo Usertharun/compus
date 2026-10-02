@@ -19,6 +19,14 @@ import type {
   Student,
 } from "../services/models";
 import { avatar, formatDate, formatTime } from "../services/models";
+import { mergeItems, hasNextPage } from '../services/pagination';
+
+export type Collection = 'events' | 'organizedEvents' | 'opportunities' | 'communities' | 'students' | 'savedOpportunities' | 'registrations' | 'savedPosts';
+const collectionPaths: Record<Collection, string> = {
+  events: '/events/browse', opportunities: '/opportunities/browse', communities: '/communities/browse', students: '/profile/search',
+  savedOpportunities: '/opportunities/saved', registrations: '/events/registrations', savedPosts: '/feed/bookmarks',
+  organizedEvents: '/events/organized',
+};
 
 export interface UserProfile {
   id?: string;
@@ -157,6 +165,12 @@ function useAppState() {
   const [opportunities, setOpportunities] = useState<CampusOpportunity[]>([]);
   const [communities, setCommunities] = useState<Community[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
+  const [savedOpportunities, setSavedOpportunities] = useState<CampusOpportunity[]>([]);
+  const [registrations, setRegistrations] = useState<CampusEvent[]>([]);
+  const [organizedEvents, setOrganizedEvents] = useState<CampusEvent[]>([]);
+  const [joinedCommunityCount, setJoinedCommunityCount] = useState(0);
+  const [pages, setPages] = useState<Partial<Record<Collection, Page<unknown>>>>({});
+  const [paging, setPaging] = useState<Partial<Record<Collection, boolean>>>({});
   const [loading, setLoading] = useState(false);
   const [dataError, setDataError] = useState("");
   const [isBackendConnected, setIsBackendConnected] = useState(false);
@@ -183,12 +197,48 @@ function useAppState() {
     portfolioUrl: profile?.portfolioUrl,
   };
   const hydratePosts = async (items: Post[]) => items.map(mapPost);
+  const acceptCollection = useCallback((key: Collection, page: Page<unknown>, append: boolean) => {
+    setPages(prev => ({ ...prev, [key]: page }));
+    const update = <T extends { id: string | number }>(prev: T[], items: T[]) => append ? mergeItems(prev, items) : items;
+    if (key === 'events' || key === 'registrations' || key === 'organizedEvents') {
+      const items = (page.items as Event[]).map(mapEvent);
+      (key === 'events' ? setEvents : key === 'organizedEvents' ? setOrganizedEvents : setRegistrations)(prev => update(prev, items));
+    } else if (key === 'opportunities' || key === 'savedOpportunities') {
+      const items = (page.items as Opportunity[]).map(mapOpportunity);
+      (key === 'opportunities' ? setOpportunities : setSavedOpportunities)(prev => update(prev, items));
+    } else if (key === 'communities') setCommunities(prev => update(prev, page.items as Community[]));
+    else if (key === 'students') setStudents(prev => update(prev, (page.items as Student[]).filter(s => s.userId !== account?.id)));
+    else setSavedPosts(prev => update(prev, (page.items as Post[]).map(p => mapPost({ ...p, isBookmarked: true }))));
+  }, [account?.id]);
+  const requestCollection = (key: Collection, page = 1, nextCursor?: string | null) => {
+    if (key === 'students') return apiRequest<Page<unknown>>(collectionPaths[key], 'POST', { page, limit: 50 });
+    const params = new URLSearchParams({ page: String(page), limit: '50' });
+    if (nextCursor) params.set('cursor', nextCursor);
+    return apiRequest<Page<unknown>>(collectionPaths[key] + '?' + params);
+  };
+  const loadMoreCollection = async (key: Collection) => {
+    const previous = pages[key];
+    if (!previous || !hasNextPage(previous) || busy.current.has('page:' + key)) return;
+    const current = generation.current;
+    busy.current.add('page:' + key);
+    setPaging(prev => ({ ...prev, [key]: true }));
+    try {
+      const page = await requestCollection(key, (previous.page || 1) + 1, previous.nextCursor);
+      if (current === generation.current) acceptCollection(key, page, true);
+    } catch (error) {
+      if (current === generation.current) setDataError(error instanceof Error ? error.message : 'Unable to load more. Try again.');
+    } finally {
+      busy.current.delete('page:' + key);
+      setPaging(prev => ({ ...prev, [key]: false }));
+    }
+  };
   const refreshData = useCallback(async () => {
     if (!account?.onboardingCompleted) return;
     const current = ++generation.current;
     setLoading(true);
     setDataError("");
     const results = await Promise.allSettled([
+      apiRequest<{ total: number }>('/communities/my/count').then(result => { if (generation.current === current) setJoinedCommunityCount(result.total); }),
       apiRequest<Student>("/profile/me").then((p) => {
         if (generation.current === current) setProfile(p);
       }),
@@ -200,34 +250,11 @@ function useAppState() {
           setHasMorePosts(!!p.hasMore);
         }
       }),
-      apiRequest<Page<Post>>("/feed/bookmarks?limit=50").then((p) => {
-        if (generation.current === current)
-          setSavedPosts(
-            p.items.map((i) => mapPost({ ...i, isBookmarked: true })),
-          );
+      ...Object.keys(collectionPaths).map(async name => {
+        const key = name as Collection;
+        const page = await requestCollection(key);
+        if (generation.current === current) acceptCollection(key, page, false);
       }),
-      apiRequest<Page<Event>>("/events/browse?limit=50").then(async (p) => {
-        const items = p.items.map(mapEvent);
-        if (generation.current === current) setEvents(items);
-      }),
-      apiRequest<Page<Opportunity>>("/opportunities/browse?limit=50").then(
-        async (p) => {
-          const items = p.items.map(mapOpportunity);
-          if (generation.current === current) setOpportunities(items);
-        },
-      ),
-      apiRequest<Page<Community>>("/communities/browse?limit=50").then(
-        async (p) => {
-          const items = p.items;
-          if (generation.current === current) setCommunities(items);
-        },
-      ),
-      apiRequest<Page<Student>>("/profile/search", "POST", { limit: 50 }).then(
-        (p) => {
-          if (generation.current === current)
-            setStudents(p.items.filter((s) => s.userId !== account.id));
-        },
-      ),
     ]);
     if (generation.current !== current) return;
     const failed = results.find((r) => r.status === "rejected");
@@ -239,11 +266,14 @@ function useAppState() {
           : "Some campus data could not be loaded. Please retry.",
       );
     setLoading(false);
-  }, [account?.id, account?.onboardingCompleted]);
+  }, [account?.onboardingCompleted, acceptCollection]);
   useEffect(() => {
+    // Start centralized server hydration when the authenticated account changes.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void refreshData();
+    const requestGeneration = generation;
     return () => {
-      generation.current++;
+      requestGeneration.current++;
     };
   }, [refreshData]);
   const previousFilter = useRef(currentFeedPath);
@@ -427,7 +457,7 @@ function useAppState() {
     });
   const toggleRegisterEvent = (id: string) =>
     mutate("event:" + id, async () => {
-      const e = events.find((item) => item.id === id);
+      const e = events.find((item) => item.id === id) || registrations.find(item => item.id === id);
       if (!e) return;
       await apiRequest(
         "/events/" + id + "/register",
@@ -437,6 +467,8 @@ function useAppState() {
       setEvents((prev) =>
         prev.map((item) => (item.id === id ? mapEvent(result) : item)),
       );
+      const page = await requestCollection('registrations');
+      acceptCollection('registrations', page, false);
     });
   const addOpportunity = (o: Omit<CampusOpportunity, "id">) =>
     mutate("create-opportunity", async () => {
@@ -455,7 +487,7 @@ function useAppState() {
     });
   const toggleSaveOpportunity = (id: string) =>
     mutate("opportunity:" + id, async () => {
-      const o = opportunities.find((item) => item.id === id);
+      const o = opportunities.find((item) => item.id === id) || savedOpportunities.find(item => item.id === id);
       if (!o) return;
       await apiRequest(
         "/opportunities/" + id + "/bookmark",
@@ -466,6 +498,8 @@ function useAppState() {
           item.id === id ? { ...item, isSaved: !o.isSaved } : item,
         ),
       );
+      const page = await requestCollection('savedOpportunities');
+      acceptCollection('savedOpportunities', page, false);
     });
   const loadMorePosts = async () => {
     if (!cursor || loading) return;
@@ -503,6 +537,13 @@ function useAppState() {
     updateUser,
     posts,
     savedPosts,
+    savedOpportunities,
+    registrations,
+    organizedEvents,
+    joinedCommunityCount,
+    pages,
+    paging,
+    loadMoreCollection,
     addPost,
     deletePost,
     toggleLikePost,
@@ -532,13 +573,13 @@ function useAppState() {
       setCreatePostMediaOpen(media);
       setIsCreatePostOpen(true);
     },
-    closeCreatePost: () => setIsCreatePostOpen(false),
+    closeCreatePost: useCallback(() => setIsCreatePostOpen(false), []),
     isHostEventOpen,
     openHostEvent: () => setIsHostEventOpen(true),
-    closeHostEvent: () => setIsHostEventOpen(false),
+    closeHostEvent: useCallback(() => setIsHostEventOpen(false), []),
     isCreateOppOpen,
     openCreateOpp: () => setIsCreateOppOpen(true),
-    closeCreateOpp: () => setIsCreateOppOpen(false),
+    closeCreateOpp: useCallback(() => setIsCreateOppOpen(false), []),
     isBackendConnected,
     loading,
     dataError,

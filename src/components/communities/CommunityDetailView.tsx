@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiRequest } from "@/services/api";
 import {
@@ -36,23 +36,22 @@ export function CommunityDetailView({
   const [error, setError] = useState("");
   const [draft, setDraft] = useState("");
   const [cursor, setCursor] = useState<string | null>(null);
+  const read = useCallback(async () => {
+    const d = await apiRequest<Community>('/communities/' + encodeURIComponent(community.slug || community.id));
+    const [p, r] = await Promise.all([
+      apiRequest<Page<Post>>('/communities/' + community.id + '/feed?limit=20'),
+      d.userRole === 'OWNER' || d.userRole === 'MODERATOR' ? apiRequest<JoinRequest[]>('/communities/' + d.id + '/requests') : Promise.resolve([]),
+    ]);
+    return { d, p, r };
+  }, [community.id, community.slug]);
+  const accept = useCallback(({ d, p, r }: Awaited<ReturnType<typeof read>>) => {
+    setDetail(d); setPosts(p.items); setCursor(p.nextCursor || null); setRequests(r); setError('');
+  }, []);
   const load = async () => {
     setLoading(true);
     setError("");
     try {
-      const d = await apiRequest<Community>(
-        "/communities/" + encodeURIComponent(community.slug || community.id),
-      );
-      setDetail(d);
-      const p = await apiRequest<Page<Post>>(
-        "/communities/" + community.id + "/feed?limit=20",
-      );
-      setPosts(p.items);
-      setCursor(p.nextCursor || null);
-      if (d.userRole === "OWNER" || d.userRole === "MODERATOR")
-        setRequests(
-          await apiRequest<JoinRequest[]>("/communities/" + d.id + "/requests"),
-        );
+      accept(await read());
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unable to load community.");
     } finally {
@@ -60,8 +59,12 @@ export function CommunityDetailView({
     }
   };
   useEffect(() => {
-    void load();
-  }, [community.id]);
+    let stopped = false;
+    void read().then(result => { if (!stopped) accept(result); })
+      .catch(e => { if (!stopped) setError(e instanceof Error ? e.message : 'Unable to load community.'); })
+      .finally(() => { if (!stopped) setLoading(false); });
+    return () => { stopped = true; };
+  }, [read, accept]);
   const run = async (path: string, method: string, data?: unknown) => {
     if (busy) return false;
     setBusy(true);

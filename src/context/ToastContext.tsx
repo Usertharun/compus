@@ -4,6 +4,7 @@ import React, {
   useState,
   useCallback,
   useEffect,
+  useMemo,
 } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle2, AlertCircle, Info, X } from "lucide-react";
@@ -45,11 +46,11 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     [removeToast],
   );
 
-  const toast = {
+  const toast = useMemo(() => ({
     success: (msg: string) => addToast("success", msg),
     error: (msg: string) => addToast("error", msg),
     info: (msg: string) => addToast("info", msg),
-  };
+  }), [addToast]);
 
   useEffect(() => {
     const onError = (event: Event) =>

@@ -93,7 +93,7 @@ export class CommunitiesRepository extends BaseAbstractRepository<Community> {
         where,
         skip,
         take: limit,
-        orderBy: { memberCount: 'desc' },
+        orderBy: [{ memberCount: 'desc' }, { id: 'asc' }],
         include: {
           owner: {
             select: {

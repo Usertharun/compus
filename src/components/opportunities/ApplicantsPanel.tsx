@@ -37,7 +37,12 @@ export function ApplicantsPanel({
     }
   };
   useEffect(() => {
-    void load();
+    let stopped = false;
+    void apiRequest<Application[]>('/opportunities/' + opportunityId + '/applications')
+      .then(items => { if (!stopped) setItems(items); })
+      .catch(e => { if (!stopped) setError(e instanceof Error ? e.message : 'Unable to load applicants.'); })
+      .finally(() => { if (!stopped) setLoading(false); });
+    return () => { stopped = true; };
   }, [opportunityId]);
   useDialogAccessibility(true, onClose);
   return (

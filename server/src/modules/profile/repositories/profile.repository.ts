@@ -143,7 +143,7 @@ export class ProfileRepository extends BaseAbstractRepository<Profile> {
           skills: { include: { skill: true } },
           interests: { include: { interest: true } },
         },
-        orderBy: { createdAt: "desc" },
+        orderBy: [{ createdAt: "desc" }, { id: 'asc' }],
       }),
       this.prisma.profile.count({ where }),
     ]);

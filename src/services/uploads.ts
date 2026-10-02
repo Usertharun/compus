@@ -21,7 +21,7 @@ export async function uploadImage(file: File): Promise<string> {
       "POST",
       { data },
     );
-    return API_BASE + result.path;
+    return result.path.startsWith("https://") ? result.path : API_BASE + result.path;
   } finally {
     bitmap.close();
   }

@@ -14,6 +14,8 @@ import { Response } from "express";
 import { PrismaService } from "@database/prisma.service";
 import { Public } from "@common/decorators/public.decorator";
 import { CurrentUser } from "@common/decorators/current-user.decorator";
+import { randomUUID } from 'node:crypto';
+import { CloudinaryStorageService } from './cloudinary-storage.service';
 class UploadImageDto {
   @IsString()
   @MaxLength(700000)
@@ -21,7 +23,7 @@ class UploadImageDto {
 }
 @Controller("uploads")
 export class UploadsController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly storage: CloudinaryStorageService) {}
   @Post("images")
   async upload(
     @CurrentUser("id") ownerId: string,
@@ -46,22 +48,31 @@ export class UploadsController {
           : content.subarray(0, 4).toString() === "RIFF" &&
             content.subarray(8, 12).toString() === "WEBP";
     if (!valid) throw new BadRequestException("Invalid image format.");
-    const asset = await this.prisma.imageAsset.create({
-      data: { ownerId, content, mimeType },
-      select: { id: true },
-    });
-    return { path: "/uploads/images/" + asset.id };
+    const id = randomUUID();
+    const secureUrl = await this.storage.upload(id, content);
+    try {
+      await this.prisma.imageAsset.create({ data: { id, ownerId, content: null, mimeType, secureUrl } });
+    } catch (error) {
+      await this.storage.destroy(id).catch(() => undefined);
+      throw error;
+    }
+    return { path: secureUrl };
   }
   @Public()
   @Get("images/:id")
   async image(@Param("id") id: string, @Res() response: Response) {
     const asset = await this.prisma.imageAsset.findUnique({ where: { id } });
     if (!asset) throw new NotFoundException("Image not found.");
+    response.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    if (asset.secureUrl) {
+      response.setHeader("Cache-Control", "public, max-age=300");
+      return response.redirect(302, asset.secureUrl);
+    }
+    if (!asset.content) throw new NotFoundException('Image unavailable');
     response.setHeader("Content-Type", asset.mimeType);
     response.setHeader("Cache-Control", "public, max-age=31536000, immutable");
-    response.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
     response.send(Buffer.from(asset.content));
   }
 }
-@Module({ controllers: [UploadsController] })
+@Module({ controllers: [UploadsController], providers: [CloudinaryStorageService] })
 export class UploadsModule {}

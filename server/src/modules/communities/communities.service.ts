@@ -22,6 +22,9 @@ import { AppLoggerService } from "@logger/logger.service";
 
 @Injectable()
 export class CommunitiesService {
+  async membershipCount(userId: string) {
+    return { total: await this.prisma.communityMember.count({ where: { userId, community: { deletedAt: null } } }) };
+  }
   constructor(
     private readonly communitiesRepository: CommunitiesRepository,
     private readonly feedRepository: FeedRepository,

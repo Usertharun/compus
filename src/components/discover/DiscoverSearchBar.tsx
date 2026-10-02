@@ -1,4 +1,4 @@
-import { Search, X, Sparkles, SlidersHorizontal } from "lucide-react";
+import { Search, X, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 

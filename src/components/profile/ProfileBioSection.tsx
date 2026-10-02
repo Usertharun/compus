@@ -1,6 +1,6 @@
 import { FullUserProfile } from "./types";
 import { Sparkles, Eye, Users, FolderGit2, Activity } from "lucide-react";
-import { motion } from "framer-motion";
+
 
 interface ProfileBioSectionProps {
   user: FullUserProfile;

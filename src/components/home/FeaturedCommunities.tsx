@@ -1,18 +1,18 @@
 import { useState } from "react";
 import { COMMUNITIES_DATA } from "@/data/communitiesData";
-import { Cpu, Code, Zap, Rocket, Bot, Users, ChevronRight, Check, Plus } from "lucide-react";
+import { Users, ChevronRight, Check, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 
 export function FeaturedCommunities() {
   const featuredList = COMMUNITIES_DATA.slice(0, 6);
-  const [communities, setCommunities] = useState(featuredList);
+  const [communities, setCommunities] = useState(featuredList.map(c => ({ ...c, isJoined: false })));
 
   const toggleJoin = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     setCommunities((prev) =>
       prev.map((c) =>
-        c.id === id ? { ...c, isJoined: !(c as any).isJoined, members: (c as any).isJoined ? c.members - 1 : c.members + 1 } : c
+        c.id === id ? { ...c, isJoined: !c.isJoined, members: c.isJoined ? c.members - 1 : c.members + 1 } : c
       )
     );
   };
@@ -36,7 +36,7 @@ export function FeaturedCommunities() {
       {/* Horizontal Cards Scroll */}
       <div className="flex gap-5 overflow-x-auto pb-6 pt-2 snap-x snap-mandatory no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-1">
         {communities.map((community, index) => {
-          const isJoined = (community as any).isJoined;
+          const isJoined = community.isJoined;
           return (
             <motion.div
               key={community.id}

@@ -1,4 +1,7 @@
 import { useState } from "react";
+import CollectionPager from '@/components/common/CollectionPager';
+import type { CampusEvent } from '@/data/eventsData';
+import EventManager from '@/components/events/EventManager';
 import { Calendar, MapPin, Clock, Users, Check, Ticket, Sparkles, Plus, Search, X, LayoutGrid, List, QrCode } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
@@ -12,17 +15,20 @@ const CATEGORIES = [
   "Keynotes",
   "Socials",
   "My RSVPs",
+  "Hosting",
 ];
 
 export default function EventsPage() {
-  const { openHostEvent, user, events, toggleRegisterEvent } = useApp();
+  const { openHostEvent, user, events: discoveryEvents, organizedEvents, registrations, pages, toggleRegisterEvent, refreshData } = useApp();
   const toast = useToast();
   const [selectedCategory, setSelectedCategory] = useState("All");
+  const events = selectedCategory === 'My RSVPs' ? registrations : selectedCategory === 'Hosting' ? organizedEvents : discoveryEvents;
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const [selectedTicket, setSelectedTicket] = useState<any | null>(null);
+  const [selectedTicket, setSelectedTicket] = useState<CampusEvent | null>(null);
+  const [managedEvent, setManagedEvent] = useState<CampusEvent | null>(null);
 
-  const registeredCount = events.filter((e) => e.isRegistered).length;
+  const registeredCount = pages.registrations?.total ?? registrations.length;
 
   const handleToggleRegister = async (
     id: string,
@@ -40,7 +46,7 @@ export default function EventsPage() {
   const filteredEvents = events.filter((e) => {
     if (selectedCategory === "My RSVPs") {
       if (!e.isRegistered) return false;
-    } else if (selectedCategory !== "All") {
+    } else if (selectedCategory !== "All" && selectedCategory !== 'Hosting') {
       const match =
         (e.category &&
           e.category.toLowerCase().includes(selectedCategory.toLowerCase())) ||
@@ -273,6 +279,8 @@ export default function EventsPage() {
                   <h3 className="font-bold text-sm sm:text-base text-foreground group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors line-clamp-2 leading-snug">
                     {event.title}
                   </h3>
+                  {event.organizerId === user.id && <button className="text-primary text-sm underline" onClick={() => setManagedEvent(event)}>Edit event & attendance</button>}
+                  {event.status === 'CANCELLED' && <p className="text-destructive text-sm">Event cancelled</p>}
 
                   <div className="space-y-1.5 text-xs text-muted-foreground font-medium">
                     {event.time && (
@@ -310,6 +318,7 @@ export default function EventsPage() {
                     )}
 
                     <button
+                      disabled={!event.isRegistered && event.status !== 'REGISTRATION_OPEN'}
                       onClick={() =>
                         handleToggleRegister(
                           event.id,
@@ -327,7 +336,7 @@ export default function EventsPage() {
                       {event.isRegistered ? (
                         <>
                           <Check className="w-3.5 h-3.5 text-emerald-500" />{" "}
-                          Confirmed
+                          {event.rsvpStatus === 'WAITLISTED' ? 'Waitlisted' : 'Cancel RSVP'}
                         </>
                       ) : (
                         <>
@@ -367,6 +376,8 @@ export default function EventsPage() {
                   <h3 className="font-bold text-sm text-foreground truncate">
                     {event.title}
                   </h3>
+                  {event.organizerId === user.id && <button className="text-primary text-sm underline" onClick={() => setManagedEvent(event)}>Edit event & attendance</button>}
+                  {event.status === 'CANCELLED' && <p className="text-destructive text-sm">Event cancelled</p>}
                   <p className="text-xs text-muted-foreground flex items-center gap-2 mt-0.5">
                     <span>{event.venue}</span> • <span>{event.host}</span>
                   </p>
@@ -467,6 +478,8 @@ export default function EventsPage() {
           </div>
         )}
       </AnimatePresence>
+      <CollectionPager collections={selectedCategory === 'My RSVPs' ? ['registrations'] : selectedCategory === 'Hosting' ? ['organizedEvents'] : ['events']} />
+      {managedEvent && <EventManager key={managedEvent.id} event={organizedEvents.find(e => e.id === managedEvent.id) || discoveryEvents.find(e => e.id === managedEvent.id) || managedEvent} onClose={() => setManagedEvent(null)} onSaved={refreshData} />}
     </motion.div>
   );
 }

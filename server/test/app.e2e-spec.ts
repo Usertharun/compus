@@ -1,5 +1,7 @@
 import { Test } from '@nestjs/testing';
 import { INestApplication, ValidationPipe, VersioningType } from '@nestjs/common';
+// CommonJS import assignment preserves Supertest's callable export in the Nest test runner.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 import request = require('supertest');
 import { AppModule } from '../src/app.module';
 import { EmailService } from '../src/modules/email/email.service';

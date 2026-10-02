@@ -1,9 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ReportStatus, UserRole } from '@prisma/client';
-import { Type } from 'class-transformer';
+import { Transform } from 'class-transformer';
 import {
   IsBoolean,
   IsEnum,
+  IsEmail,
   IsNotEmpty,
   IsObject,
   IsOptional,
@@ -24,9 +25,17 @@ export class SearchAdminUsersDto extends PaginationQueryDto {
 
   @ApiPropertyOptional({ description: 'Filter active status (true/false)' })
   @IsOptional()
-  @Type(() => Boolean)
+  @Transform(({ value }) => value === 'true' ? true : value === 'false' ? false : value)
   @IsBoolean()
   isActive?: boolean;
+}
+
+export class CommunityLoginDto {
+  @IsEmail()
+  email: string;
+  @IsString()
+  @IsNotEmpty()
+  communityId: string;
 }
 
 export class SuspendUserDto {

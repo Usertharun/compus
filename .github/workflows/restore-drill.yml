@@ -1,0 +1,43 @@
+name: Backup restore drill
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '30 3 * * 1'
+permissions:
+  contents: read
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: compus
+          POSTGRES_PASSWORD: fixture-only-password
+          POSTGRES_DB: compus_fixture
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://compus:fixture-only-password@localhost:5432/compus_fixture
+      DATABASE_URL_UNPOOLED: postgresql://compus:fixture-only-password@localhost:5432/compus_fixture
+      BACKUP_DATABASE_URL: postgresql://compus:fixture-only-password@localhost:5432/compus_fixture
+      RESTORE_DATABASE_URL: postgresql://compus:fixture-only-password@localhost:5432/compus_restore_drill
+      PGPASSWORD: fixture-only-password
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: npm ci
+      - run: npx prisma migrate deploy
+      - name: Populate recovery fixture
+        run: |
+          psql -h localhost -U compus -d compus_fixture -v ON_ERROR_STOP=1 -c "INSERT INTO system_settings (id, key, value, \"updatedAt\") VALUES ('restore-fixture', 'RESTORE_DRILL', '{\"valid\":true}', now());"
+          createdb -h localhost -U compus compus_restore_drill
+      - run: node scripts/restore-drill.cjs

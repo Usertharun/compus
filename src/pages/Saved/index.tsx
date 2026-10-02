@@ -1,4 +1,5 @@
 import { avatar } from "@/services/models";
+import CollectionPager from '@/components/common/CollectionPager';
 import { useState, useMemo } from "react";
 import { Bookmark, Trash2, Calendar, Briefcase } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -35,10 +36,11 @@ export default function Saved() {
   const {
     savedPosts: posts,
     toggleSavePost,
-    opportunities,
+    savedOpportunities: opportunities,
     toggleSaveOpportunity,
-    events,
+    registrations: events,
     toggleRegisterEvent,
+    pages,
   } = useApp();
   const toast = useToast();
   const navigate = useNavigate();
@@ -138,7 +140,7 @@ export default function Saved() {
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground font-sans flex items-center gap-3">
             <span>Saved items & registrations</span>
             <span className="text-xs px-3 py-1 rounded-full glass-pill text-primary font-bold">
-              {allItems.length} Saved
+              {(pages.savedPosts?.total ?? savedPosts.length) + (pages.savedOpportunities?.total ?? savedOpportunities.length) + (pages.registrations?.total ?? registeredEvents.length)} items
             </span>
           </h1>
           <p className="text-sm text-muted-foreground font-medium mt-1">
@@ -279,6 +281,7 @@ export default function Saved() {
           </AnimatePresence>
         </div>
       )}
+      <CollectionPager collections={activeFilter === 'all' ? ['savedPosts', 'savedOpportunities', 'registrations'] : activeFilter === 'posts' ? ['savedPosts'] : activeFilter === 'events' ? ['registrations'] : ['savedOpportunities']} />
     </div>
   );
 }

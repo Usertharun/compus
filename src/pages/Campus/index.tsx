@@ -32,7 +32,7 @@ export default function CampusHome() {
   const [activeCategory, setActiveCategory] = useState("all");
   useEffect(() => {
     setFeedCategory(activeCategory);
-  }, [activeCategory]);
+  }, [activeCategory, setFeedCategory]);
 
   const handleClearTag = () => {
     setSearchQuery("");

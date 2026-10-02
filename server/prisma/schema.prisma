@@ -19,6 +19,7 @@ datasource db {
 enum UserRole {
   SUPER_ADMIN
   VERIFIED_USER
+  COMMUNITY_ACCOUNT
 }
 
 enum ProfileVisibility {
@@ -614,6 +615,7 @@ model Community {
   joinRequests CommunityJoinRequest[]
   posts        Post[]
   events       Event[]
+  login        CommunityLogin?
 
   @@index([slug])
   @@index([category])
@@ -1301,9 +1303,20 @@ model ImageAsset {
   ownerId   String
   owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   mimeType  String
-  content   Bytes
+  content   Bytes?
+  secureUrl String? @unique
   createdAt DateTime @default(now())
 
   @@index([ownerId])
   @@map("image_assets")
+}
+
+model CommunityLogin {
+  id String @id @default(uuid())
+  email String @unique
+  communityId String @unique
+  community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@map("community_logins")
 }

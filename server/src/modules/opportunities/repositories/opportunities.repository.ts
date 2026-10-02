@@ -98,7 +98,7 @@ export class OpportunitiesRepository extends BaseAbstractRepository<Opportunity>
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
         include: this.oppIncludeSelect(),
       }),
       this.prisma.opportunity.count({ where }),

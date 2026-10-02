@@ -183,6 +183,7 @@ export class ReportPostDto {
 }
 
 export interface CursorPaginatedResponse<T> {
+  total?: number;
   items: T[];
   nextCursor: string | null;
   hasMore: boolean;

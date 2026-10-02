@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { STUDENTS_DATA, Student } from "@/data/studentsData";
 import { MessageSquare, MapPin, Sparkles, UserPlus } from "lucide-react";
-import { cn } from "@/lib/utils";
+
 import { motion, AnimatePresence } from "framer-motion";
 
 export function ActiveStudents() {

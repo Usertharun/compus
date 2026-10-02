@@ -11,6 +11,7 @@ const logger = { log: jest.fn(), warn: jest.fn() };
 const user = { id: 'user-1', email: 'student@srmist.edu.in', passwordHash: 'hashed', role: 'VERIFIED_USER', isActive: true, isVerified: true, deletedAt: null, onboardingCompleted: false, profile: { name: 'Student' } };
 function setup() {
   const db: any = {
+    communityLogin: { findUnique: jest.fn().mockResolvedValue(null) },
     user: { findUnique: jest.fn().mockResolvedValue(user), create: jest.fn().mockResolvedValue(user), update: jest.fn().mockResolvedValue(user) },
     emailVerification: { findFirst: jest.fn().mockResolvedValue({ id: 'otp-1', otpHash: 'hashed' }), updateMany: jest.fn().mockResolvedValue({ count: 1 }), deleteMany: jest.fn(), create: jest.fn().mockResolvedValue({ id: 'otp-1' }) },
     permission: { findMany: jest.fn().mockResolvedValue([]) }, userPermission: { findMany: jest.fn().mockResolvedValue([]) },
@@ -26,6 +27,24 @@ function setup() {
 beforeEach(() => jest.clearAllMocks());
 
 describe('Server authentication and onboarding', () => {
+  it('only activates an owner-approved club email after OTP verification and retains community identity', async () => {
+    const { db, service } = setup();
+    db.communityLogin.findUnique.mockResolvedValue({ communityId: 'club-1', community: { id: 'club-1', deletedAt: null } });
+    db.communityMember = { updateMany: jest.fn(), create: jest.fn() };
+    db.community = { update: jest.fn() };
+    db.auditLog = { create: jest.fn() };
+    await service.registerWithOtp({ email: 'club@gmail.com', password: 'Password1!', otp: '123456', name: 'Club' });
+    expect(db.user.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ email: 'club@gmail.com', role: 'COMMUNITY_ACCOUNT', isVerified: true, onboardingCompleted: true }) }));
+    expect(db.community.update).toHaveBeenCalledWith({ where: { id: 'club-1' }, data: { ownerId: 'user-1', memberCount: { increment: 1 } } });
+    expect(db.communityMember.updateMany).toHaveBeenCalledWith({ where: { communityId: 'club-1', role: 'OWNER' }, data: { role: 'MEMBER' } });
+  });
+  it('revokes every device session and refresh token when the club changes its password', async () => {
+    const { db, service } = setup();
+    db.passwordHistory = { findMany: jest.fn().mockResolvedValue([]), create: jest.fn() };
+    await service.changePassword('user-1', { currentPassword: 'Password1!', newPassword: 'NewPassword2!' });
+    expect(db.session.updateMany).toHaveBeenCalledWith({ where: { userId: 'user-1' }, data: { isRevoked: true } });
+    expect(db.refreshToken.updateMany).toHaveBeenCalledWith({ where: { userId: 'user-1' }, data: { isRevoked: true } });
+  });
   it('only grants administrator privileges to the configured owner after a valid OTP', async () => {
     const { db, config, service } = setup();
     config.set('OWNER_EMAIL', 'tharunrajr2007@gmail.com');

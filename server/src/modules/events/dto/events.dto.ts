@@ -270,3 +270,8 @@ export class AddEventCommentDto {
   @IsString()
   parentId?: string;
 }
+
+export class AttendanceDto {
+  @IsBoolean()
+  checkedIn: boolean;
+}

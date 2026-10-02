@@ -1,7 +1,7 @@
 import { useDialogAccessibility } from "@/hooks/useDialogAccessibility";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Image as ImageIcon, Smile, Hash, Sparkles, Upload } from "lucide-react";
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import { useApp } from "@/context/AppContext";
 import { useToast } from "@/context/ToastContext";
 import { cn } from "@/lib/utils";
@@ -40,12 +40,6 @@ export function CreatePostModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (isOpen) {
-      if (initialCategory) setSelectedCategory(initialCategory);
-      if (initialMediaOpen) setIsMediaPickerOpen(true);
-    }
-  }, [isOpen, initialCategory, initialMediaOpen]);
 
   useDialogAccessibility(isOpen, () => {
     if (!isSubmitting) onClose();

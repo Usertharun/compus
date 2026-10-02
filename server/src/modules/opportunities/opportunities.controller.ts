@@ -13,6 +13,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { JwtAuthGuard } from "@common/guards/jwt-auth.guard";
 import { CurrentUser } from "@common/decorators/current-user.decorator";
 import { OpportunitiesService } from "./opportunities.service";
+import { PaginationQueryDto } from '@common/dto/pagination.dto';
 import {
   ApplyOpportunityDto,
   ReviewApplicationDto,
@@ -29,6 +30,11 @@ import {
 @Controller("opportunities")
 export class OpportunitiesController {
   constructor(private readonly opportunitiesService: OpportunitiesService) {}
+
+  @Get('saved')
+  async saved(@CurrentUser('id') userId: string, @Query() dto: PaginationQueryDto) {
+    return this.opportunitiesService.saved(userId, dto);
+  }
 
   @Post(":id/apply")
   async apply(

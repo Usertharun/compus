@@ -117,6 +117,18 @@ export class EnvironmentVariables {
 
   @IsString()
   @IsOptional()
+  CLOUDINARY_CLOUD_NAME?: string;
+
+  @IsString()
+  @IsOptional()
+  CLOUDINARY_API_KEY?: string;
+
+  @IsString()
+  @IsOptional()
+  CLOUDINARY_API_SECRET?: string;
+
+  @IsString()
+  @IsOptional()
   LOG_LEVEL: string = 'info';
 }
 
@@ -144,6 +156,11 @@ export function validateEnvironment(config: Record<string, unknown>): Environmen
       if (url.protocol !== 'https:' || url.hostname === 'localhost' || url.pathname !== '/' || url.search || url.hash || url.username || url.password) throw new Error('APP_URL and CORS_ORIGINS must contain explicit HTTPS origins');
     }
     if (!validatedConfig.DATABASE_URL_UNPOOLED) throw new Error('DATABASE_URL_UNPOOLED is required for migrations');
+    if (![validatedConfig.CLOUDINARY_CLOUD_NAME, validatedConfig.CLOUDINARY_API_KEY, validatedConfig.CLOUDINARY_API_SECRET].every(Boolean)) {
+      throw new Error('Cloudinary credentials are required in production');
+    }
   }
+  const cloudinary = [validatedConfig.CLOUDINARY_CLOUD_NAME, validatedConfig.CLOUDINARY_API_KEY, validatedConfig.CLOUDINARY_API_SECRET];
+  if (cloudinary.some(Boolean) && !cloudinary.every(Boolean)) throw new Error('All Cloudinary credentials must be configured together');
   return validatedConfig;
 }

@@ -40,11 +40,13 @@ export function AppLayout({
 
   // Close all modals automatically on route change
   useEffect(() => {
+    // Route navigation is an external event; closing global dialogs prevents stale overlays.
     closeCreatePost();
     closeHostEvent();
     closeCreateOpp();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsMobileMenuOpen(false);
-  }, [location.pathname]);
+  }, [location.pathname, closeCreatePost, closeHostEvent, closeCreateOpp]);
 
   const isMessagesPage = location.pathname.startsWith("/messages");
   const isCampusPage =
@@ -190,12 +192,12 @@ export function AppLayout({
       </AnimatePresence>
 
       {/* Global Modals */}
-      <CreatePostModal
+      {isCreatePostOpen && <CreatePostModal
         isOpen={isCreatePostOpen}
         onClose={closeCreatePost}
         initialCategory={createPostCategory}
         initialMediaOpen={createPostMediaOpen}
-      />
+      />}
       <HostEventModal isOpen={isHostEventOpen} onClose={closeHostEvent} />
       <CreateOpportunityModal
         isOpen={isCreateOppOpen}

@@ -1,5 +1,5 @@
 import { useDialogAccessibility } from "@/hooks/useDialogAccessibility";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { FullUserProfile } from "./types";
 import { uploadImage } from "@/services/uploads";
 import { useToast } from "@/context/ToastContext";
@@ -23,12 +23,6 @@ export function EditProfileModal({
   const [draft, setDraft] = useState<FullUserProfile>(user);
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
-  useEffect(() => {
-    if (isOpen) {
-      setDraft(user);
-      setTab(defaultTab);
-    }
-  }, [isOpen, defaultTab]);
   useDialogAccessibility(isOpen, () => {
     if (!busy && !uploading) onClose();
   });

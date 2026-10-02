@@ -27,8 +27,12 @@ import {
 
 @Injectable()
 export class AuthService {
-  private validateAccountEmail(email: string): string {
+  private async validateAccountEmail(email: string): Promise<string> {
     if (isOwnerEmail(email, this.configService.get<string>('OWNER_EMAIL'))) return email.trim().toLowerCase();
+    const normalized = email.trim().toLowerCase();
+    if (normalized.endsWith('@srmist.edu.in')) return validateCollegeEmail(normalized);
+    const club = await this.prisma.communityLogin.findUnique({ where: { email: normalized }, include: { community: true } });
+    if (club && !club.community.deletedAt) return normalized;
     return validateCollegeEmail(email);
   }
 
@@ -44,7 +48,7 @@ export class AuthService {
   ) {}
 
   async requestRegistrationOtp(dto: RequestOtpDto): Promise<{ message: string }> {
-    const email = this.validateAccountEmail(dto.email);
+    const email = await this.validateAccountEmail(dto.email);
     this.emailService.assertConfigured();
 
     const existingUser = await this.prisma.user.findUnique({
@@ -102,26 +106,34 @@ export class AuthService {
   }
 
   async verifyOtp(dto: VerifyOtpDto) {
-    await this.checkRegistrationOtp(this.validateAccountEmail(dto.email), dto.otp);
+    await this.checkRegistrationOtp(await this.validateAccountEmail(dto.email), dto.otp);
     return { verified: true, message: 'Code verified. Complete registration before it expires.' };
   }
 
   async registerWithOtp(dto: RegisterWithOtpDto, userAgent?: string, ipAddress?: string): Promise<AuthResponseDto> {
-    const email = this.validateAccountEmail(dto.email);
+    const email = await this.validateAccountEmail(dto.email);
     const verification = await this.checkRegistrationOtp(email, dto.otp);
     const passwordHash = await argon2.hash(dto.password);
     try {
       const result = await this.prisma.$transaction(async tx => {
+        const club = await tx.communityLogin.findUnique({ where: { email }, include: { community: true } });
+        if (club?.community.deletedAt) throw new BadRequestException('This community is unavailable');
         const consumed = await tx.emailVerification.updateMany({
           where: { id: verification.id, isUsed: false, expiresAt: { gt: new Date() } }, data: { isUsed: true },
         });
         if (consumed.count !== 1) throw new BadRequestException('This code has already been used or expired.');
         const user = await tx.user.create({
-          data: { email, passwordHash, role: isOwnerEmail(email, this.configService.get<string>('OWNER_EMAIL')) ? UserRole.SUPER_ADMIN : UserRole.VERIFIED_USER, isVerified: true, onboardingCompleted: isOwnerEmail(email, this.configService.get<string>('OWNER_EMAIL')),
+          data: { email, passwordHash, role: isOwnerEmail(email, this.configService.get<string>('OWNER_EMAIL')) ? UserRole.SUPER_ADMIN : club ? UserRole.COMMUNITY_ACCOUNT : UserRole.VERIFIED_USER, isVerified: true, onboardingCompleted: !!club || isOwnerEmail(email, this.configService.get<string>('OWNER_EMAIL')),
             profile: { create: { name: dto.name.trim(), registerNumber: dto.registerNumber, department: dto.department, year: dto.year, section: dto.section } },
             passwordHistories: { create: { passwordHash } },
           }, include: { profile: true },
         });
+        if (club) {
+          await tx.communityMember.updateMany({ where: { communityId: club.communityId, role: 'OWNER' }, data: { role: 'MEMBER' } });
+          await tx.communityMember.create({ data: { communityId: club.communityId, userId: user.id, role: 'OWNER' } });
+          await tx.community.update({ where: { id: club.communityId }, data: { ownerId: user.id, memberCount: { increment: 1 } } });
+          await tx.auditLog.create({ data: { userId: user.id, action: 'ACTIVATE_COMMUNITY_LOGIN', resource: 'COMMUNITY', resourceId: club.communityId } });
+        }
         const perms = await tx.permission.findMany({ where: { key: { in: ['canCreateEvent', 'canUploadNotes'] } } });
         if (perms.length) await tx.userPermission.createMany({ data: perms.map(p => ({ userId: user.id, permissionId: p.id })), skipDuplicates: true });
         return this.generateAuthTokens(user, userAgent, ipAddress, false, tx);
@@ -140,7 +152,7 @@ export class AuthService {
     userAgent?: string,
     ipAddress?: string,
   ): Promise<AuthResponseDto> {
-    const email = this.validateAccountEmail(dto.email);
+    const email = await this.validateAccountEmail(dto.email);
 
     const user = await this.prisma.user.findUnique({
       where: { email },
@@ -192,7 +204,7 @@ export class AuthService {
   }
 
   async forgotPassword(dto: ForgotPasswordDto): Promise<{ message: string }> {
-    const email = this.validateAccountEmail(dto.email);
+    const email = await this.validateAccountEmail(dto.email);
     this.emailService.assertConfigured();
     const user = await this.prisma.user.findUnique({
       where: { email },
@@ -277,9 +289,11 @@ export class AuthService {
           passwordHash: newPasswordHash,
         },
       }),
+        this.prisma.session.updateMany({ where: { userId }, data: { isRevoked: true } }),
+        this.prisma.refreshToken.updateMany({ where: { userId }, data: { isRevoked: true } }),
     ]);
 
-    return { message: 'Password changed successfully.' };
+    return { message: 'Password changed. All sessions were signed out. Sign in with your new password.' };
   }
 
   private async verifyPasswordHistory(userId: string, newPassword: string): Promise<void> {

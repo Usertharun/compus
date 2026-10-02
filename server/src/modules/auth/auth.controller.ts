@@ -125,7 +125,6 @@ export class AuthController {
   @ApiOperation({ summary: 'Revoke active refresh tokens and device session' })
   async logout(
     @CurrentUser('id') userId: string,
-    @Headers('authorization') authHeader: string,
   ): Promise<{ message: string }> {
     return this.authService.logout(userId);
   }

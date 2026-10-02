@@ -16,8 +16,8 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
-      - name: Check authentication UI
-        run: npx eslint src/services/api.ts src/services/http.ts src/context/AuthContext.tsx src/routes/AppRouter.tsx src/pages/Login/index.tsx src/pages/PasswordRecovery/index.tsx src/pages/Onboarding/index.tsx src/App.tsx
+      - name: Check repository lint
+        run: npm run lint
   backend:
     runs-on: ubuntu-latest
     services:
@@ -58,4 +58,6 @@ jobs:
       - run: npm run build
       - run: npm test -- --runInBand
       - run: npm run test:e2e -- --runInBand
+      - name: Verify persisted product flows in isolated database
+        run: node -r ts-node/register -r tsconfig-paths/register test/product.integration.ts
       - run: docker build -t compus-backend:ci .

@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import { User, Moon, Sun, Bell, ShieldCheck, LogOut, Save, Laptop, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useApp } from "@/context/AppContext";
 import { useToast } from "@/context/ToastContext";
 
@@ -72,7 +72,9 @@ export default function Settings() {
     toast.success(`Theme set to ${mode}`);
   };
 
-  useEffect(() => {
+  const [previousProfile, setPreviousProfile] = useState(profile);
+  if (previousProfile !== profile) {
+    setPreviousProfile(profile);
     setName(user.name);
     setEmail(user.email);
     setMajor(user.major);
@@ -82,7 +84,7 @@ export default function Settings() {
       showLocation: profile?.showLocation !== false,
       allowDirectMessages: profile?.allowDirectMessages !== false,
     });
-  }, [profile]);
+  }
   useEffect(() => {
     void apiRequest<Preferences>("/notifications/preferences")
       .then((p) =>
@@ -94,7 +96,7 @@ export default function Settings() {
         }),
       )
       .catch((error) => toast.error(error.message));
-  }, []);
+  }, [toast]);
   const handleSave = async () => {
     if (activeTab === "account" && !(await updateUser({ name, major, bio })))
       return;
@@ -406,7 +408,9 @@ export default function Settings() {
                         newPassword: f.get("new"),
                       });
                       form.reset();
-                      toast.success("Password changed.");
+                      toast.success("Password changed. Sign in again with your new password.");
+                      await logout().catch(() => undefined);
+                      navigate(account?.role === 'COMMUNITY_ACCOUNT' ? '/community-login' : '/login');
                     } catch (e) {
                       toast.error(
                         e instanceof Error
@@ -524,6 +528,7 @@ export default function Settings() {
           </button>
         </div>
       </div>
+      <Link className="text-primary underline text-sm" to="/privacy">Privacy & account deletion</Link>
     </div>
   );
 }

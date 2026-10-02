@@ -11,7 +11,7 @@ import { avatar } from "@/services/models";
 export default function ProfilePage() {
   const navigate = useNavigate();
   const toast = useToast();
-  const { user: appUser, profile, communities, events, updateUser } = useApp();
+  const { user: appUser, profile, communities, registrations: events, updateUser } = useApp();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editModalTab, setEditModalTab] = useState<"info" | "photos" | "links">(
     "info",
@@ -117,13 +117,13 @@ export default function ProfilePage() {
         <CommunitiesJoinedSection communities={displayUser.communities} />
         <UpcomingEventsSection events={displayUser.events} />
       </div>
-      <EditProfileModal
+      {isEditModalOpen && <EditProfileModal
         isOpen={isEditModalOpen}
         user={displayUser}
         defaultTab={editModalTab}
         onClose={() => setIsEditModalOpen(false)}
         onSave={handleSaveProfile}
-      />
+      />}
     </motion.div>
   );
 }

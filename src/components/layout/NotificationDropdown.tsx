@@ -66,7 +66,7 @@ export function NotificationDropdown() {
       stopped = true;
       window.clearInterval(timer);
     };
-  }, []);
+  }, [toast]);
 
   const unreadCount = notifications.filter((n) => n.unread).length;
 

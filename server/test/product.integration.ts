@@ -1,4 +1,5 @@
 import { UploadsController } from "../src/modules/uploads/uploads.module";
+import { CloudinaryStorageService } from '../src/modules/uploads/cloudinary-storage.service';
 import { PostgresSearchProvider } from "../src/modules/search/providers/postgres-search.provider";
 import "reflect-metadata";
 import { strict as assert } from "node:assert";
@@ -271,11 +272,12 @@ async function main() {
       1,
     );
     console.log("PASS persisted tester feedback");
-    const uploads = new UploadsController(prisma);
+    const cloudinary = { upload: async () => 'https://res.cloudinary.com/compus/image/upload/v1/fixture.png', destroy: async () => undefined } as unknown as CloudinaryStorageService;
+    const uploads = new UploadsController(prisma, cloudinary);
     const image = await uploads.upload(student, {
       data: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=",
     });
-    assert(image.path.startsWith("/uploads/images/"));
+    assert(image.path.startsWith("https://res.cloudinary.com/"));
     await assert.rejects(
       uploads.upload(student, { data: "data:image/png;base64,AA==" }),
     );

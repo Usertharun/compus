@@ -14,6 +14,7 @@ const Opportunities = lazy(() => import("@/pages/Opportunities"));
 const Saved = lazy(() => import("@/pages/Saved"));
 const Admin = lazy(() => import("@/pages/Admin"));
 const Settings = lazy(() => import("@/pages/Settings"));
+const Privacy = lazy(() => import('@/pages/Privacy'));
 import { useAuth } from "@/context/AuthContext";
 import PasswordRecovery from "@/pages/PasswordRecovery";
 import { Outlet } from "react-router-dom";
@@ -71,6 +72,8 @@ export default function AppRouter() {
           {/* Public Routes */}
           <Route path="/login" element={<Login />} />
           <Route path="/owner-login" element={<Login owner />} />
+          <Route path="/community-login" element={<Login community />} />
+          <Route path="/privacy" element={<Privacy />} />
           <Route path="/forgot-password" element={<PasswordRecovery />} />
           <Route path="/reset-password" element={<PasswordRecovery reset />} />
           <Route element={<OnboardingGuard />}>

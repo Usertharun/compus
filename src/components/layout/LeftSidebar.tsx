@@ -19,7 +19,7 @@ import { useApp } from "@/context/AppContext";
 
 interface NavItem {
   label: string;
-  icon: any;
+  icon: import('lucide-react').LucideIcon;
   href: string;
   group: "Workspace" | "Campus life" | "Personal";
   badge?: string | number;
@@ -58,13 +58,11 @@ const NAV_ITEMS: NavItem[] = [
 
 export function LeftSidebar({ mobile = false }: { mobile?: boolean }) {
   const location = useLocation();
-  const { user, openCreatePost, events, communities, isBackendConnected } =
+  const { user, openCreatePost, registrations, pages, joinedCommunityCount, isBackendConnected } =
     useApp();
   const isCampusPage =
     location.pathname === "/" || location.pathname.startsWith("/campus");
-  const registeredCount = events
-    ? events.filter((e) => e.isRegistered).length
-    : 0;
+  const registeredCount = pages.registrations?.total ?? registrations.length;
 
   return (
     <aside
@@ -126,7 +124,7 @@ export function LeftSidebar({ mobile = false }: { mobile?: boolean }) {
               className="rounded-2xl p-2 bg-secondary/40 hover:bg-secondary/70 border border-border/40 transition-all hover:scale-[1.02] group"
             >
               <div className="font-black text-foreground text-sm leading-none mb-1 group-hover:text-primary transition-colors">
-                {communities.filter((c) => c.userRole).length}
+                {joinedCommunityCount}
               </div>
               <div className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider">
                 Clubs

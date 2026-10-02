@@ -1,5 +1,5 @@
 import { AchievementProgress } from "./types";
-import { Trophy, Target } from "lucide-react";
+import { Target } from "lucide-react";
 import { motion } from "framer-motion";
 
 interface AchievementsSectionProps {

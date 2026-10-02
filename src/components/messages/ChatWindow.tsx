@@ -57,17 +57,21 @@ export function ChatWindow({
   const [loadError, setLoadError] = useState("");
   const [olderCursor, setOlderCursor] = useState<string | null>(null);
   const selectedId = useRef(activeId);
+  const [displayedId, setDisplayedId] = useState(activeId);
+  if (displayedId !== activeId) {
+    setDisplayedId(activeId);
+    setCurrentMessages([]);
+    setInputText('');
+    setLoading(true);
+    setLoadError('');
+    setOlderCursor(null);
+  }
   useEffect(() => { selectedId.current = activeId; }, [activeId]);
   const attachmentInput = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (!activeId) return;
     let initial = true;
     let stopped = false;
-    setCurrentMessages([]);
-    setInputText("");
-    setLoading(true);
-    setLoadError("");
-    setOlderCursor(null);
     const load = async () => {
       if (document.visibilityState !== "visible") return;
       try {
@@ -125,9 +129,10 @@ export function ChatWindow({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  const latestMessageId = currentMessages.at(-1)?.id;
   useEffect(() => {
     scrollToBottom();
-  }, [currentMessages.at(-1)?.id, activeId]);
+  }, [latestMessageId, activeId]);
 
   const send = async (content: string, mediaUrl?: string) => {
     if (!activeId || sending) return;

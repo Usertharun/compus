@@ -1,75 +1,11 @@
-# Compus Enterprise Production Deployment Guide
+# Compus deployment
 
-This document provides step-by-step instructions for deploying the **Compus** platform across the target infrastructure stack:
-- **Backend Application**: Railway (NestJS Production Runtime)
-- **Database**: Neon Serverless PostgreSQL
-- **Caching & Queues**: Redis (Upstash / Railway Redis)
-- **Object Storage**: Supabase Storage
-- **Frontend App**: Vercel (React + Vite + TypeScript)
+Frontend: Vercel React/Vite. Backend: Railway NestJS. Database: Neon PostgreSQL. Redis: configured deployment service. Images: Cloudinary.
 
----
+Use `server/.env.example` as the configuration reference. The access-token secret is `JWT_SECRET`; configure a separate `JWT_REFRESH_SECRET`. Supply the pooled `DATABASE_URL` and direct `DATABASE_URL_UNPOOLED`, Redis, CORS origin, owner mailbox, SMTP delivery and optional `SENTRY_DSN`. Keep server secrets out of frontend variables.
 
-## 1. Database Provisioning (Neon PostgreSQL)
+Before deploying, take a verified recoverable database snapshot. From `server`, run `npm ci`, `npm run prisma:deploy`, `npm run prisma:generate` and `npm run build`. Deploy backend before frontend. Verify `/api/v1/health` and authentication. Frontend requires `VITE_API_BASE_URL` with the `/api/v1` prefix and the configured websocket URL.
 
-1. Create a PostgreSQL project on [Neon.tech](https://neon.tech).
-2. Obtain the pooled connection string:
-   ```env
-   DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/DATABASE"
-   ```
-3. Run Prisma database migrations from local CLI:
-   ```bash
-   npx prisma migrate deploy
-   ```
+The new migrations add `COMMUNITY_ACCOUNT`, owner-approved community mailboxes and secure Cloudinary image URLs. Add backend-only `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY` and `CLOUDINARY_API_SECRET` before deploying; image uploads intentionally fail when storage is not configured. The migration script uploads each legacy database image, verifies HTTPS delivery and removes its database bytes only after verification.
 
----
-
-## 2. Storage Bucket Provisioning (Supabase Storage)
-
-1. Access your [Supabase Dashboard](https://supabase.com).
-2. Create a public bucket named `compus-media`.
-3. Set Storage Policy to allow read access for public objects and restricted write access for verified API keys.
-4. Copy `SUPABASE_URL` and `SUPABASE_KEY` for backend environment configuration.
-
----
-
-## 3. NestJS Backend Deployment (Railway)
-
-1. Log in to [Railway.app](https://railway.app) and create a new project connected to your GitHub repository (`/server` directory).
-2. Set the Environment Variables in Railway Service Settings:
-   ```env
-   NODE_ENV=production
-   PORT=4000
-   DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/DATABASE
-   REDIS_HOST=your-redis-host.railway.app
-   REDIS_PORT=6379
-   JWT_ACCESS_SECRET=your-32-char-access-secret-key
-   JWT_REFRESH_SECRET=your-32-char-refresh-secret-key
-   SUPABASE_URL=https://xyz.supabase.co
-   SUPABASE_KEY=your-supabase-key
-   SENTRY_DSN=https://your-sentry-dsn.ingest.sentry.io/12345
-   ```
-3. Deployment will build using the multi-stage `Dockerfile`.
-4. Railway will expose a public domain (e.g. `https://compus-api.up.railway.app`).
-5. Verify health at `https://compus-api.up.railway.app/api/v1/health`.
-
----
-
-## 4. Frontend Web App Deployment (Vercel)
-
-1. Connect your frontend project root directory (`d:\compus`) to [Vercel](https://vercel.com).
-2. Configure Vercel Project Environment Variables:
-   ```env
-   VITE_API_BASE_URL=https://compus-api.up.railway.app/api/v1
-   VITE_WS_URL=https://compus-api.up.railway.app/ws/messaging
-   ```
-3. Vercel will automatically build and issue an SSL certificate for your frontend production URL.
-
----
-
-## 5. Security Checklist & Monitoring
-- [x] HTTPS enforced across Vercel and Railway domains.
-- [x] CORS restricted to official Vercel domain.
-- [x] Rate Limiting active (`ThrottlerGuard` 100 requests/minute).
-- [x] Socket.IO JWT authentication active on `/ws/messaging`.
-- [x] Pino structured logger active.
-- [x] Sentry error tracking active.
+Follow [../LAUNCH_OPERATIONS.md](../LAUNCH_OPERATIONS.md) for exact storage, monitoring, policy and launch validation steps. Configuration existing in code does not establish that a production service or alert is active.

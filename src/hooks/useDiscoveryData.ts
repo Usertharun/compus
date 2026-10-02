@@ -30,7 +30,7 @@ export function useDiscoveryData() {
       void apiRequest<{ id: string }[]>("/social/following/" + user.id)
         .then((items) => setFollowing(items.map((i) => i.id)))
         .catch((error) => toast.error(error.message));
-  }, [user.id]);
+  }, [user.id, toast]);
   const RECOMMENDED_STUDENTS: PeerStudent[] = students.map((s) => ({
     id: s.userId,
     name: s.name,

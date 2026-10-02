@@ -1,0 +1,23 @@
+name: Production health alert
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: production-health
+  cancel-in-progress: false
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Check database and backend availability
+        env:
+          HEALTH_URL: ${{ secrets.COMPUS_HEALTH_URL }}
+        run: node scripts/monitor.mjs

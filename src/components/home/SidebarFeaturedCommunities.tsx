@@ -11,7 +11,8 @@ export function SidebarFeaturedCommunities() {
 
       <div className="flex flex-col gap-4">
         {FEATURED_COMMUNITIES.slice(0, 4).map((community) => {
-          const Icon = (Icons as any)[community.iconName] || Icons.Users;
+          const icons: Record<string, Icons.LucideIcon> = { Users: Icons.Users, Cpu: Icons.Cpu, Code: Icons.Code, Rocket: Icons.Rocket, Bot: Icons.Bot, Palette: Icons.Palette };
+          const Icon = icons[community.iconName] || Icons.Users;
 
           return (
             <div key={community.id} className="flex gap-3 group">

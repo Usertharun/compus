@@ -15,16 +15,38 @@ import { CurrentUser } from "@common/decorators/current-user.decorator";
 import { EventsService } from "./events.service";
 import {
   AddEventCommentDto,
+  AttendanceDto,
   ChangeEventStatusDto,
   CreateEventDto,
   SearchEventsDto,
   UpdateEventDto,
 } from "./dto/events.dto";
+import { PaginationQueryDto } from '@common/dto/pagination.dto';
 
 @ApiTags("Event Management")
 @Controller("events")
 export class EventsController {
   constructor(private readonly eventsService: EventsService) {}
+
+  @Get('registrations')
+  async registrations(@CurrentUser('id') userId: string, @Query() dto: PaginationQueryDto) {
+    return this.eventsService.registrations(userId, dto);
+  }
+
+  @Get('organized')
+  async organized(@CurrentUser('id') userId: string, @Query() dto: PaginationQueryDto) {
+    return this.eventsService.organized(userId, dto);
+  }
+
+  @Get(':id/attendees')
+  async attendees(@CurrentUser('id') userId: string, @Param('id') id: string, @Query() dto: PaginationQueryDto) {
+    return this.eventsService.attendees(userId, id, dto);
+  }
+
+  @Patch(':id/attendees/:attendeeId')
+  async attendance(@CurrentUser('id') userId: string, @Param('id') id: string, @Param('attendeeId') attendeeId: string, @Body() dto: AttendanceDto) {
+    return this.eventsService.attendance(userId, id, attendeeId, dto.checkedIn);
+  }
 
   // --- DISCOVERY & SEARCH ---
   @Get("browse")

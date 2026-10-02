@@ -4,6 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 import { apiRequest } from "@/services/api";
 import { useToast } from "@/context/ToastContext";
 import { formatDate } from "@/services/models";
+import AccountAdministration from '@/components/admin/AccountAdministration';
 interface Feedback {
   id: string;
   category: string;
@@ -45,7 +46,12 @@ export default function AdminPage() {
     }
   };
   useEffect(() => {
-    if (user?.role === "SUPER_ADMIN") void load();
+    let stopped = false;
+    if (user?.role === 'SUPER_ADMIN') void Promise.all([apiRequest<Feedback[]>('/feedback'), apiRequest<Report[]>('/admin/reports')])
+      .then(([f, r]) => { if (!stopped) { setFeedback(f); setReports(r); } })
+      .catch(e => { if (!stopped) setError(e instanceof Error ? e.message : 'Unable to load owner tools.'); })
+      .finally(() => { if (!stopped) setLoading(false); });
+    return () => { stopped = true; };
   }, [user?.role]);
   if (user?.role !== "SUPER_ADMIN") return <Navigate to="/campus" replace />;
   return (
@@ -71,6 +77,7 @@ export default function AdminPage() {
           {error}
         </p>
       )}
+      <AccountAdministration />
       <section className="space-y-3">
         <h2 className="font-bold">
           Content reports (

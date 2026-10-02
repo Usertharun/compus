@@ -1,18 +1,8 @@
 import { useAuth } from "@/context/AuthContext";
 import { useState, useRef, useEffect } from "react";
-import { 
-  User, 
-  Settings, 
-  Moon, 
-  Sun, 
-  LogOut, 
-  Sparkles, 
-  ChevronDown, 
-  GraduationCap,
-  ShieldCheck
-} from "lucide-react";
+import { User, Settings, Moon, Sun, LogOut, ChevronDown, GraduationCap, ShieldCheck } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { UserProfile } from "./types";
+
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "@/context/AppContext";

@@ -77,7 +77,7 @@ export const DISCOVER_OPPORTUNITIES: DiscoverOpportunity[] = OPPORTUNITIES_DATA.
   id: o.id,
   title: o.title,
   organization: o.company,
-  type: o.type as any,
+  type: o.type as DiscoverOpportunity['type'],
   deadline: o.deadline,
   stipendOrPrize: o.stipendOrPrize,
   tags: o.tags || [],

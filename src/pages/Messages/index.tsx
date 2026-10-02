@@ -75,7 +75,7 @@ export default function MessagesPage() {
     return () => {
       mounted = false;
     };
-  }, [activeChatUser?.id, load]);
+  }, [activeChatUser?.id, load, toast]);
   const activeConvo = conversations.find((c) => c.id === activeConvId);
   return (
     <div className="flex h-full w-full bg-card/60 backdrop-blur-md border border-border shadow-md rounded-3xl overflow-hidden relative">

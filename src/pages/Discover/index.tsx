@@ -1,4 +1,5 @@
 import { useState } from "react";
+import CollectionPager from '@/components/common/CollectionPager';
 import {
   DiscoverSearchBar,
   TrendingSkillsBar,
@@ -10,13 +11,13 @@ import {
   CardDetailModal,
 } from "@/components/discover";
 import { motion, AnimatePresence } from "framer-motion";
-import { Users, GraduationCap, Trophy, Briefcase } from "lucide-react";
+import { Users, GraduationCap, Trophy } from "lucide-react";
 
 export default function DiscoverPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
   const [selectedSkill, setSelectedSkill] = useState<string | null>(null);
-  const [modalItem, setModalItem] = useState<any | null>(null);
+  const [modalItem, setModalItem] = useState<import('react').ComponentProps<typeof CardDetailModal>['item']>(null);
 
   const showSeniors = activeCategory === "all" || activeCategory === "seniors";
   const showPeers = activeCategory === "all" || activeCategory === "peers";
@@ -136,6 +137,7 @@ export default function DiscoverPage() {
 
       {/* Interactive Detail Modal for Clicked Cards */}
       <CardDetailModal item={modalItem} onClose={() => setModalItem(null)} />
+      <CollectionPager collections={activeCategory === 'communities' ? ['communities'] : activeCategory === 'hackathons' ? ['events'] : activeCategory === 'opportunities' ? ['opportunities'] : ['students']} />
     </motion.div>
   );
 }

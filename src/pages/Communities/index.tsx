@@ -1,4 +1,5 @@
 import { useDialogAccessibility } from "@/hooks/useDialogAccessibility";
+import CollectionPager from '@/components/common/CollectionPager';
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useApp } from "@/context/AppContext";
@@ -50,7 +51,7 @@ export default function CommunitiesPage() {
   const slug = params.get("community");
   useEffect(() => {
     let stopped = false;
-    setSelected(null);
+    // Clear selection in the navigation handler; asynchronous responses below are guarded.
     if (slug)
       void apiRequest<Community>("/communities/" + encodeURIComponent(slug))
         .then((c) => {
@@ -60,7 +61,7 @@ export default function CommunitiesPage() {
     return () => {
       stopped = true;
     };
-  }, [slug]);
+  }, [slug, toast]);
   const categories = ["All", ...new Set(communities.map((c) => c.category))];
   const filtered = communities.filter(
     (c) =>
@@ -71,7 +72,7 @@ export default function CommunitiesPage() {
   );
   const field =
     "w-full mt-1 rounded-xl bg-secondary/30 border border-border px-3 py-2.5 text-sm";
-  if (selected)
+  if (selected && slug === selected.slug)
     return (
       <CommunityDetailView
         community={selected}
@@ -264,6 +265,7 @@ export default function CommunitiesPage() {
           </section>
         </div>
       )}
+      <CollectionPager collections={['communities']} />
     </div>
   );
 }

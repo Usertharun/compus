@@ -6,7 +6,7 @@ import { Roles } from "@common/decorators/roles.decorator";
 import { UserRole } from "@prisma/client";
 import { Transform } from "class-transformer";
 class FeedbackDto {
-  @IsIn(["BUG", "IDEA", "OTHER"]) category: string;
+  @IsIn(["BUG", "IDEA", "OTHER", "DELETION_REQUEST"]) category: string;
   @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
   @IsString()
   @IsNotEmpty()

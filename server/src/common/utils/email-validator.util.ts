@@ -16,5 +16,5 @@ export function isOwnerEmail(email: string, ownerEmail?: string): boolean {
 }
 
 export function isAllowedAccountEmail(email: string, role: string, ownerEmail?: string): boolean {
-  return isCampusEmail(email) || (role === 'SUPER_ADMIN' && isOwnerEmail(email, ownerEmail));
+  return isCampusEmail(email) || role === 'COMMUNITY_ACCOUNT' || (role === 'SUPER_ADMIN' && isOwnerEmail(email, ownerEmail));
 }

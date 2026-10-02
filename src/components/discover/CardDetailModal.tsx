@@ -10,7 +10,6 @@ import {
   DiscoverOpportunity,
 } from "./types";
 import { cn } from "@/lib/utils";
-import { useToast } from "@/context/ToastContext";
 import { useApp } from "@/context/AppContext";
 import { useNavigate } from "react-router-dom";
 
@@ -27,7 +26,6 @@ interface CardDetailModalProps {
 }
 
 export function CardDetailModal({ item, onClose }: CardDetailModalProps) {
-  const toast = useToast();
   const { requestCoffee, toggleCommunity, toggleRegisterEvent } =
     useDiscoveryData();
   const { startChatWithUser } = useApp();

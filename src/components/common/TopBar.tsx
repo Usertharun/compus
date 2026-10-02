@@ -4,7 +4,7 @@ import { Search, Sparkles, Command, Menu, X } from "lucide-react";
 import { NotificationDropdown } from "@/components/layout/NotificationDropdown";
 import { UserMenuDropdown } from "@/components/layout/UserMenuDropdown";
 import { cn } from "@/lib/utils";
-import { motion, useScroll, useMotionValueEvent } from "framer-motion";
+import { motion } from "framer-motion";
 import { useApp } from "@/context/AppContext";
 
 export interface TopBarProps {
@@ -168,7 +168,7 @@ export function TopBar({
                       "w-full bg-transparent outline-none text-sm text-foreground placeholder:text-muted-foreground/70 pr-7 transition-opacity",
                       (isSearchExpanded || searchQuery) ? "opacity-100" : "opacity-0 pointer-events-none"
                     )}
-                    onFocus={() => setIsSearchExpanded(true)}
+                    onFocus={() => { setIsSearchExpanded(true); onSearchClick?.(); }}
                   />
                   {searchQuery ? (
                     <button

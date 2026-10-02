@@ -1,5 +1,5 @@
 import { useApp } from "@/context/AppContext";
-import { GraduationCap, Calendar, Users, Sparkles, MapPin, Clock } from "lucide-react";
+import { GraduationCap, Clock } from "lucide-react";
 import { motion } from "framer-motion";
 
 export function CampusHeroBanner() {

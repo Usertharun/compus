@@ -377,21 +377,23 @@ export class FeedRepository extends BaseAbstractRepository<Post> {
       },
     };
 
+    const total = await this.prisma.bookmark.count({ where });
+
     if (dto.cursor) {
-      const cursorBM = await this.prisma.bookmark.findUnique({
-        where: { id: dto.cursor },
+      const cursorBM = await this.prisma.bookmark.findFirst({
+        where: { id: dto.cursor, userId, targetType: 'POST' },
         select: { createdAt: true },
       });
 
       if (cursorBM) {
-        where.createdAt = { lt: cursorBM.createdAt };
+        where.OR = [{ createdAt: { lt: cursorBM.createdAt } }, { createdAt: cursorBM.createdAt, id: { gt: dto.cursor } }];
       }
     }
 
     const bookmarks = await this.prisma.bookmark.findMany({
       where,
       take: limit + 1,
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ createdAt: "desc" }, { id: 'asc' }],
       include: {
         post: {
           include: this.postIncludeSelect(),
@@ -411,6 +413,6 @@ export class FeedRepository extends BaseAbstractRepository<Post> {
         ? bookmarks[bookmarks.length - 1].id
         : null;
 
-    return { items, nextCursor, hasMore };
+    return { items, nextCursor, hasMore, total };
   }
 }

@@ -18,6 +18,15 @@ export class SentryService implements OnModuleInit {
       Sentry.init({
         dsn,
         environment,
+        sendDefaultPii: false,
+        beforeSend(event) {
+          delete event.user;
+          delete event.request;
+          delete event.extra;
+          delete event.breadcrumbs;
+          if (event.exception?.values) event.exception.values.forEach(value => { value.value = 'Server exception'; });
+          return event;
+        },
         tracesSampleRate: environment === 'production' ? 0.2 : 1.0,
       });
       this.logger.log('✅ Sentry APM Error Tracing initialized', 'SentryService');

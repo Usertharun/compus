@@ -121,7 +121,7 @@ export class EventsRepository extends BaseAbstractRepository<Event> {
         where,
         skip,
         take: limit,
-        orderBy: { startTime: "asc" },
+        orderBy: [{ startTime: "asc" }, { id: 'asc' }],
         include: this.eventIncludeSelect(),
       }),
       this.prisma.event.count({ where }),

@@ -27,6 +27,11 @@ import { CursorPaginationQueryDto } from "@modules/feed/dto/feed.dto";
 export class CommunitiesController {
   constructor(private readonly communitiesService: CommunitiesService) {}
 
+  @Get('my/count')
+  async membershipCount(@CurrentUser('id') userId: string) {
+    return this.communitiesService.membershipCount(userId);
+  }
+
   // --- DISCOVERY & BROWSE ---
   @Get("browse")
   @ApiOperation({ summary: "Browse paginated list of campus communities" })

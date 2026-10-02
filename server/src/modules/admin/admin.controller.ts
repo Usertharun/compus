@@ -18,6 +18,7 @@ import { CurrentUser } from '@common/decorators/current-user.decorator';
 import { AdminService } from './admin.service';
 import {
   CreateAnnouncementDto,
+  CommunityLoginDto,
   ResolveReportDto,
   SearchAdminUsersDto,
   SuspendUserDto,
@@ -32,6 +33,22 @@ import {
 @ApiBearerAuth('JWT-auth')
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
+
+  @Post('community-logins')
+  async provisionCommunity(@CurrentUser('id') adminId: string, @Body() dto: CommunityLoginDto) {
+    return this.adminService.provisionCommunity(adminId, dto);
+  }
+
+  @Get('community-logins')
+  async communityLogins() { return this.adminService.communityLogins(); }
+
+  @Get('communities')
+  async communities(@Query() dto: SearchAdminUsersDto) { return this.adminService.communities(dto); }
+
+  @Post('users/:id/revoke-sessions')
+  async revokeSessions(@CurrentUser('id') adminId: string, @Param('id') userId: string) {
+    return this.adminService.revokeSessions(adminId, userId);
+  }
 
   // --- DASHBOARD & ANALYTICS ---
 

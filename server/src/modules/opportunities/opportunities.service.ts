@@ -26,6 +26,15 @@ import { AppLoggerService } from "@logger/logger.service";
 
 @Injectable()
 export class OpportunitiesService {
+  async saved(userId: string, dto: import('@common/dto/pagination.dto').PaginationQueryDto) {
+    const page = dto.page || 1, limit = dto.limit || 20;
+    const where = { userId, targetType: 'OPPORTUNITY' as const, opportunity: { deletedAt: null } };
+    const [rows, total] = await Promise.all([
+      this.prisma.bookmark.findMany({ where, skip: (page - 1) * limit, take: limit, orderBy: [{ createdAt: 'desc' }, { id: 'asc' }], include: { opportunity: true } }),
+      this.prisma.bookmark.count({ where }),
+    ]);
+    return new PaginatedResponseDto(rows.map(r => ({ ...r.opportunity, isBookmarked: true })), total, page, limit);
+  }
   constructor(
     private readonly opportunitiesRepository: OpportunitiesRepository,
     private readonly prisma: PrismaService,

@@ -1,4 +1,5 @@
 import { useDialogAccessibility } from "@/hooks/useDialogAccessibility";
+import CollectionPager from '@/components/common/CollectionPager';
 import { ApplicantsPanel } from "@/components/opportunities/ApplicantsPanel";
 
 import { useState, useEffect } from "react";
@@ -38,6 +39,12 @@ interface AppliedItem {
   status: string;
 }
 
+interface ApplicationRecord { id: string; opportunity: Opportunity; status: string; appliedAt: string }
+const mapApplications = (records: ApplicationRecord[]): AppliedItem[] => records.map(a => ({
+  id: a.id, title: a.opportunity.title, company: a.opportunity.companyName, appliedDate: formatDate(a.appliedAt),
+  status: a.status === 'ACCEPTED' ? 'Accepted' : a.status === 'REJECTED' ? 'Rejected' : a.status === 'REVIEWING' ? 'Under Review' : 'Submitted',
+}));
+
 export default function OpportunitiesPage() {
   const { openCreateOpp, user, opportunities, toggleSaveOpportunity } =
     useApp();
@@ -46,7 +53,7 @@ export default function OpportunitiesPage() {
 
   const [selectedType, setSelectedType] = useState("All");
 
-  const [appliedOpp, setAppliedOpp] = useState<any | null>(null);
+  const [appliedOpp, setAppliedOpp] = useState<import('@/data/opportunitiesData').CampusOpportunity | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -81,8 +88,12 @@ export default function OpportunitiesPage() {
   };
 
   useEffect(() => {
-    void loadApplications().catch((error) => toast.error(error.message));
-  }, []);
+    let stopped = false;
+    void apiRequest<ApplicationRecord[]>('/opportunities/my-applications')
+      .then(records => { if (!stopped) setAppliedItems(mapApplications(records)); })
+      .catch(error => { if (!stopped) toast.error(error.message); });
+    return () => { stopped = true; };
+  }, [toast]);
 
   const [noteInput, setNoteInput] = useState("");
 
@@ -650,6 +661,7 @@ export default function OpportunitiesPage() {
           </div>
         )}
       </AnimatePresence>
+      <CollectionPager collections={['opportunities']} />
     </motion.div>
   );
 }

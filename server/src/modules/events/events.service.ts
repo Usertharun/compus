@@ -15,11 +15,55 @@ import {
   SearchEventsDto,
   UpdateEventDto,
 } from "./dto/events.dto";
-import { PaginatedResponseDto } from "@common/dto/pagination.dto";
+import { PaginatedResponseDto, PaginationQueryDto } from "@common/dto/pagination.dto";
 import { AppLoggerService } from "@logger/logger.service";
 
 @Injectable()
 export class EventsService {
+  async organized(userId: string, dto: PaginationQueryDto) {
+    const page = dto.page || 1, limit = dto.limit || 20;
+    const where = { organizerId: userId, deletedAt: null };
+    const [items, total] = await Promise.all([
+      this.prisma.event.findMany({ where, skip: (page - 1) * limit, take: limit, orderBy: [{ createdAt: 'desc' }, { id: 'asc' }], include: { organizer: { select: { id: true, profile: { select: { name: true } } } } } }),
+      this.prisma.event.count({ where }),
+    ]);
+    return new PaginatedResponseDto(items, total, page, limit);
+  }
+  async registrations(userId: string, dto: PaginationQueryDto) {
+    const page = dto.page || 1, limit = dto.limit || 20;
+    const where = { userId, status: { in: [RsvpStatus.GOING, RsvpStatus.WAITLISTED] }, event: { deletedAt: null } };
+    const [rows, total] = await Promise.all([
+      this.prisma.eventRsvp.findMany({ where, skip: (page - 1) * limit, take: limit, orderBy: [{ createdAt: 'desc' }, { id: 'asc' }], include: { event: { include: { organizer: { select: { id: true, profile: { select: { name: true } } } } } } } }),
+      this.prisma.eventRsvp.count({ where }),
+    ]);
+    return new PaginatedResponseDto(rows.map(r => ({ ...r.event, userRsvpStatus: r.status })), total, page, limit);
+  }
+
+  private async organizer(userId: string, eventId: string) {
+    const event = await this.prisma.event.findFirst({ where: { id: eventId, deletedAt: null } });
+    if (!event) throw new NotFoundException('Event not found');
+    if (event.organizerId !== userId) throw new ForbiddenException('Only the organizer can manage attendance');
+    return event;
+  }
+
+  async attendees(userId: string, eventId: string, dto: PaginationQueryDto) {
+    await this.organizer(userId, eventId);
+    const page = dto.page || 1, limit = dto.limit || 20;
+    const where = { eventId, status: { in: [RsvpStatus.GOING, RsvpStatus.WAITLISTED] } };
+    const [items, total] = await Promise.all([
+      this.prisma.eventRsvp.findMany({ where, skip: (page - 1) * limit, take: limit, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], select: { userId: true, status: true, checkedIn: true, user: { select: { profile: { select: { name: true } } } } } }),
+      this.prisma.eventRsvp.count({ where }),
+    ]);
+    return new PaginatedResponseDto(items, total, page, limit);
+  }
+
+  async attendance(userId: string, eventId: string, attendeeId: string, checkedIn: boolean) {
+    const event = await this.organizer(userId, eventId);
+    if (event.status === EventStatus.CANCELLED) throw new BadRequestException('Cancelled events cannot record attendance');
+    const changed = await this.prisma.eventRsvp.updateMany({ where: { eventId, userId: attendeeId, status: RsvpStatus.GOING }, data: { checkedIn } });
+    if (changed.count !== 1) throw new BadRequestException('Only confirmed registrations can be checked in');
+    return { success: true };
+  }
   private async assertCanView(event: { organizerId: string; status: EventStatus; visibility: string; communityId: string | null }, viewerId?: string) {
     if (event.organizerId === viewerId) return;
     if (event.status === EventStatus.DRAFT) throw new ForbiddenException('This event has not been published.');
@@ -146,6 +190,8 @@ export class EventsService {
       );
     }
 
+    if ((dto.startTime || event.startTime) >= (dto.endTime || event.endTime)) throw new BadRequestException('Event end time must be after start time');
+    if (dto.capacity !== undefined && (dto.capacity < 1 || dto.capacity < event.rsvpCount)) throw new BadRequestException('Capacity must be positive and accommodate confirmed registrations');
     const updated = await this.prisma.event.update({
       where: { id: eventId },
       data: {
@@ -196,20 +242,25 @@ export class EventsService {
 
     const fromStatus = event.status;
     const toStatus = dto.status;
+    const transitions: Record<EventStatus, EventStatus[]> = {
+      DRAFT: [EventStatus.PUBLISHED, EventStatus.REGISTRATION_OPEN, EventStatus.CANCELLED],
+      PUBLISHED: [EventStatus.REGISTRATION_OPEN, EventStatus.CANCELLED],
+      REGISTRATION_OPEN: [EventStatus.REGISTRATION_CLOSED, EventStatus.ONGOING, EventStatus.CANCELLED],
+      REGISTRATION_CLOSED: [EventStatus.REGISTRATION_OPEN, EventStatus.ONGOING, EventStatus.CANCELLED],
+      ONGOING: [EventStatus.COMPLETED, EventStatus.CANCELLED],
+      COMPLETED: [], CANCELLED: [],
+    };
+    if (!transitions[fromStatus].includes(toStatus)) throw new BadRequestException('This event status change is not allowed');
 
-    await Promise.all([
-      this.prisma.event.update({
-        where: { id: eventId },
-        data: { status: toStatus },
-      }),
-      this.eventsRepository.recordStatusChange(
-        eventId,
-        fromStatus,
-        toStatus,
-        userId,
-        dto.reason,
-      ),
-    ]);
+    await this.prisma.$transaction(async tx => {
+      const changed = await tx.event.updateMany({ where: { id: eventId, status: fromStatus, deletedAt: null }, data: { status: toStatus } });
+      if (!changed.count) throw new ConflictException('Event changed. Refresh and try again');
+      await tx.eventStatusHistory.create({ data: { eventId, fromStatus, toStatus, changedById: userId, reason: dto.reason } });
+      if (toStatus === EventStatus.CANCELLED) {
+        const registrations = await tx.eventRsvp.findMany({ where: { eventId, status: { in: [RsvpStatus.GOING, RsvpStatus.WAITLISTED] } }, select: { userId: true } });
+        if (registrations.length) await tx.notification.createMany({ data: registrations.map(r => ({ userId: r.userId, type: 'EVENT_CANCELLED', category: 'EVENTS', title: 'Event cancelled', body: event.title + ' has been cancelled by its organizer.', link: '/events' })) });
+      }
+    });
 
     this.logger.log(
       `Event ${eventId} status changed from ${fromStatus} to ${toStatus}`,
