@@ -17,11 +17,13 @@ Run `npm run launch:preflight` from the repository root before each release. It 
 
 ## Production evidence — 2026-10-03
 
-- Backend: `https://compus-production.up.railway.app`, deployed from `0192d89`; migrations reported no pending work and three consecutive health checks returned 200.
+- Backend: `https://compus-production.up.railway.app`, deployed from `0192d89`; the migration baseline was repaired after a fresh ledger attempted to recreate the existing schema, all four additive migrations applied, and three post-recovery health checks returned 200 with the database up.
 - Frontend: `https://compus-ashy.vercel.app`; the public privacy and permanent-community-login pages were verified in the deployed application.
 - Cloudinary: signed upload, HTTPS delivery and cleanup passed with the production credentials. The production migration status reported zero legacy database images, so no byte rows required migration.
-- Observability: Railway startup logs confirm Sentry initialized. Alert delivery remains unchecked until the GitHub health secret and notification destinations are verified.
+- Observability: Railway startup logs confirm Sentry initialized. The exact GitHub health-check script passes against recovered production. A successful manual GitHub run and Sentry notification delivery are still required.
 - CI: the frontend and backend validation jobs passed, including migrations, 89 backend unit tests, the database-backed authentication lifecycle, persisted product-flow checks and the production container build.
+- Recovery: the fixture backup/restore workflow passed on [run 37107818769](https://github.com/Usertharun/compus/actions/runs/37107818769). A production snapshot and provider-retention record remain required.
+- Email: the rotated Brevo key was installed in Railway and validated through Brevo's read-only account endpoint without exposing the credential.
 
 ## Implemented in this change
 
