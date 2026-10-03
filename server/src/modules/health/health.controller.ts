@@ -27,7 +27,7 @@ export class HealthController {
   @ApiOperation({ summary: 'Check infrastructure health (Database, Memory, HTTP connectivity)' })
   check() {
     return this.health.check([
-      () => this.prismaIndicator.pingCheck('database', this.prisma),
+      () => this.prismaIndicator.pingCheck('database', this.prisma, { timeout: 5000 }),
       () => this.memory.checkHeap('memory_heap', 300 * 1024 * 1024),
     ]);
   }
