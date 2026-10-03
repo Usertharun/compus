@@ -65,7 +65,21 @@ jobs:
       - run: npx prisma migrate deploy
       - run: npm run build
       - run: npm test -- --runInBand
-      - run: npm run test:e2e -- --runInBand
+      - name: Run database-backed end-to-end tests
+        shell: bash
+        run: |
+          if ! npm run test:e2e -- --runInBand; then
+            stage=$(cat e2e-stage.txt 2>/dev/null || true)
+            case "$stage" in
+              app-compile|app-init|health|registration|onboarding|refresh|logout|password-reset)
+                echo "::error title=End-to-end test stage failed::$stage"
+                ;;
+              *)
+                echo "::error title=End-to-end test failed::No lifecycle stage was reached"
+                ;;
+            esac
+            exit 1
+          fi
       - name: Verify persisted product flows in isolated database
         run: node -r ts-node/register -r tsconfig-paths/register test/product.integration.ts
       - run: docker build -t compus-backend:ci .
