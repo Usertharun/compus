@@ -79,7 +79,7 @@ export function AppLayout({
               role="alert"
               className="my-3 rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm"
             >
-              <p>Some campus data could not be loaded. {dataError}</p>
+              <p>Some campus data could not be loaded. Please try again.</p>
               <button
                 onClick={() => void refreshData()}
                 disabled={loading}

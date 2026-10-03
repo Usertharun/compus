@@ -121,6 +121,16 @@ export class UpdatePostDto {
 }
 
 export class CursorPaginationQueryDto {
+  @ApiPropertyOptional({
+    description: "Accepted for compatibility; cursor controls continuation",
+    minimum: 1,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
   @IsOptional()
   @IsEnum(PostCategory)
   category?: PostCategory;

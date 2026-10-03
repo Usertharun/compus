@@ -71,6 +71,6 @@ export class UsersService {
       }
       const user = await tx.user.update({ where: { id: userId }, data: { onboardingCompleted: true }, include: { profile: true } });
       return { id: user.id, email: user.email, role: user.role, name: profile.name, onboardingCompleted: user.onboardingCompleted, profile: user.profile };
-    });
+    }, { maxWait: 10000, timeout: 20000 });
   }
 }

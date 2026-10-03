@@ -212,7 +212,8 @@ function useAppState() {
   }, [account?.id]);
   const requestCollection = (key: Collection, page = 1, nextCursor?: string | null) => {
     if (key === 'students') return apiRequest<Page<unknown>>(collectionPaths[key], 'POST', { page, limit: 50 });
-    const params = new URLSearchParams({ page: String(page), limit: '50' });
+    const params = new URLSearchParams({ limit: '50' });
+    if (key !== 'savedPosts') params.set('page', String(page));
     if (nextCursor) params.set('cursor', nextCursor);
     return apiRequest<Page<unknown>>(collectionPaths[key] + '?' + params);
   };

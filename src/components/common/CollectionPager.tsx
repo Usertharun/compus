@@ -2,7 +2,7 @@ import { useApp, type Collection } from '@/context/AppContext';
 import { hasNextPage } from '@/services/pagination';
 
 export default function CollectionPager({ collections }: { collections: Collection[] }) {
-  const { pages, paging, loadMoreCollection, dataError } = useApp();
+  const { pages, paging, loadMoreCollection } = useApp();
   return <div className="flex flex-wrap gap-3 items-center py-4">
     {collections.map(key => {
       const page = pages[key];
@@ -11,6 +11,5 @@ export default function CollectionPager({ collections }: { collections: Collecti
         {paging[key] ? 'Loading…' : `Load more ${key === 'savedOpportunities' ? 'saved opportunities' : key === 'savedPosts' ? 'saved posts' : key === 'organizedEvents' ? 'hosted events' : key}`}
       </button>;
     })}
-    {dataError && <p role="alert" className="text-sm text-destructive">{dataError}</p>}
   </div>;
 }
