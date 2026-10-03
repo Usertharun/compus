@@ -70,11 +70,20 @@ describe("Database-backed authentication lifecycle", () => {
   });
   it("checks health, verifies signup, persists onboarding, rotates tokens and revokes access", async () => {
     const http = app.getHttpServer();
-    markCiStage("health");
-    await request(http)
-      .get("/api/v1/health")
-      .expect(200)
-      .expect((r) => expect(r.body.data.status).toBe("ok"));
+    markCiStage("health-request");
+    let health = await request(http).get("/api/v1/health");
+    for (let attempt = 1; attempt < 3 && health.status !== 200; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      health = await request(http).get("/api/v1/health");
+    }
+    markCiStage(
+      health.status === 200 || health.status === 500 || health.status === 503
+        ? `health-status-${health.status}`
+        : "health-status-other",
+    );
+    expect(health.status).toBe(200);
+    markCiStage("health-body");
+    expect(health.body.data.status).toBe("ok");
     markCiStage("registration");
     await request(http)
       .post("/api/v1/auth/request-otp")

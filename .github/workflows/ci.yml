@@ -71,7 +71,7 @@ jobs:
           if ! npm run test:e2e -- --runInBand; then
             stage=$(cat e2e-stage.txt 2>/dev/null || true)
             case "$stage" in
-              app-compile|app-init|health|registration|onboarding|refresh|logout|password-reset)
+              app-compile|app-init|health-request|health-status-200|health-status-500|health-status-503|health-status-other|health-body|registration|onboarding|refresh|logout|password-reset)
                 echo "::error title=End-to-end test stage failed::$stage"
                 ;;
               *)
