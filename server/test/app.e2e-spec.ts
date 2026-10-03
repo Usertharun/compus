@@ -76,11 +76,20 @@ describe("Database-backed authentication lifecycle", () => {
       await new Promise((resolve) => setTimeout(resolve, 500));
       health = await request(http).get("/api/v1/health");
     }
-    markCiStage(
-      health.status === 200 || health.status === 500 || health.status === 503
-        ? `health-status-${health.status}`
-        : "health-status-other",
-    );
+    if (health.status !== 200) {
+      const failedChecks = Object.keys(
+        health.body?.message ?? health.body?.error ?? {},
+      );
+      markCiStage(
+        failedChecks.includes("memory_heap")
+          ? "health-failure-memory"
+          : failedChecks.includes("database")
+            ? "health-failure-database"
+            : "health-failure-unknown",
+      );
+    } else {
+      markCiStage("health-status-200");
+    }
     expect(health.status).toBe(200);
     markCiStage("health-body");
     expect(health.body.data.status).toBe("ok");
