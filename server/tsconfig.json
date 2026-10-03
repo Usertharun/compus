@@ -25,8 +25,7 @@
       "@database/*": ["src/database/*"],
       "@logger/*": ["src/logger/*"],
       "@redis/*": ["src/redis/*"],
-      "@queues/*": ["src/queues/*"],
-      "@sentry/*": ["src/sentry/*"]
+      "@queues/*": ["src/queues/*"]
     }
   }
 }

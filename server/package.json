@@ -105,8 +105,7 @@
       "^@database/(.*)$": "<rootDir>/src/database/$1",
       "^@logger/(.*)$": "<rootDir>/src/logger/$1",
       "^@redis/(.*)$": "<rootDir>/src/redis/$1",
-      "^@queues/(.*)$": "<rootDir>/src/queues/$1",
-      "^@sentry/(.*)$": "<rootDir>/src/sentry/$1"
+      "^@queues/(.*)$": "<rootDir>/src/queues/$1"
     },
     "collectCoverageFrom": [
       "src/**/*.(t|j)s"
