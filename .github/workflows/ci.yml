@@ -49,6 +49,7 @@ jobs:
       JWT_REFRESH_SECRET: ci-only-refresh-secret-not-for-production
       REDIS_HOST: localhost
       REDIS_PORT: 6379
+      HEALTH_MAX_HEAP_MB: 1024
     defaults:
       run:
         working-directory: server

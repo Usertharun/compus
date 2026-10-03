@@ -1,10 +1,19 @@
-import { IsEmail, IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, validateSync } from 'class-validator';
-import { plainToInstance } from 'class-transformer';
+import {
+  IsEmail,
+  IsEnum,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Min,
+  validateSync,
+} from "class-validator";
+import { plainToInstance } from "class-transformer";
 
 export enum Environment {
-  Development = 'development',
-  Production = 'production',
-  Test = 'test',
+  Development = "development",
+  Production = "production",
+  Test = "test",
 }
 
 export class EnvironmentVariables {
@@ -21,7 +30,7 @@ export class EnvironmentVariables {
 
   @IsString()
   @IsOptional()
-  API_PREFIX: string = 'api/v1';
+  API_PREFIX: string = "api/v1";
 
   @IsString()
   @IsOptional()
@@ -41,7 +50,7 @@ export class EnvironmentVariables {
 
   @IsString()
   @IsOptional()
-  REDIS_HOST: string = 'localhost';
+  REDIS_HOST: string = "localhost";
 
   @IsInt()
   @IsOptional()
@@ -57,7 +66,7 @@ export class EnvironmentVariables {
 
   @IsString()
   @IsOptional()
-  JWT_EXPIRES_IN: string = '15m';
+  JWT_EXPIRES_IN: string = "15m";
 
   @IsString()
   @IsNotEmpty()
@@ -65,15 +74,15 @@ export class EnvironmentVariables {
 
   @IsString()
   @IsOptional()
-  JWT_REFRESH_EXPIRES_IN: string = '7d';
+  JWT_REFRESH_EXPIRES_IN: string = "7d";
 
   @IsString()
   @IsOptional()
-  CORS_ORIGINS: string = 'http://localhost:5173,http://localhost:3000';
+  CORS_ORIGINS: string = "http://localhost:5173,http://localhost:3000";
 
   @IsString()
   @IsOptional()
-  APP_URL: string = 'http://localhost:5173';
+  APP_URL: string = "http://localhost:5173";
 
   @IsString()
   @IsOptional()
@@ -105,7 +114,7 @@ export class EnvironmentVariables {
 
   @IsString()
   @IsOptional()
-  BREVO_SENDER_NAME: string = 'Compus';
+  BREVO_SENDER_NAME: string = "Compus";
 
   @IsString()
   @IsOptional()
@@ -129,10 +138,17 @@ export class EnvironmentVariables {
 
   @IsString()
   @IsOptional()
-  LOG_LEVEL: string = 'info';
+  LOG_LEVEL: string = "info";
+
+  @IsInt()
+  @Min(64)
+  @IsOptional()
+  HEALTH_MAX_HEAP_MB: number = 300;
 }
 
-export function validateEnvironment(config: Record<string, unknown>): EnvironmentVariables {
+export function validateEnvironment(
+  config: Record<string, unknown>,
+): EnvironmentVariables {
   const validatedConfig = plainToInstance(EnvironmentVariables, config, {
     enableImplicitConversion: true,
   });
@@ -142,25 +158,66 @@ export function validateEnvironment(config: Record<string, unknown>): Environmen
   });
 
   if (errors.length > 0) {
-    throw new Error(`❌ Environment Configuration Validation Error:\n${errors.map(error => error.property + ': ' + Object.values(error.constraints || {}).join(', ')).join('\n')}`);
+    throw new Error(
+      `❌ Environment Configuration Validation Error:\n${errors.map((error) => error.property + ": " + Object.values(error.constraints || {}).join(", ")).join("\n")}`,
+    );
   }
 
   if (validatedConfig.NODE_ENV === Environment.Production) {
-    for (const key of ['JWT_SECRET', 'JWT_REFRESH_SECRET'] as const) {
-      if (validatedConfig[key].length < 32 || /replace|change.?me|example/i.test(validatedConfig[key])) throw new Error(key + ' must be a unique random secret of at least 32 characters');
+    for (const key of ["JWT_SECRET", "JWT_REFRESH_SECRET"] as const) {
+      if (
+        validatedConfig[key].length < 32 ||
+        /replace|change.?me|example/i.test(validatedConfig[key])
+      )
+        throw new Error(
+          key + " must be a unique random secret of at least 32 characters",
+        );
     }
-    if (validatedConfig.JWT_SECRET === validatedConfig.JWT_REFRESH_SECRET) throw new Error('JWT secrets must be different');
-    for (const origin of [validatedConfig.APP_URL, ...validatedConfig.CORS_ORIGINS.split(',')]) {
+    if (validatedConfig.JWT_SECRET === validatedConfig.JWT_REFRESH_SECRET)
+      throw new Error("JWT secrets must be different");
+    for (const origin of [
+      validatedConfig.APP_URL,
+      ...validatedConfig.CORS_ORIGINS.split(","),
+    ]) {
       let url: URL;
-      try { url = new URL(origin.trim()); } catch { throw new Error('APP_URL and CORS_ORIGINS must contain explicit HTTPS origins'); }
-      if (url.protocol !== 'https:' || url.hostname === 'localhost' || url.pathname !== '/' || url.search || url.hash || url.username || url.password) throw new Error('APP_URL and CORS_ORIGINS must contain explicit HTTPS origins');
+      try {
+        url = new URL(origin.trim());
+      } catch {
+        throw new Error(
+          "APP_URL and CORS_ORIGINS must contain explicit HTTPS origins",
+        );
+      }
+      if (
+        url.protocol !== "https:" ||
+        url.hostname === "localhost" ||
+        url.pathname !== "/" ||
+        url.search ||
+        url.hash ||
+        url.username ||
+        url.password
+      )
+        throw new Error(
+          "APP_URL and CORS_ORIGINS must contain explicit HTTPS origins",
+        );
     }
-    if (!validatedConfig.DATABASE_URL_UNPOOLED) throw new Error('DATABASE_URL_UNPOOLED is required for migrations');
-    if (![validatedConfig.CLOUDINARY_CLOUD_NAME, validatedConfig.CLOUDINARY_API_KEY, validatedConfig.CLOUDINARY_API_SECRET].every(Boolean)) {
-      throw new Error('Cloudinary credentials are required in production');
+    if (!validatedConfig.DATABASE_URL_UNPOOLED)
+      throw new Error("DATABASE_URL_UNPOOLED is required for migrations");
+    if (
+      ![
+        validatedConfig.CLOUDINARY_CLOUD_NAME,
+        validatedConfig.CLOUDINARY_API_KEY,
+        validatedConfig.CLOUDINARY_API_SECRET,
+      ].every(Boolean)
+    ) {
+      throw new Error("Cloudinary credentials are required in production");
     }
   }
-  const cloudinary = [validatedConfig.CLOUDINARY_CLOUD_NAME, validatedConfig.CLOUDINARY_API_KEY, validatedConfig.CLOUDINARY_API_SECRET];
-  if (cloudinary.some(Boolean) && !cloudinary.every(Boolean)) throw new Error('All Cloudinary credentials must be configured together');
+  const cloudinary = [
+    validatedConfig.CLOUDINARY_CLOUD_NAME,
+    validatedConfig.CLOUDINARY_API_KEY,
+    validatedConfig.CLOUDINARY_API_SECRET,
+  ];
+  if (cloudinary.some(Boolean) && !cloudinary.every(Boolean))
+    throw new Error("All Cloudinary credentials must be configured together");
   return validatedConfig;
 }
