@@ -7,13 +7,21 @@
 - [x] Local preflight passes: production builds, repository lint, 89 backend tests and ten HTTP/pagination/load-harness tests.
 - [x] Public club-login and privacy pages pass browser checks without JavaScript errors.
 - [ ] Production database snapshot and provider retention window recorded.
-- [ ] Changes reviewed, committed and deployed to backend and frontend.
-- [ ] Cloudinary credentials configured; new-image round trip and legacy-image migration verified.
+- [x] Changes reviewed, committed and deployed to backend and frontend.
+- [x] Cloudinary credentials configured; new-image round trip and legacy-image migration verified (the production database contained zero legacy image rows).
 - [ ] Production health secret, GitHub failure notifications and Sentry alert delivery verified.
 - [ ] Staging load test and production-representative restore drill completed with evidence.
 - [ ] Deployed student, owner and permanent-club flows verified with separate accounts.
 
 Run `npm run launch:preflight` from the repository root before each release. It checks every local launch gate and reports only whether external variables are present; it never prints secret values. The unchecked items require access to the hosting, database, Cloudinary, GitHub and Sentry accounts and must be completed on the live environment.
+
+## Production evidence — 2026-10-03
+
+- Backend: `https://compus-production.up.railway.app`, deployed from `0192d89`; migrations reported no pending work and three consecutive health checks returned 200.
+- Frontend: `https://compus-ashy.vercel.app`; the public privacy and permanent-community-login pages were verified in the deployed application.
+- Cloudinary: signed upload, HTTPS delivery and cleanup passed with the production credentials. The production migration status reported zero legacy database images, so no byte rows required migration.
+- Observability: Railway startup logs confirm Sentry initialized. Alert delivery remains unchecked until the GitHub health secret and notification destinations are verified.
+- CI: the frontend and backend validation jobs passed, including migrations, 89 backend unit tests, the database-backed authentication lifecycle, persisted product-flow checks and the production container build.
 
 ## Implemented in this change
 
