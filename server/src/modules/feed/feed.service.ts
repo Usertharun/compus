@@ -523,19 +523,21 @@ export class FeedService {
 
     if (extractedTags.size === 0) return;
 
-    for (const tag of extractedTags) {
-      const hashtag = await this.prisma.hashtag.upsert({
-        where: { tag },
-        update: { postCount: { increment: 1 } },
-        create: { tag, postCount: 1 },
-      });
+    await Promise.all(
+      Array.from(extractedTags, async (tag) => {
+        const hashtag = await this.prisma.hashtag.upsert({
+          where: { tag },
+          update: { postCount: { increment: 1 } },
+          create: { tag, postCount: 1 },
+        });
 
-      await this.prisma.postHashtag.upsert({
-        where: { postId_hashtagId: { postId, hashtagId: hashtag.id } },
-        update: {},
-        create: { postId, hashtagId: hashtag.id },
-      });
-    }
+        await this.prisma.postHashtag.upsert({
+          where: { postId_hashtagId: { postId, hashtagId: hashtag.id } },
+          update: {},
+          create: { postId, hashtagId: hashtag.id },
+        });
+      }),
+    );
   }
 
   private async processMentions(postId: string, content: string) {
@@ -554,12 +556,12 @@ export class FeedService {
       select: { userId: true },
     });
 
-    for (const p of mentionedProfiles) {
-      await this.prisma.mention.create({
-        data: {
+    if (mentionedProfiles.length) {
+      await this.prisma.mention.createMany({
+        data: mentionedProfiles.map((p) => ({
           postId,
           mentionedUserId: p.userId,
-        },
+        })),
       });
     }
   }

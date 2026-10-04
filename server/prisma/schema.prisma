@@ -953,6 +953,7 @@ model ConversationParticipant {
   @@unique([conversationId, userId])
   @@index([conversationId])
   @@index([userId])
+  @@index([userId, conversationId])
   @@map("conversation_participants")
 }
 
@@ -979,6 +980,7 @@ model Message {
   reads       MessageRead[]
 
   @@index([conversationId])
+  @@index([conversationId, createdAt])
   @@index([senderId])
   @@index([createdAt])
   @@map("messages")

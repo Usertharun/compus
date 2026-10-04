@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { ConversationList, ChatWindow } from "@/components/messages";
 import type { ConvoInfo } from "@/components/messages/ChatWindow";
@@ -20,6 +20,7 @@ export default function MessagesPage() {
   const [conversations, setConversations] = useState<ConversationCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
+  const loadInFlight = useRef(false);
   const [activeConvId, setActiveConvId] = useState(
     params.get("conversation") || "",
   );
@@ -27,23 +28,31 @@ export default function MessagesPage() {
     !!params.get("conversation"),
   );
   const load = useCallback(async () => {
-    const records = await apiRequest<Conversation[]>("/conversations");
-    const cards = records.map((c) => {
-      const peer = c.participants.find((p) => p.userId !== user?.id)?.user;
-      const name = c.title || peer?.profile?.name || "Campus chat";
-      return {
-        id: c.id,
-        name,
-        avatar: avatar(name, peer?.profile?.avatarUrl),
-        online: false,
-        lastMessage: c.messages?.[0]?.content || "Start the conversation",
-        timestamp: c.messages?.[0] ? formatDate(c.messages[0].createdAt) : "",
-        unread: c.unreadCount || 0,
-      };
-    });
-    setConversations(cards);
-    setLoading(false);
-    setLoadError('');
+    if (loadInFlight.current) return;
+    loadInFlight.current = true;
+    try {
+      const records = await apiRequest<Conversation[]>("/conversations");
+      const cards = records.map((c) => {
+        const peer = c.participants.find((p) => p.userId !== user?.id)?.user;
+        const name = c.title || peer?.profile?.name || "Campus chat";
+        return {
+          id: c.id,
+          name,
+          avatar: avatar(name, peer?.profile?.avatarUrl),
+          online: false,
+          lastMessage: c.messages?.[0]?.content || "Start the conversation",
+          timestamp: c.messages?.[0]
+            ? formatDate(c.messages[0].createdAt)
+            : "",
+          unread: c.unreadCount || 0,
+        };
+      });
+      setConversations(cards);
+      setLoading(false);
+      setLoadError("");
+    } finally {
+      loadInFlight.current = false;
+    }
   }, [user?.id]);
   useEffect(() => {
     let mounted = true;
@@ -52,10 +61,13 @@ export default function MessagesPage() {
         void load().catch((error) => { if (mounted) { setLoadError(error.message); setLoading(false); } });
     };
     refresh();
-    const interval = window.setInterval(refresh, 15000);
+    const handleVisibility = () => refresh();
+    document.addEventListener("visibilitychange", handleVisibility);
+    const interval = window.setInterval(refresh, 30000);
     return () => {
       mounted = false;
       window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, [load]);
   useEffect(() => {

@@ -72,11 +72,13 @@ export function ChatWindow({
     if (!activeId) return;
     let initial = true;
     let stopped = false;
+    let loadInFlight = false;
     const load = async () => {
-      if (document.visibilityState !== "visible") return;
+      if (document.visibilityState !== "visible" || loadInFlight) return;
+      loadInFlight = true;
       try {
         const page = await apiRequest<Page<Message>>(
-          "/conversations/" + activeId + "/messages?limit=50",
+          "/conversations/" + activeId + "/messages?limit=30",
         );
         if (stopped) return;
         const latestMessages: MessageItem[] = page.items
@@ -114,13 +116,18 @@ export function ChatWindow({
           );
           setLoading(false);
         }
+      } finally {
+        loadInFlight = false;
       }
     };
     void load();
-    const timer = window.setInterval(() => void load(), 5000);
+    const handleVisibility = () => void load();
+    document.addEventListener("visibilitychange", handleVisibility);
+    const timer = window.setInterval(() => void load(), 15000);
     return () => {
       stopped = true;
       window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, [activeId, account?.id]);
 

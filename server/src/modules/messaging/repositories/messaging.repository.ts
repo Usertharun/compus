@@ -60,17 +60,6 @@ export class MessagingRepository extends BaseAbstractRepository<Conversation> {
           profile: { select: { name: true, username: true, avatarUrl: true } },
         },
       },
-      attachments: true,
-      reactions: {
-        include: {
-          user: {
-            select: {
-              id: true,
-              profile: { select: { name: true, username: true } },
-            },
-          },
-        },
-      },
       reads: {
         select: { userId: true, readAt: true },
       },
@@ -95,33 +84,40 @@ export class MessagingRepository extends BaseAbstractRepository<Conversation> {
   }
 
   async findUserConversations(userId: string) {
-    const conversations = await this.prisma.conversation.findMany({
-      where: {
-        deletedAt: null,
-        participants: {
-          some: { userId },
-        },
-      },
-      orderBy: { lastMessageAt: "desc" },
-      include: this.conversationIncludeSelect(),
-    });
-    return Promise.all(
-      conversations.map(async (c) => ({
-        ...c,
-        unreadCount: await this.prisma.message.count({
-          where: {
-            conversationId: c.id,
-            deletedAt: null,
-            senderId: { not: userId },
-            createdAt: {
-              gt:
-                c.participants.find((p) => p.userId === userId)?.lastReadAt ||
-                new Date(0),
-            },
+    const [conversations, unreadCounts] = await Promise.all([
+      this.prisma.conversation.findMany({
+        where: {
+          deletedAt: null,
+          participants: {
+            some: { userId },
           },
-        }),
-      })),
+        },
+        orderBy: { lastMessageAt: "desc" },
+        include: this.conversationIncludeSelect(),
+      }),
+      this.prisma.$queryRaw<
+        Array<{ conversationId: string; unreadCount: number }>
+      >`
+        SELECT m."conversationId", COUNT(*)::int AS "unreadCount"
+        FROM messages m
+        INNER JOIN conversation_participants cp
+          ON cp."conversationId" = m."conversationId"
+          AND cp."userId" = ${userId}
+        INNER JOIN conversations c ON c.id = m."conversationId"
+        WHERE m."deletedAt" IS NULL
+          AND c."deletedAt" IS NULL
+          AND m."senderId" <> ${userId}
+          AND m."createdAt" > COALESCE(cp."lastReadAt", TO_TIMESTAMP(0))
+        GROUP BY m."conversationId"
+      `,
+    ]);
+    const unreadByConversation = new Map(
+      unreadCounts.map((row) => [row.conversationId, row.unreadCount]),
     );
+    return conversations.map((c) => ({
+      ...c,
+      unreadCount: unreadByConversation.get(c.id) || 0,
+    }));
   }
 
   async findConversationById(id: string) {
