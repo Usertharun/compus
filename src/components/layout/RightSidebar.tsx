@@ -21,6 +21,7 @@ export function RightSidebar() {
     opportunities,
     students,
     posts,
+    pages,
   } = useApp();
 
   const handleTagClick = (tag: string) => {
@@ -65,8 +66,8 @@ export function RightSidebar() {
     .slice(0, 4)
     .map(([tag, count]) => ({ tag, posts: count + " posts" }));
 
-  const totalEvents = events.length;
-  const totalRoles = opportunities.length;
+  const totalEvents = pages.events?.total ?? events.length;
+  const totalRoles = pages.opportunities?.total ?? opportunities.length;
 
   return (
     <aside className="sticky top-[5.25rem] self-start w-full hidden lg:flex flex-col max-h-[calc(100vh-6.5rem)] overflow-y-auto scrollbar-hide no-scrollbar">

@@ -712,6 +712,7 @@ model Event {
   @@index([category])
   @@index([startTime])
   @@index([status])
+  @@index([status, startTime], map: "events_status_start_time_idx")
   @@map("events")
 }
 
@@ -729,6 +730,7 @@ model EventRsvp {
   @@unique([eventId, userId])
   @@index([eventId])
   @@index([userId])
+  @@index([userId, status, createdAt], map: "event_rsvps_user_status_created_idx")
   @@map("event_rsvps")
 }
 
@@ -849,6 +851,7 @@ model Opportunity {
   @@index([category])
   @@index([deadline])
   @@index([status])
+  @@index([status, deadline], map: "opportunities_status_deadline_idx")
   @@map("opportunities")
 }
 
@@ -882,6 +885,7 @@ model OpportunityApplication {
   @@unique([opportunityId, userId])
   @@index([opportunityId])
   @@index([userId])
+  @@index([userId, status, appliedAt], map: "opportunity_applications_user_status_applied_idx")
   @@map("opportunity_applications")
 }
 
@@ -1057,6 +1061,7 @@ model Notification {
   @@index([userId])
   @@index([isRead])
   @@index([createdAt])
+  @@index([userId, isRead, isArchived, createdAt], map: "notifications_user_unread_created_idx")
   @@map("notifications")
 }
 
@@ -1301,6 +1306,7 @@ model Bookmark {
 
   @@unique([userId, targetType, targetId])
   @@index([userId])
+  @@index([userId, targetType, createdAt], map: "bookmarks_user_type_created_idx")
   @@map("bookmarks")
 }
 model ImageAsset {

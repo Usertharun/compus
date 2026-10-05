@@ -20,6 +20,130 @@ export class UsersService {
     return userObj;
   }
 
+  async getCampusHub(userId: string) {
+    const now = new Date();
+    const [profile, notifications, unreadCount, registrations, applications, saved] =
+      await Promise.all([
+        this.prisma.profile.findUnique({
+          where: { userId },
+          select: { name: true },
+        }),
+        this.prisma.notification.findMany({
+          where: {
+            userId,
+            isRead: false,
+            isArchived: false,
+            deletedAt: null,
+          },
+          orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }],
+          take: 5,
+          select: {
+            id: true,
+            title: true,
+            body: true,
+            link: true,
+            category: true,
+            priority: true,
+            createdAt: true,
+          },
+        }),
+        this.prisma.notification.count({
+          where: {
+            userId,
+            isRead: false,
+            isArchived: false,
+            deletedAt: null,
+          },
+        }),
+        this.prisma.eventRsvp.findMany({
+          where: {
+            userId,
+            status: { in: ['GOING', 'WAITLISTED'] },
+            event: {
+              deletedAt: null,
+              startTime: { gte: now },
+              status: { not: 'CANCELLED' },
+            },
+          },
+          orderBy: { event: { startTime: 'asc' } },
+          take: 5,
+          select: {
+            status: true,
+            event: {
+              select: {
+                id: true,
+                title: true,
+                venue: true,
+                startTime: true,
+                endTime: true,
+              },
+            },
+          },
+        }),
+        this.prisma.opportunityApplication.findMany({
+          where: { userId, opportunity: { deletedAt: null } },
+          orderBy: { appliedAt: 'desc' },
+          take: 5,
+          select: {
+            id: true,
+            status: true,
+            appliedAt: true,
+            opportunity: {
+              select: {
+                id: true,
+                title: true,
+                companyName: true,
+                deadline: true,
+              },
+            },
+          },
+        }),
+        this.prisma.bookmark.findMany({
+          where: {
+            userId,
+            targetType: 'OPPORTUNITY',
+            opportunity: {
+              deletedAt: null,
+              status: 'OPEN',
+              OR: [{ deadline: null }, { deadline: { gte: now } }],
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+          select: {
+            id: true,
+            createdAt: true,
+            opportunity: {
+              select: {
+                id: true,
+                title: true,
+                companyName: true,
+                deadline: true,
+              },
+            },
+          },
+        }),
+      ]);
+
+    return {
+      generatedAt: now,
+      firstName: profile?.name?.trim().split(/\s+/)[0] || 'Student',
+      unreadCount,
+      notifications,
+      upcomingEvents: registrations.map(({ event, status }) => ({
+        ...event,
+        registrationStatus: status,
+      })),
+      applications: applications.map(({ opportunity, ...application }) => ({
+        ...application,
+        opportunity,
+      })),
+      savedOpportunities: saved
+        .filter((bookmark) => bookmark.opportunity)
+        .map(({ opportunity, ...bookmark }) => ({ ...bookmark, opportunity })),
+    };
+  }
+
   async findAll(query: PaginationQueryDto) {
     const page = query.page || 1;
     const limit = query.limit || 10;

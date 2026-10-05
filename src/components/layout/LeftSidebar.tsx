@@ -29,7 +29,7 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { label: "Campus Feed", icon: Home, href: "/campus", group: "Workspace" },
+  { label: "My Campus", icon: Home, href: "/campus", group: "Workspace" },
   { label: "Discover", icon: Compass, href: "/discover", group: "Workspace" },
   {
     label: "Communities",

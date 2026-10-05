@@ -30,6 +30,12 @@ import { PaginationQueryDto } from "@common/dto/pagination.dto";
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
+  @Get("me/hub")
+  @ApiOperation({ summary: "Get the active user's campus action hub" })
+  async getCampusHub(@CurrentUser("id") userId: string) {
+    return this.usersService.getCampusHub(userId);
+  }
+
   @Get()
   @Roles(UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: "Get paginated list of users" })

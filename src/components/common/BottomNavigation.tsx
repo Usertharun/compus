@@ -41,7 +41,7 @@ export interface BottomNavigationProps {
 export const DEFAULT_BOTTOM_NAV_ITEMS: BottomNavItemProps[] = [
   {
     id: "home",
-    label: "Home",
+    label: "Hub",
     path: "/campus",
     icon: Home,
   },

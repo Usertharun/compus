@@ -211,8 +211,11 @@ function useAppState() {
     else setSavedPosts(prev => update(prev, (page.items as Post[]).map(p => mapPost({ ...p, isBookmarked: true }))));
   }, [account?.id]);
   const requestCollection = (key: Collection, page = 1, nextCursor?: string | null) => {
-    if (key === 'students') return apiRequest<Page<unknown>>(collectionPaths[key], 'POST', { page, limit: 50 });
-    const params = new URLSearchParams({ limit: '50' });
+    // Keep initial hydration light; every collection retains complete paging through
+    // loadMoreCollection instead of downloading hundreds of records after login.
+    const pageSize = 20;
+    if (key === 'students') return apiRequest<Page<unknown>>(collectionPaths[key], 'POST', { page, limit: pageSize });
+    const params = new URLSearchParams({ limit: String(pageSize) });
     if (key !== 'savedPosts') params.set('page', String(page));
     if (nextCursor) params.set('cursor', nextCursor);
     return apiRequest<Page<unknown>>(collectionPaths[key] + '?' + params);

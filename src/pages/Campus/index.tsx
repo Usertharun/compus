@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { MyCampusHub } from "@/components/home/MyCampusHub";
 import { CampusHeroBanner } from "@/components/home/CampusHeroBanner";
 import { CampusPostFeed } from "@/components/home/CampusPostFeed";
 import { useApp } from "@/context/AppContext";
@@ -30,6 +31,7 @@ export default function CampusHome() {
   const { user, openCreatePost, searchQuery, setSearchQuery, setFeedCategory } =
     useApp();
   const [activeCategory, setActiveCategory] = useState("all");
+  const [view, setView] = useState<"today" | "feed">("today");
   useEffect(() => {
     setFeedCategory(activeCategory);
   }, [activeCategory, setFeedCategory]);
@@ -40,7 +42,13 @@ export default function CampusHome() {
 
   return (
     <div className="flex flex-col gap-6 w-full max-w-3xl mx-auto xl:max-w-none pb-12">
-      {/* 1. Natural Campus Greeting & Hero Section */}
+      <div className="flex items-center gap-1.5 rounded-2xl border border-border/50 bg-card/60 p-1.5" role="tablist" aria-label="Campus view">
+        <button type="button" role="tab" aria-selected={view === "today"} onClick={() => setView("today")} className={cn("flex-1 rounded-xl px-4 py-2 text-sm font-bold transition-colors", view === "today" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground")}>Today</button>
+        <button type="button" role="tab" aria-selected={view === "feed"} onClick={() => setView("feed")} className={cn("flex-1 rounded-xl px-4 py-2 text-sm font-bold transition-colors", view === "feed" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground")}>Campus Feed</button>
+      </div>
+
+      {view === "today" ? <MyCampusHub /> : <>
+      {/* Existing campus feed remains unchanged in its own view. */}
       <CampusHeroBanner />
 
       {/* 2. Interactive Post Composer Card */}
@@ -164,6 +172,7 @@ export default function CampusHome() {
 
       {/* 4. Dedicated Campus Post Feed */}
       <CampusPostFeed category={activeCategory} />
+      </>}
     </div>
   );
 }

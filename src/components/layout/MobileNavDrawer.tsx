@@ -30,7 +30,7 @@ const NAV_GROUPS = [
   {
     title: "Workspace",
     items: [
-      { label: "Campus Feed", icon: Home, href: "/campus" },
+      { label: "My Campus", icon: Home, href: "/campus" },
       { label: "Discover", icon: Compass, href: "/discover" },
     ],
   },
