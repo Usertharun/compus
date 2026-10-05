@@ -4,6 +4,7 @@ import {
   IsArray,
   IsEmail,
   IsEnum,
+  IsIn,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -45,6 +46,21 @@ export class CreateCommunityDto {
   @IsOptional()
   @IsString()
   bannerUrl?: string;
+
+  @ApiPropertyOptional({ example: '#4f46e5' })
+  @IsOptional()
+  @Matches(/^#[0-9a-fA-F]{6}$/, { message: 'Primary color must be a six-digit hex color' })
+  primaryColor?: string;
+
+  @ApiPropertyOptional({ example: '#9333ea' })
+  @IsOptional()
+  @Matches(/^#[0-9a-fA-F]{6}$/, { message: 'Accent color must be a six-digit hex color' })
+  accentColor?: string;
+
+  @ApiPropertyOptional({ enum: ['GRADIENT', 'SOLID', 'MINIMAL'] })
+  @IsOptional()
+  @IsIn(['GRADIENT', 'SOLID', 'MINIMAL'])
+  themeStyle?: string;
 
   @ApiPropertyOptional({ example: ['Tech', 'Coding', 'Google', 'Web'] })
   @IsOptional()
@@ -108,6 +124,21 @@ export class UpdateCommunityDto {
   @IsOptional()
   @IsString()
   bannerUrl?: string;
+
+  @ApiPropertyOptional({ example: '#4f46e5' })
+  @IsOptional()
+  @Matches(/^#[0-9a-fA-F]{6}$/, { message: 'Primary color must be a six-digit hex color' })
+  primaryColor?: string;
+
+  @ApiPropertyOptional({ example: '#9333ea' })
+  @IsOptional()
+  @Matches(/^#[0-9a-fA-F]{6}$/, { message: 'Accent color must be a six-digit hex color' })
+  accentColor?: string;
+
+  @ApiPropertyOptional({ enum: ['GRADIENT', 'SOLID', 'MINIMAL'] })
+  @IsOptional()
+  @IsIn(['GRADIENT', 'SOLID', 'MINIMAL'])
+  themeStyle?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

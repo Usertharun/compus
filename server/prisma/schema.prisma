@@ -594,6 +594,9 @@ model Community {
   category     String          @default("Interest Group")
   avatarUrl    String?
   bannerUrl    String?
+  primaryColor String          @default("#4f46e5")
+  accentColor  String          @default("#9333ea")
+  themeStyle   String          @default("GRADIENT")
   tags         String[]        @default([])
   joinPolicy   JoinPolicy      @default(OPEN)
   status       CommunityStatus @default(ACTIVE)

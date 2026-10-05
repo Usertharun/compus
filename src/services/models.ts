@@ -123,6 +123,15 @@ export interface Community {
   ownerId: string;
   avatarUrl?: string;
   bannerUrl?: string;
+  primaryColor?: string;
+  accentColor?: string;
+  themeStyle?: "GRADIENT" | "SOLID" | "MINIMAL";
+  tags?: string[];
+  contactEmail?: string;
+  websiteUrl?: string;
+  instagramUrl?: string;
+  linkedinUrl?: string;
+  githubUrl?: string;
   joinPolicy: string;
   isMember?: boolean;
   viewerRole?: string;
