@@ -75,23 +75,23 @@ describe('Public-launch workflows', () => {
     );
     expect(dto).toMatchObject({ email: 'clubname@gmail.com', communityId: 'community-id' });
   });
-  it('updates an unactivated community login instead of trapping the owner on the old address', async () => {
+  it('creates a community automatically when the owner approves a club email', async () => {
+    const tx = {
+      community: { create: jest.fn().mockResolvedValue({ id: 'community', name: 'Spectrum Club SRM' }) },
+      communityMember: { create: jest.fn() },
+      communityLogin: { create: jest.fn().mockResolvedValue({ id: 'login', email: 'spectrumclubsrm@gmail.com', communityId: 'community', community: { name: 'Spectrum Club SRM' } }) },
+    };
     const db = {
-      community: { findFirst: jest.fn().mockResolvedValue({ id: 'community' }) },
-      communityLogin: {
-        findUnique: jest.fn()
-          .mockResolvedValueOnce({ id: 'login', email: 'old@gmail.com', communityId: 'community' })
-          .mockResolvedValueOnce(null),
-        update: jest.fn().mockResolvedValue({ id: 'login', email: 'new@gmail.com', communityId: 'community' }),
-        create: jest.fn(),
-      },
+      community: { findUnique: jest.fn().mockResolvedValue(null) },
+      communityLogin: { findUnique: jest.fn().mockResolvedValue(null) },
       user: { findUnique: jest.fn().mockResolvedValue(null) },
+      $transaction: jest.fn((operation: (client: typeof tx) => unknown) => operation(tx)),
     };
     const repository = { recordAdminAuditLog: jest.fn() } as unknown as AdminRepository;
     const service = new AdminService(repository, asPrisma(db), logger);
-    await expect(service.provisionCommunity('admin', { email: 'new@gmail.com', communityId: 'community' })).resolves.toMatchObject({ email: 'new@gmail.com' });
-    expect(db.communityLogin.update).toHaveBeenCalledWith({ where: { id: 'login' }, data: { email: 'new@gmail.com' } });
-    expect(db.communityLogin.create).not.toHaveBeenCalled();
+    await expect(service.provisionCommunity('admin', { email: 'spectrumclubsrm@gmail.com', clubName: 'Spectrum Club SRM' })).resolves.toMatchObject({ email: 'spectrumclubsrm@gmail.com' });
+    expect(tx.community.create).toHaveBeenCalledWith({ data: expect.objectContaining({ name: 'Spectrum Club SRM', slug: 'spectrum-club-srm', ownerId: 'admin' }) });
+    expect(tx.communityLogin.create).toHaveBeenCalledWith({ data: { email: 'spectrumclubsrm@gmail.com', communityId: 'community' }, include: { community: true } });
   });
   it('keeps Cloudinary disabled without credentials', () => {
     expect(new CloudinaryStorageService(new ConfigService({})).enabled).toBe(false);

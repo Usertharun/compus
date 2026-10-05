@@ -37,12 +37,20 @@ export class CommunityLoginDto {
   @IsEmail()
   email: string;
 
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
+  @IsString()
+  communityId?: string;
+
+  @IsOptional()
   @Transform(({ value }) =>
     typeof value === 'string' ? value.trim() : value,
   )
   @IsString()
   @IsNotEmpty()
-  communityId: string;
+  clubName?: string;
 }
 
 export class SuspendUserDto {

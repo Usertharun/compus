@@ -30,15 +30,41 @@ export class AdminService {
   async provisionCommunity(adminId: string, dto: import('./dto/admin.dto').CommunityLoginDto) {
     const email = dto.email.trim().toLowerCase();
     if (email.endsWith('@srmist.edu.in')) throw new BadRequestException('Use a permanent club mailbox outside the student email domain');
+    const emailLogin = await this.prisma.communityLogin.findUnique({ where: { email }, include: { community: true } });
+    if (emailLogin) return emailLogin;
+    const existing = await this.prisma.user.findUnique({ where: { email } });
+    if (existing) throw new BadRequestException('This email already belongs to an account');
+
+    if (!dto.communityId) {
+      const clubName = dto.clubName?.trim();
+      if (!clubName) throw new BadRequestException('Enter the club name');
+      const baseSlug = clubName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'community';
+      let slug = baseSlug;
+      let suffix = 2;
+      while (await this.prisma.community.findUnique({ where: { slug } })) slug = `${baseSlug}-${suffix++}`;
+      const login = await this.prisma.$transaction(async tx => {
+        const community = await tx.community.create({
+          data: {
+            name: clubName,
+            slug,
+            description: `${clubName} community on Compus.`,
+            category: 'Student Club',
+            contactEmail: email,
+            ownerId: adminId,
+            memberCount: 1,
+          },
+        });
+        await tx.communityMember.create({ data: { communityId: community.id, userId: adminId, role: 'OWNER' } });
+        return tx.communityLogin.create({ data: { email, communityId: community.id }, include: { community: true } });
+      });
+      await this.adminRepository.recordAdminAuditLog(adminId, 'PROVISION_COMMUNITY_LOGIN', 'COMMUNITY', login.communityId, { email, clubName });
+      return login;
+    }
+
     const community = await this.prisma.community.findFirst({ where: { id: dto.communityId, deletedAt: null } });
     if (!community) throw new NotFoundException('Community not found');
     const currentLogin = await this.prisma.communityLogin.findUnique({ where: { communityId: dto.communityId } });
     if (currentLogin?.email === email) return currentLogin;
-    const existing = await this.prisma.user.findUnique({ where: { email } });
-    if (existing) throw new BadRequestException('This email already belongs to an account');
-    const emailLogin = await this.prisma.communityLogin.findUnique({ where: { email } });
-    if (emailLogin && emailLogin.communityId !== dto.communityId)
-      throw new BadRequestException('This email is already approved for another community');
     if (currentLogin) {
       const activated = await this.prisma.user.findUnique({ where: { email: currentLogin.email }, select: { id: true } });
       if (activated)

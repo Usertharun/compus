@@ -4,7 +4,6 @@ import type { Page } from '@/services/models';
 
 interface Account { id: string; email: string; role: string; isActive: boolean; isVerified: boolean; createdAt: string; profile?: { name: string; department?: string; year?: string } }
 interface ClubLogin { id: string; email: string; community: { name: string } }
-interface Club { id: string; name: string; login?: { email: string } | null }
 export default function AccountAdministration() {
   const [accounts, setAccounts] = useState<Page<Account>>({ items: [] });
   const [clubs, setClubs] = useState<ClubLogin[]>([]);
@@ -15,19 +14,7 @@ export default function AccountAdministration() {
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
   const [clubEmail, setClubEmail] = useState('');
-  const [communityId, setCommunityId] = useState('');
-  const [clubQuery, setClubQuery] = useState('');
-  const [clubPage, setClubPage] = useState(1);
-  const [clubOptions, setClubOptions] = useState<Page<Club>>({ items: [] });
-  useEffect(() => {
-    let stopped = false;
-    const timer = window.setTimeout(() => {
-      void apiRequest<Page<Club>>('/admin/communities?' + new URLSearchParams({ search: clubQuery, page: String(clubPage), limit: '20' }))
-        .then(result => { if (!stopped) setClubOptions(result); })
-        .catch(e => { if (!stopped) setError(e instanceof Error ? e.message : 'Unable to load communities'); });
-    }, 200);
-    return () => { stopped = true; window.clearTimeout(timer); };
-  }, [clubQuery, clubPage]);
+  const [clubName, setClubName] = useState('');
   const load = useCallback(async () => {
     const params = new URLSearchParams({ page: String(page), limit: '20', search: filter.search });
     if (filter.isActive) params.set('isActive', filter.isActive);
@@ -53,18 +40,14 @@ export default function AccountAdministration() {
     finally { setBusy(false); }
   };
   const approveCommunityLogin = async () => {
-    if (!communityId || !clubEmail.trim()) return;
+    if (!clubName.trim() || !clubEmail.trim()) return;
     const approved = await act(
-      () => apiRequest('/admin/community-logins', 'POST', { email: clubEmail.trim(), communityId }),
-      'Community login approved. The club can now create its account from the Community login page.',
+      () => apiRequest('/admin/community-logins', 'POST', { email: clubEmail.trim(), clubName: clubName.trim() }),
+      'Club created and its permanent login approved. It can now register from the Community login page.',
     );
     if (approved) {
       setClubEmail('');
-      setCommunityId('');
-      setClubOptions(prev => ({
-        ...prev,
-        items: prev.items.map(club => club.id === communityId ? { ...club, login: { email: clubEmail.trim().toLowerCase() } } : club),
-      }));
+      setClubName('');
     }
   };
   return <section className="space-y-4">
@@ -92,15 +75,13 @@ export default function AccountAdministration() {
       </div>}
     </article>)}
     <nav aria-label="Account pages" className="flex gap-4"><button disabled={busy || page === 1} onClick={() => setPage(p => p - 1)}>Previous</button><span>Page {page} of {accounts.totalPages || 1}</span><button disabled={busy || page >= (accounts.totalPages || 1)} onClick={() => setPage(p => p + 1)}>Next</button></nav>
-    <h3 className="font-bold">Approve a permanent community login</h3>
-    <p className="text-sm text-muted-foreground">Use a mailbox the club controls. After approval, its team can verify the email at Community login. Activation transfers community ownership to this permanent account. Each year, change its password and revoke all sessions before handing it over.</p>
+    <h3 className="font-bold">Create and approve a club login</h3>
+    <p className="text-sm text-muted-foreground">Enter the club name and a permanent mailbox controlled by the club. Compus creates the community automatically. After approval, the club team can verify the email at Community login.</p>
     <form className="flex flex-wrap gap-3" onSubmit={e => { e.preventDefault(); void approveCommunityLogin(); }}>
+      <input aria-label="Club name" required value={clubName} onChange={e => setClubName(e.target.value)} placeholder="Spectrum Club SRM" className="border rounded-xl p-2 bg-background" />
       <input aria-label="Permanent club email" type="email" required value={clubEmail} onChange={e => setClubEmail(e.target.value)} placeholder="clubname@gmail.com" className="border rounded-xl p-2 bg-background" />
-      <input aria-label="Find community" value={clubQuery} onChange={e => { setClubQuery(e.target.value); setClubPage(1); setCommunityId(''); }} placeholder="Find club by name" className="border rounded-xl p-2 bg-background" />
-      <select aria-label="Community" required value={communityId} onChange={e => { const id = e.target.value; setCommunityId(id); const selected = clubOptions.items.find(c => c.id === id); if (selected?.login?.email) setClubEmail(selected.login.email); }} className="border rounded-xl p-2 bg-background"><option value="">Choose a community</option>{clubOptions.items.map(c => <option key={c.id} value={c.id}>{c.name}{c.login ? ' (approved — select to review)' : ''}</option>)}</select>
-      <button disabled={busy || !communityId || !clubEmail.trim()} className="bg-primary text-primary-foreground rounded-xl px-4 py-2 disabled:opacity-60">{busy ? 'Approving…' : 'Approve login'}</button>
+      <button disabled={busy || !clubName.trim() || !clubEmail.trim()} className="bg-primary text-primary-foreground rounded-xl px-4 py-2 disabled:opacity-60">{busy ? 'Creating…' : 'Create and approve club'}</button>
     </form>
-    <nav aria-label="Community options" className="flex gap-4 text-sm"><button disabled={clubPage === 1} onClick={() => { setClubPage(p => p - 1); setCommunityId(''); }}>Previous clubs</button><span>{clubPage} / {clubOptions.totalPages || 1}</span><button disabled={clubPage >= (clubOptions.totalPages || 1)} onClick={() => { setClubPage(p => p + 1); setCommunityId(''); }}>Next clubs</button></nav>
     {clubs.map(c => <p key={c.id} className="text-sm">{c.community.name} · {c.email}</p>)}
   </section>;
 }
