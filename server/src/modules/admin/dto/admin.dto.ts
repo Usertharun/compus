@@ -31,8 +31,15 @@ export class SearchAdminUsersDto extends PaginationQueryDto {
 }
 
 export class CommunityLoginDto {
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim().toLowerCase() : value,
+  )
   @IsEmail()
   email: string;
+
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
   @IsString()
   @IsNotEmpty()
   communityId: string;

@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { plainToInstance } from 'class-transformer';
 import { EventsService } from '../src/modules/events/events.service';
 import { OpportunitiesService } from '../src/modules/opportunities/opportunities.service';
-import { SearchAdminUsersDto } from '../src/modules/admin/dto/admin.dto';
+import { CommunityLoginDto, SearchAdminUsersDto } from '../src/modules/admin/dto/admin.dto';
 import { PrismaService } from '../src/database/prisma.service';
 import { EventsRepository } from '../src/modules/events/repositories/events.repository';
 import { OpportunitiesRepository } from '../src/modules/opportunities/repositories/opportunities.repository';
@@ -11,6 +11,8 @@ import { AppLoggerService } from '../src/logger/logger.service';
 import { CloudinaryStorageService } from '../src/modules/uploads/cloudinary-storage.service';
 import { v2 as cloudinary } from 'cloudinary';
 import { UploadsController } from '../src/modules/uploads/uploads.module';
+import { AdminService } from '../src/modules/admin/admin.service';
+import { AdminRepository } from '../src/modules/admin/repositories/admin.repository';
 
 const logger = { log: jest.fn() } as unknown as AppLoggerService;
 const asPrisma = (db: unknown) => db as PrismaService;
@@ -65,6 +67,31 @@ describe('Public-launch workflows', () => {
   it('parses the owner suspended-account filter without treating false as true', () => {
     expect(plainToInstance(SearchAdminUsersDto, { isActive: 'false' }).isActive).toBe(false);
     expect(plainToInstance(SearchAdminUsersDto, { isActive: 'true' }).isActive).toBe(true);
+  });
+  it('normalizes a copied community email before validation', () => {
+    const dto = plainToInstance(
+      CommunityLoginDto,
+      { email: ' ClubName@Gmail.com ', communityId: ' community-id ' },
+    );
+    expect(dto).toMatchObject({ email: 'clubname@gmail.com', communityId: 'community-id' });
+  });
+  it('updates an unactivated community login instead of trapping the owner on the old address', async () => {
+    const db = {
+      community: { findFirst: jest.fn().mockResolvedValue({ id: 'community' }) },
+      communityLogin: {
+        findUnique: jest.fn()
+          .mockResolvedValueOnce({ id: 'login', email: 'old@gmail.com', communityId: 'community' })
+          .mockResolvedValueOnce(null),
+        update: jest.fn().mockResolvedValue({ id: 'login', email: 'new@gmail.com', communityId: 'community' }),
+        create: jest.fn(),
+      },
+      user: { findUnique: jest.fn().mockResolvedValue(null) },
+    };
+    const repository = { recordAdminAuditLog: jest.fn() } as unknown as AdminRepository;
+    const service = new AdminService(repository, asPrisma(db), logger);
+    await expect(service.provisionCommunity('admin', { email: 'new@gmail.com', communityId: 'community' })).resolves.toMatchObject({ email: 'new@gmail.com' });
+    expect(db.communityLogin.update).toHaveBeenCalledWith({ where: { id: 'login' }, data: { email: 'new@gmail.com' } });
+    expect(db.communityLogin.create).not.toHaveBeenCalled();
   });
   it('keeps Cloudinary disabled without credentials', () => {
     expect(new CloudinaryStorageService(new ConfigService({})).enabled).toBe(false);
