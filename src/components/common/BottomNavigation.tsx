@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 import { motion, useScroll, useMotionValueEvent } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/context/AuthContext";
+import { communityPagePath } from "@/services/accountRoutes";
 
 export interface BottomNavItemProps {
   id: string;
@@ -70,7 +72,7 @@ export const DEFAULT_BOTTOM_NAV_ITEMS: BottomNavItemProps[] = [
 ];
 
 export function BottomNavigation({
-  items = DEFAULT_BOTTOM_NAV_ITEMS,
+  items,
   activePath,
   onTabChange,
   className,
@@ -80,6 +82,12 @@ export function BottomNavigation({
 }: BottomNavigationProps) {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const resolvedItems = items || (user?.role === "COMMUNITY_ACCOUNT"
+    ? DEFAULT_BOTTOM_NAV_ITEMS.map(item => item.id === "profile"
+        ? { ...item, label: "Club", path: communityPagePath(user), icon: Users }
+        : item)
+    : DEFAULT_BOTTOM_NAV_ITEMS);
 
   const currentPath = activePath || location.pathname;
 
@@ -123,7 +131,7 @@ export function BottomNavigation({
           dockClassName
         )}
       >
-        {items.map((item) => {
+      {resolvedItems.map((item) => {
           // Path matching: exact match or route aliases (e.g. / campus matches /)
           const isActive =
             currentPath === item.path ||

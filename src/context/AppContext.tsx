@@ -180,14 +180,14 @@ function useAppState() {
   const generation = useRef(0);
   const user: UserProfile = {
     id: account?.id,
-    name: profile?.name || account?.name || "Student",
+    name: account?.community?.name || profile?.name || account?.name || "Student",
     email: account?.email || "",
     major: profile?.department ?? account?.profile?.department ?? "",
     gradYear: profile?.year ?? account?.profile?.year ?? "",
     bio: profile?.bio ?? account?.profile?.bio ?? "",
     avatar: avatar(
-      profile?.name || account?.name || "Student",
-      profile?.avatarUrl ?? account?.profile?.avatarUrl,
+      account?.community?.name || profile?.name || account?.name || "Student",
+      account?.community?.avatarUrl ?? profile?.avatarUrl ?? account?.profile?.avatarUrl,
     ),
     banner: profile?.bannerUrl,
     university: "SRM Institute of Science and Technology",

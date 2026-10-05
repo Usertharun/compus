@@ -153,5 +153,11 @@ export class AuthResponseDto {
     name: string;
     onboardingCompleted: boolean;
     permissions: string[];
+    community?: {
+      id: string;
+      slug: string;
+      name: string;
+      avatarUrl: string | null;
+    };
   };
 }

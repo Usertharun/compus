@@ -16,6 +16,8 @@ import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useApp } from "@/context/AppContext";
+import { useAuth } from "@/context/AuthContext";
+import { communityPagePath } from "@/services/accountRoutes";
 
 interface NavItem {
   label: string;
@@ -60,6 +62,12 @@ export function LeftSidebar({ mobile = false }: { mobile?: boolean }) {
   const location = useLocation();
   const { user, openCreatePost, registrations, pages, joinedCommunityCount, isBackendConnected } =
     useApp();
+  const { user: account } = useAuth();
+  const navItems = account?.role === "COMMUNITY_ACCOUNT"
+    ? NAV_ITEMS.map(item => item.href === "/profile"
+        ? { ...item, label: "Club Page", icon: Users, href: communityPagePath(account) }
+        : item)
+    : NAV_ITEMS;
   const isCampusPage =
     location.pathname === "/" || location.pathname.startsWith("/campus");
   const registeredCount = pages.registrations?.total ?? registrations.length;
@@ -91,7 +99,7 @@ export function LeftSidebar({ mobile = false }: { mobile?: boolean }) {
                 {user.name}
               </h2>
               <p className="text-xs text-muted-foreground truncate leading-tight mt-0.5">
-                {user.major}
+                {account?.role === "COMMUNITY_ACCOUNT" ? "Community account" : user.major}
               </p>
             </div>
           </div>
@@ -170,7 +178,7 @@ export function LeftSidebar({ mobile = false }: { mobile?: boolean }) {
                   {group}
                 </p>
                 <div className="flex flex-col gap-1">
-                  {NAV_ITEMS.filter((item) => item.group === group).map(
+                  {navItems.filter((item) => item.group === group).map(
                     (item) => {
                       const isActive =
                         location.pathname.startsWith(item.href) ||

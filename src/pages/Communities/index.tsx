@@ -9,6 +9,7 @@ import { avatar, type Community } from "@/services/models";
 import { CommunityCard, CommunityDetailView } from "@/components/communities";
 import type { CommunityItem } from "@/components/communities/types";
 import { Search, Plus, X, Users } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 export const mapCommunity = (c: Community): CommunityItem => ({
   id: c.id,
   slug: c.slug,
@@ -38,6 +39,7 @@ export const mapCommunity = (c: Community): CommunityItem => ({
 });
 export default function CommunitiesPage() {
   const { communities, refreshData, loading } = useApp();
+  const { user: account } = useAuth();
   const toast = useToast();
   const [params, setParams] = useSearchParams();
   const [selected, setSelected] = useState<CommunityItem | null>(null);
@@ -94,13 +96,13 @@ export default function CommunitiesPage() {
             Find your people, share ideas, and build together.
           </p>
         </div>
-        <button
+        {account?.role !== "COMMUNITY_ACCOUNT" && <button
           onClick={() => setCreating(true)}
           className="rounded-2xl bg-primary text-primary-foreground font-bold text-sm px-4 py-3 flex gap-2"
         >
           <Plus className="w-4 h-4" />
           Create community
-        </button>
+        </button>}
       </header>
       <label className="flex items-center gap-3 p-3 rounded-2xl border border-border bg-card">
         <Search className="w-5 h-5" />

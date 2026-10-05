@@ -124,7 +124,7 @@ export class AuthService {
         if (consumed.count !== 1) throw new BadRequestException('This code has already been used or expired.');
         const user = await tx.user.create({
           data: { email, passwordHash, role: isOwnerEmail(email, this.configService.get<string>('OWNER_EMAIL')) ? UserRole.SUPER_ADMIN : club ? UserRole.COMMUNITY_ACCOUNT : UserRole.VERIFIED_USER, isVerified: true, onboardingCompleted: !!club || isOwnerEmail(email, this.configService.get<string>('OWNER_EMAIL')),
-            profile: { create: { name: dto.name.trim(), registerNumber: dto.registerNumber, department: dto.department, year: dto.year, section: dto.section } },
+            profile: { create: { name: club?.community.name || dto.name.trim(), registerNumber: dto.registerNumber, department: dto.department, year: dto.year, section: dto.section } },
             passwordHistories: { create: { passwordHash } },
           }, include: { profile: true },
         });
@@ -325,6 +325,12 @@ export class AuthService {
     });
 
     const permissionKeys = userPermissions.map((up) => up.permission.key);
+    const community = user.role === UserRole.COMMUNITY_ACCOUNT
+      ? await db.community.findFirst({
+          where: { ownerId: user.id, deletedAt: null },
+          select: { id: true, slug: true, name: true, avatarUrl: true },
+        })
+      : null;
 
     const payload = {
       sub: user.id,
@@ -382,9 +388,10 @@ export class AuthService {
         id: user.id,
         email: user.email,
         role: user.role,
-        name: (user.profile?.name as string) || user.email.split('@')[0],
+        name: community?.name || (user.profile?.name as string) || user.email.split('@')[0],
         onboardingCompleted: user.onboardingCompleted,
         permissions: permissionKeys,
+        ...(community ? { community } : {}),
       },
     };
   }

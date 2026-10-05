@@ -3,6 +3,7 @@ import { Navigate, Link } from 'react-router-dom';
 import { Sparkles, ArrowRight, Eye, EyeOff, LoaderCircle } from 'lucide-react';
 import { apiService } from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
+import { accountHomePath } from '@/services/accountRoutes';
 
 export default function Login({ owner = false, community = false }: { owner?: boolean; community?: boolean }) {
   const { user, acceptSession } = useAuth();
@@ -16,7 +17,7 @@ export default function Login({ owner = false, community = false }: { owner?: bo
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  if (user) return <Navigate to={user.role === 'SUPER_ADMIN' ? '/admin' : user.onboardingCompleted ? '/campus' : '/onboarding'} replace />;
+  if (user) return <Navigate to={accountHomePath(user)} replace />;
 
   async function sendCode() {
     await apiService.requestOtp(email.trim().toLowerCase());
@@ -64,7 +65,7 @@ export default function Login({ owner = false, community = false }: { owner?: bo
           <label htmlFor="otp" className="block text-sm font-medium">Verification code</label>
           <input id="otp" className={`${inputClass} text-center tracking-widest`} inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} autoFocus />
         </> : <>
-          {mode === 'signup' && <div className="space-y-1.5"><label htmlFor="full-name" className="text-sm font-medium">Full name</label><input id="full-name" autoComplete="name" required maxLength={100} value={name} onChange={e => setName(e.target.value)} className={inputClass} /></div>}
+          {mode === 'signup' && <div className="space-y-1.5"><label htmlFor="full-name" className="text-sm font-medium">{community ? 'Account contact name' : 'Full name'}</label><input id="full-name" autoComplete="name" required maxLength={100} value={name} onChange={e => setName(e.target.value)} className={inputClass} /></div>}
           <div className="space-y-1.5"><label htmlFor="email" className="text-sm font-medium">{owner ? "Administrator email" : community ? "Club email" : "SRM email"}</label><input id="email" type="email" autoComplete="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder={owner ? "Your designated administrator email" : community ? "clubname@gmail.com" : "you@srmist.edu.in"} className={inputClass} /></div>
           <div className="space-y-1.5">
             <div className="flex justify-between"><label htmlFor="password" className="text-sm font-medium">Password</label>{mode === 'login' && <Link to={owner ? "/forgot-password?owner=1" : community ? "/forgot-password?community=1" : "/forgot-password"} className="text-sm text-primary">Forgot password?</Link>}</div>

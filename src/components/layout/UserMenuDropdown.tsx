@@ -1,15 +1,17 @@
 import { useAuth } from "@/context/AuthContext";
 import { useState, useRef, useEffect } from "react";
-import { User, Settings, Moon, Sun, LogOut, ChevronDown, GraduationCap, ShieldCheck } from "lucide-react";
+import { User, Users, Settings, Moon, Sun, LogOut, ChevronDown, GraduationCap, ShieldCheck } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "@/context/AppContext";
+import { communityPagePath } from "@/services/accountRoutes";
 
 export function UserMenuDropdown() {
   const { user } = useApp();
-  const { logout } = useAuth();
+  const { user: account, logout } = useAuth();
+  const isCommunity = account?.role === "COMMUNITY_ACCOUNT";
   const [isOpen, setIsOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(() => {
     return document.documentElement.classList.contains("dark") || localStorage.getItem("theme") === "dark";
@@ -101,12 +103,12 @@ export function UserMenuDropdown() {
               {/* Status Badge */}
               <div className="mt-3 flex items-center justify-between text-[11px] text-muted-foreground font-medium">
                 <span className="flex items-center gap-1 font-semibold text-foreground">
-                  <GraduationCap className="w-3.5 h-3.5 text-primary" />
-                  {user.university}
+                  {isCommunity ? <Users className="w-3.5 h-3.5 text-primary" /> : <GraduationCap className="w-3.5 h-3.5 text-primary" />}
+                  {isCommunity ? "Community account" : user.university}
                 </span>
-                <span className="px-2 py-0.5 rounded-md bg-accent font-semibold text-[10px]">
+                {!isCommunity && <span className="px-2 py-0.5 rounded-md bg-accent font-semibold text-[10px]">
                   {user.major}
-                </span>
+                </span>}
               </div>
             </div>
 
@@ -115,12 +117,12 @@ export function UserMenuDropdown() {
               <button
                 onClick={() => {
                   setIsOpen(false);
-                  navigate("/profile");
+                  navigate(isCommunity ? communityPagePath(account) : "/profile");
                 }}
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-foreground rounded-xl hover:bg-accent transition-colors"
               >
                 <User className="w-4 h-4 text-muted-foreground" />
-                View Profile & Portfolio
+                {isCommunity ? "Open Club Page" : "View Profile & Portfolio"}
               </button>
 
               <button

@@ -18,6 +18,7 @@ const Privacy = lazy(() => import('@/pages/Privacy'));
 import { useAuth } from "@/context/AuthContext";
 import PasswordRecovery from "@/pages/PasswordRecovery";
 import { Outlet } from "react-router-dom";
+import { accountHomePath, communityPagePath } from "@/services/accountRoutes";
 
 function ProtectedLayout() {
   const { user } = useAuth();
@@ -33,6 +34,18 @@ function OnboardingGuard() {
   if (!user) return <Navigate to="/login" replace />;
   if (user.onboardingCompleted) return <Navigate to="/campus" replace />;
   return <Outlet />;
+}
+
+function AccountLanding() {
+  const { user } = useAuth();
+  return <Navigate to={accountHomePath(user)} replace />;
+}
+
+function AccountProfile() {
+  const { user } = useAuth();
+  if (user?.role === "COMMUNITY_ACCOUNT")
+    return <Navigate to={communityPagePath(user)} replace />;
+  return <Profile />;
 }
 
 export default function AppRouter() {
@@ -82,7 +95,7 @@ export default function AppRouter() {
 
           {/* Authenticated App Layout Routes */}
           <Route element={<ProtectedLayout />}>
-            <Route path="/" element={<Campus />} />
+            <Route path="/" element={<AccountLanding />} />
             <Route path="/campus" element={<Campus />} />
             <Route path="/discover" element={<Discover />} />
             <Route path="/communities" element={<Communities />} />
@@ -90,7 +103,7 @@ export default function AppRouter() {
             <Route path="/opportunities" element={<Opportunities />} />
             <Route path="/messages" element={<Messages />} />
             <Route path="/saved" element={<Saved />} />
-            <Route path="/profile" element={<Profile />} />
+            <Route path="/profile" element={<AccountProfile />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/settings" element={<Settings />} />
           </Route>
@@ -98,7 +111,7 @@ export default function AppRouter() {
           {/* Fallback redirect */}
           <Route
             path="*"
-            element={<Navigate to={user ? "/campus" : "/login"} replace />}
+            element={<Navigate to={user ? accountHomePath(user) : "/login"} replace />}
           />
         </Routes>
       </Suspense>

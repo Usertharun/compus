@@ -42,6 +42,12 @@ export interface AuthUser {
   role: string;
   name: string;
   onboardingCompleted: boolean;
+  community?: {
+    id: string;
+    slug: string;
+    name: string;
+    avatarUrl?: string | null;
+  };
   profile?: {
     name: string;
     department?: string;

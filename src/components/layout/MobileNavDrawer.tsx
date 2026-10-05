@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useApp } from "@/context/AppContext";
 import { useState, useEffect } from "react";
+import { communityPagePath } from "@/services/accountRoutes";
 
 interface MobileNavDrawerProps {
   onClose: () => void;
@@ -65,7 +66,16 @@ const NAV_GROUPS = [
 export function MobileNavDrawer({ onClose }: MobileNavDrawerProps) {
   const location = useLocation();
   const { user } = useApp();
-  const { logout } = useAuth();
+  const { user: account, logout } = useAuth();
+  const isCommunity = account?.role === "COMMUNITY_ACCOUNT";
+  const navGroups = isCommunity
+    ? NAV_GROUPS.map(group => ({
+        ...group,
+        items: group.items.map(item => item.href === "/profile"
+          ? { ...item, label: "Club Page", icon: Users, href: communityPagePath(account) }
+          : item),
+      }))
+    : NAV_GROUPS;
 
   const [isDarkMode, setIsDarkMode] = useState(() => {
     return (
@@ -115,7 +125,7 @@ export function MobileNavDrawer({ onClose }: MobileNavDrawerProps) {
 
       {/* Student Profile Card */}
       <Link
-        to="/profile"
+        to={isCommunity ? communityPagePath(account) : "/profile"}
         onClick={onClose}
         className="flex items-center gap-3 p-3 mt-4 rounded-2xl bg-secondary/40 border border-border/40 hover:bg-secondary/60 transition-colors"
       >
@@ -128,15 +138,15 @@ export function MobileNavDrawer({ onClose }: MobileNavDrawerProps) {
             {user.name}
           </div>
           <div className="text-xs text-muted-foreground truncate flex items-center gap-1 mt-0.5">
-            <GraduationCap className="w-3.5 h-3.5 text-primary shrink-0" />
-            <span className="truncate">{user.major || user.university}</span>
+            {isCommunity ? <Users className="w-3.5 h-3.5 text-primary shrink-0" /> : <GraduationCap className="w-3.5 h-3.5 text-primary shrink-0" />}
+            <span className="truncate">{isCommunity ? "Club page" : user.major || user.university}</span>
           </div>
         </div>
       </Link>
 
       {/* Navigation Links by Group */}
       <div className="flex-1 overflow-y-auto py-4 space-y-4 scrollbar-hide">
-        {NAV_GROUPS.map((group) => (
+        {navGroups.map((group) => (
           <div key={group.title} className="space-y-1">
             <div className="px-3 text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground/70">
               {group.title}

@@ -45,14 +45,21 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     if (!user || !user.isActive || !user.isVerified || user.deletedAt || !isAllowedAccountEmail(user.email, user.role, this.configService.get<string>('OWNER_EMAIL'))) {
       throw new UnauthorizedException('User no longer exists');
     }
+    const community = user.role === 'COMMUNITY_ACCOUNT'
+      ? await this.prisma.community.findFirst({
+          where: { ownerId: user.id, deletedAt: null },
+          select: { id: true, slug: true, name: true, avatarUrl: true },
+        })
+      : null;
 
     return {
       id: user.id,
       email: user.email,
       role: user.role,
-      name: user.profile?.name || user.email.split('@')[0],
+      name: community?.name || user.profile?.name || user.email.split('@')[0],
       onboardingCompleted: user.onboardingCompleted,
       profile: user.profile,
+      ...(community ? { community } : {}),
     };
   }
 }
