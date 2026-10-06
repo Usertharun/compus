@@ -64,7 +64,7 @@ function when(value: string) {
     : date.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
 }
 
-export function MyCampusHub() {
+export function MyCampusHub({ compact = false }: { compact?: boolean }) {
   const navigate = useNavigate();
   const [data, setData] = useState<CampusHubData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -89,11 +89,11 @@ export function MyCampusHub() {
   }, [load]);
 
   if (loading && !data) {
-    return <div role="status" className="rounded-3xl border border-border/60 bg-card/60 p-8 text-sm text-muted-foreground">Preparing your campus day…</div>;
+    return <div role="status" className={cn("text-sm text-muted-foreground", compact ? "py-5" : "rounded-3xl border border-border/60 bg-card/60 p-8")}>Preparing your campus day…</div>;
   }
 
   if (error && !data) {
-    return <div role="alert" className="rounded-3xl border border-destructive/30 bg-destructive/10 p-5"><p className="text-sm">{error}</p><button onClick={() => void load()} className="mt-3 inline-flex items-center gap-2 font-semibold text-primary"><RefreshCw className="h-4 w-4" />Try again</button></div>;
+    return <div role="alert" className="rounded-2xl border border-destructive/30 bg-destructive/10 p-4"><p className="text-sm">{error}</p><button onClick={() => void load()} className="mt-3 inline-flex items-center gap-2 font-semibold text-primary"><RefreshCw className="h-4 w-4" />Try again</button></div>;
   }
 
   if (!data) return null;
@@ -132,15 +132,15 @@ export function MyCampusHub() {
   ].slice(0, 6);
 
   return (
-    <section className="space-y-5" aria-labelledby="campus-hub-heading">
-      <header className="relative overflow-hidden rounded-3xl border border-border/60 bg-gradient-to-br from-card/90 via-card/70 to-primary/10 p-5 sm:p-6 shadow-sm">
+    <section className={cn("space-y-5", compact && "space-y-4")} aria-labelledby={compact ? undefined : "campus-hub-heading"} aria-label={compact ? "Today's campus summary" : undefined}>
+      {!compact && <header className="relative overflow-hidden rounded-3xl border border-border/60 bg-gradient-to-br from-card/90 via-card/70 to-primary/10 p-5 sm:p-6 shadow-sm">
         <div className="absolute -right-12 -top-12 h-44 w-44 rounded-full bg-primary/10 blur-3xl" />
         <div className="relative">
           <p className="text-xs font-bold uppercase tracking-[0.14em] text-primary">Your campus today</p>
           <h1 id="campus-hub-heading" className="mt-1 text-2xl font-extrabold tracking-tight sm:text-3xl">Good {new Date().getHours() < 12 ? "morning" : new Date().getHours() < 17 ? "afternoon" : "evening"}, {data.firstName}</h1>
           <p className="mt-2 text-sm text-muted-foreground">Messages, events, applications and deadlines that need your attention.</p>
         </div>
-      </header>
+      </header>}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
@@ -149,7 +149,7 @@ export function MyCampusHub() {
           { label: "Applications", value: data.applications.length, icon: BriefcaseBusiness, path: "/opportunities" },
           { label: "Saved", value: data.savedOpportunities.length, icon: Bookmark, path: "/saved" },
         ].map(({ label, value, icon: Icon, path }) => (
-          <button key={label} onClick={() => navigate(path)} className="rounded-2xl border border-border/60 bg-card/70 p-4 text-left transition-colors hover:bg-secondary/60">
+          <button key={label} onClick={() => navigate(path)} className={cn("rounded-2xl border border-border/60 p-4 text-left transition-colors hover:bg-secondary/60", compact ? "bg-background/35" : "bg-card/70")}>
             <Icon className="mb-3 h-4 w-4 text-primary" />
             <strong className="block text-xl font-black tabular-nums">{value}</strong>
             <span className="text-xs text-muted-foreground">{label}</span>
@@ -157,7 +157,7 @@ export function MyCampusHub() {
         ))}
       </div>
 
-      <div className="rounded-3xl border border-border/60 bg-card/60 p-4 sm:p-5">
+      <div className={cn("border border-border/60 p-4 sm:p-5", compact ? "rounded-2xl bg-background/30" : "rounded-3xl bg-card/60")}>
         <div className="mb-4 flex items-center justify-between gap-3">
           <div><h2 className="font-bold">What needs your attention</h2><p className="text-xs text-muted-foreground">Complete important campus actions from one place.</p></div>
           <button onClick={() => void load()} disabled={loading} aria-label="Refresh campus summary" className="rounded-xl p-2 text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-50"><RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} /></button>

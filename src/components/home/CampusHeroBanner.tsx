@@ -1,9 +1,13 @@
 import { useApp } from "@/context/AppContext";
-import { GraduationCap, Clock } from "lucide-react";
-import { motion } from "framer-motion";
+import { CalendarDays, ChevronDown, Clock, GraduationCap } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { useState } from "react";
+import { MyCampusHub } from "./MyCampusHub";
+import { cn } from "@/lib/utils";
 
 export function CampusHeroBanner() {
   const { user, events } = useApp();
+  const [todayOpen, setTodayOpen] = useState(false);
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -59,7 +63,23 @@ export function CampusHeroBanner() {
         </div>
 
         {/* Live Status Indicators */}
-        <div className="flex items-center gap-2 shrink-0 pt-2 sm:pt-0">
+        <div className="flex flex-wrap items-center gap-2 shrink-0 pt-2 sm:pt-0">
+          <button
+            type="button"
+            aria-expanded={todayOpen}
+            aria-controls="campus-today-summary"
+            onClick={() => setTodayOpen((open) => !open)}
+            className={cn(
+              "flex items-center gap-2 px-3 py-2 rounded-2xl border text-xs font-semibold transition-colors",
+              todayOpen
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-secondary/50 border-border/40 text-foreground hover:bg-secondary",
+            )}
+          >
+            <CalendarDays className="h-3.5 w-3.5" />
+            Today
+            <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", todayOpen && "rotate-180")} />
+          </button>
           <div className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-secondary/50 border border-border/40 text-xs">
             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             <span className="font-semibold text-foreground">{rsvpCount} RSVPs</span>
@@ -68,6 +88,21 @@ export function CampusHeroBanner() {
           </div>
         </div>
       </div>
+
+      <AnimatePresence initial={false}>
+        {todayOpen && (
+          <motion.div
+            id="campus-today-summary"
+            initial={{ opacity: 0, height: 0, marginTop: 0 }}
+            animate={{ opacity: 1, height: "auto", marginTop: 18 }}
+            exit={{ opacity: 0, height: 0, marginTop: 0 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className="relative z-10 overflow-hidden border-t border-border/50 pt-4"
+          >
+            <MyCampusHub compact />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
