@@ -29,6 +29,7 @@ import { SearchModule } from "./modules/search/search.module";
 import { AdminModule } from "./modules/admin/admin.module";
 import { UploadsModule } from "./modules/uploads/uploads.module";
 import { FeedbackModule } from "./modules/feedback/feedback.module";
+import { AnalyticsModule } from "./modules/analytics/analytics.module";
 
 import { GlobalHttpExceptionFilter } from "./common/filters/http-exception.filter";
 import { LoggingInterceptor } from "./common/interceptors/logging.interceptor";
@@ -74,6 +75,7 @@ import { RolesGuard } from "./common/guards/roles.guard";
     AdminModule,
     UploadsModule,
     FeedbackModule,
+    AnalyticsModule,
     HealthModule,
   ],
   providers: [

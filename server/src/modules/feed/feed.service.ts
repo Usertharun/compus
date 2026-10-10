@@ -17,6 +17,8 @@ import {
   UpdatePostDto,
 } from "./dto/feed.dto";
 import { AppLoggerService } from "@logger/logger.service";
+import { AnalyticsService } from "@modules/analytics/analytics.service";
+import { PRODUCT_EVENTS } from "@modules/analytics/analytics.events";
 
 @Injectable()
 export class FeedService {
@@ -25,6 +27,7 @@ export class FeedService {
     private readonly prisma: PrismaService,
     private readonly logger: AppLoggerService,
     @Optional() private readonly eventEmitter?: EventEmitter2,
+    @Optional() private readonly analytics?: AnalyticsService,
   ) {}
 
   async createPost(userId: string, dto: CreatePostDto) {
@@ -80,6 +83,11 @@ export class FeedService {
       `Created new post: ${post.id} by author: ${userId}`,
       "FeedService",
     );
+
+    await this.analytics?.record(userId, PRODUCT_EVENTS.POST_CREATED, {
+      postId: post.id,
+      communityId: dto.communityId || null,
+    });
 
     return this.feedRepository.findPostById(post.id);
   }

@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
   UnauthorizedException,
+  Optional,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -14,6 +15,8 @@ import { isOwnerEmail, isAllowedAccountEmail, validateCollegeEmail } from '@comm
 import { Prisma, User, UserRole, VerificationType } from '@prisma/client';
 import * as argon2 from '@node-rs/argon2';
 import * as crypto from 'crypto';
+import { AnalyticsService } from '@modules/analytics/analytics.service';
+import { PRODUCT_EVENTS } from '@modules/analytics/analytics.events';
 import {
   AuthResponseDto,
   ChangePasswordDto,
@@ -45,6 +48,7 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly emailService: EmailService,
     private readonly logger: AppLoggerService,
+    @Optional() private readonly analytics?: AnalyticsService,
   ) {}
 
   async requestRegistrationOtp(dto: RequestOtpDto): Promise<{ message: string }> {
@@ -140,6 +144,9 @@ export class AuthService {
       });
       // A welcome email failure must not invalidate an already-created account.
       void this.emailService.sendWelcomeEmail(email, dto.name).catch(() => this.logger.warn('Welcome email could not be delivered', 'AuthService'));
+      await this.analytics?.record(result.user.id, PRODUCT_EVENTS.ACCOUNT_REGISTERED, {
+        accountType: result.user.role,
+      });
       return result;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') throw new ConflictException('An account with this email already exists. Please sign in.');
@@ -175,7 +182,9 @@ export class AuthService {
 
     this.logger.log(`🔑 Argon2 Login successful for user: ${user.id}`, 'AuthService');
 
-    return this.prisma.$transaction(tx => this.generateAuthTokens(user, userAgent, ipAddress, dto.rememberMe, tx));
+    const result = await this.prisma.$transaction(tx => this.generateAuthTokens(user, userAgent, ipAddress, dto.rememberMe, tx));
+    await this.analytics?.recordDailySession(user.id);
+    return result;
   }
 
   async refreshToken(refreshToken: string, userAgent?: string, ipAddress?: string): Promise<AuthResponseDto> {

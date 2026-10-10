@@ -17,6 +17,8 @@ import {
   SendMessageDto,
 } from "./dto/messaging.dto";
 import { AppLoggerService } from "@logger/logger.service";
+import { AnalyticsService } from "@modules/analytics/analytics.service";
+import { PRODUCT_EVENTS } from "@modules/analytics/analytics.events";
 
 @Injectable()
 export class MessagingService {
@@ -25,6 +27,7 @@ export class MessagingService {
     private readonly prisma: PrismaService,
     private readonly logger: AppLoggerService,
     @Optional() private readonly eventEmitter?: EventEmitter2,
+    @Optional() private readonly analytics?: AnalyticsService,
   ) {}
 
   async getOrCreateDirectConversation(
@@ -216,6 +219,10 @@ export class MessagingService {
           link: "/messages?conversation=" + conversationId,
         });
     }
+    await this.analytics?.record(senderId, PRODUCT_EVENTS.MESSAGE_SENT, {
+      conversationId,
+      conversationType: conversation.type,
+    });
     return message;
   }
 

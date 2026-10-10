@@ -3,8 +3,11 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Optional,
   NotFoundException,
 } from "@nestjs/common";
+import { AnalyticsService } from "@modules/analytics/analytics.service";
+import { PRODUCT_EVENTS } from "@modules/analytics/analytics.events";
 import { CommunityRole, JoinPolicy, RequestStatus } from "@prisma/client";
 import { PrismaService } from "@database/prisma.service";
 import { CommunitiesRepository } from "./repositories/communities.repository";
@@ -30,6 +33,7 @@ export class CommunitiesService {
     private readonly feedRepository: FeedRepository,
     private readonly prisma: PrismaService,
     private readonly logger: AppLoggerService,
+    @Optional() private readonly analytics?: AnalyticsService,
   ) {}
 
   async createCommunity(userId: string, dto: CreateCommunityDto) {
@@ -293,6 +297,9 @@ export class CommunitiesService {
       userId,
       CommunityRole.MEMBER,
     );
+    await this.analytics?.record(userId, PRODUCT_EVENTS.COMMUNITY_JOINED, {
+      communityId,
+    });
     return { success: true, message: "Joined community successfully", member };
   }
 
@@ -329,6 +336,12 @@ export class CommunitiesService {
         message: dto.message,
       },
     });
+
+    await this.analytics?.record(
+      userId,
+      PRODUCT_EVENTS.COMMUNITY_JOIN_REQUESTED,
+      { communityId },
+    );
 
     return { success: true, message: "Membership request submitted", request };
   }

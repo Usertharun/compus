@@ -1283,6 +1283,9 @@ model ActivityLog {
 
   @@index([userId])
   @@index([eventType])
+  @@index([createdAt], map: "activity_logs_created_at_idx")
+  @@index([userId, createdAt], map: "activity_logs_user_created_idx")
+  @@index([eventType, createdAt], map: "activity_logs_event_created_idx")
   @@map("activity_logs")
 }
 

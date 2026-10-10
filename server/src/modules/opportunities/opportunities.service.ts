@@ -23,6 +23,8 @@ import {
 } from "./dto/opportunities.dto";
 import { PaginatedResponseDto } from "@common/dto/pagination.dto";
 import { AppLoggerService } from "@logger/logger.service";
+import { AnalyticsService } from "@modules/analytics/analytics.service";
+import { PRODUCT_EVENTS } from "@modules/analytics/analytics.events";
 
 @Injectable()
 export class OpportunitiesService {
@@ -40,6 +42,7 @@ export class OpportunitiesService {
     private readonly prisma: PrismaService,
     private readonly logger: AppLoggerService,
     @Optional() private readonly eventEmitter?: EventEmitter2,
+    @Optional() private readonly analytics?: AnalyticsService,
   ) {}
 
   async createOpportunity(userId: string, dto: CreateOpportunityDto) {
@@ -285,6 +288,9 @@ export class OpportunitiesService {
         coverLetter: dto.coverLetter,
       },
     });
+    await this.analytics?.record(userId, PRODUCT_EVENTS.OPPORTUNITY_APPLIED, {
+      opportunityId,
+    });
     this.eventEmitter?.emit("notification.publish", {
       userId: opportunity.creatorId,
       type: "NEW_APPLICATION",
@@ -449,6 +455,9 @@ export class OpportunitiesService {
 
   async bookmarkOpportunity(opportunityId: string, userId: string) {
     await this.opportunitiesRepository.addBookmark(opportunityId, userId);
+    await this.analytics?.record(userId, PRODUCT_EVENTS.OPPORTUNITY_SAVED, {
+      opportunityId,
+    });
     return { success: true, message: "Opportunity saved to bookmarks" };
   }
 

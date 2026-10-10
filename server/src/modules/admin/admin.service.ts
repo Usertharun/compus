@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { PrismaService } from '@database/prisma.service';
 import { AdminRepository } from './repositories/admin.repository';
@@ -15,6 +16,7 @@ import {
 } from './dto/admin.dto';
 import { PaginatedResponseDto } from '@common/dto/pagination.dto';
 import { AppLoggerService } from '@logger/logger.service';
+import { AnalyticsService } from '@modules/analytics/analytics.service';
 
 @Injectable()
 export class AdminService {
@@ -93,6 +95,7 @@ export class AdminService {
     private readonly adminRepository: AdminRepository,
     private readonly prisma: PrismaService,
     private readonly logger: AppLoggerService,
+    @Optional() private readonly analytics?: AnalyticsService,
   ) {}
 
   async getDashboardOverview() {
@@ -219,7 +222,7 @@ export class AdminService {
   }
 
   async getAnalyticsOverview() {
-    const [recentUsers, topCommunities, topOpportunities] = await Promise.all([
+    const [recentUsers, topCommunities, topOpportunities, product] = await Promise.all([
       this.prisma.user.findMany({
         take: 5,
         orderBy: { createdAt: 'desc' },
@@ -235,12 +238,14 @@ export class AdminService {
         orderBy: { createdAt: 'desc' },
         select: { id: true, title: true, companyName: true, category: true },
       }),
+      this.analytics ? this.analytics.getProductOverview() : Promise.resolve(null),
     ]);
 
     return {
       recentUsers,
       topCommunities,
       topOpportunities,
+      product,
     };
   }
 

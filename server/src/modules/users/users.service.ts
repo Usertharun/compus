@@ -1,10 +1,12 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { UsersRepository } from './repositories/users.repository';
 import { CompleteOnboardingDto, UpdateProfileDto, UpdateUserDto } from './dto/users.dto';
 import { PrismaService } from '@database/prisma.service';
 import { PaginatedResponseDto, PaginationQueryDto } from '@common/dto/pagination.dto';
 import { AppLoggerService } from '@logger/logger.service';
 import { User } from '@prisma/client';
+import { AnalyticsService } from '@modules/analytics/analytics.service';
+import { PRODUCT_EVENTS } from '@modules/analytics/analytics.events';
 
 @Injectable()
 export class UsersService {
@@ -12,6 +14,7 @@ export class UsersService {
     private readonly usersRepository: UsersRepository,
     private readonly logger: AppLoggerService,
     private readonly prisma: PrismaService,
+    @Optional() private readonly analytics?: AnalyticsService,
   ) {}
 
   private sanitizeUser(user: User) {
@@ -185,7 +188,7 @@ export class UsersService {
 
   async completeOnboarding(userId: string, dto: CompleteOnboardingDto) {
     const labels: Record<string, string> = { mentors: 'Find Mentors', clubs: 'Join Student Orgs', jobs: 'Discover Internships', hackathons: 'Hackathons', study: 'Study Partners' };
-    return this.prisma.$transaction(async tx => {
+    const result = await this.prisma.$transaction(async tx => {
       const profile = await tx.profile.update({ where: { userId }, data: { name: dto.name, department: dto.department, year: dto.year } });
       // Only replace onboarding interests, preserving unrelated profile interests.
       await tx.userInterest.deleteMany({ where: { profileId: profile.id, interest: { name: { in: Object.values(labels) } } } });
@@ -196,5 +199,7 @@ export class UsersService {
       const user = await tx.user.update({ where: { id: userId }, data: { onboardingCompleted: true }, include: { profile: true } });
       return { id: user.id, email: user.email, role: user.role, name: profile.name, onboardingCompleted: user.onboardingCompleted, profile: user.profile };
     }, { maxWait: 10000, timeout: 20000 });
+    await this.analytics?.record(userId, PRODUCT_EVENTS.ONBOARDING_COMPLETED);
+    return result;
   }
 }

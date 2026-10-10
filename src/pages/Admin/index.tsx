@@ -5,6 +5,7 @@ import { apiRequest } from "@/services/api";
 import { useToast } from "@/context/ToastContext";
 import { formatDate } from "@/services/models";
 import AccountAdministration from '@/components/admin/AccountAdministration';
+import ProductAnalyticsPanel, { type ProductAnalytics } from '@/components/admin/ProductAnalyticsPanel';
 interface Feedback {
   id: string;
   category: string;
@@ -21,11 +22,15 @@ interface Report {
   post: { content: string; deletedAt?: string };
   reporter?: { email: string };
 }
+interface AdminAnalyticsResponse {
+  product: ProductAnalytics;
+}
 export default function AdminPage() {
   const { user } = useAuth();
   const toast = useToast();
   const [feedback, setFeedback] = useState<Feedback[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
+  const [analytics, setAnalytics] = useState<ProductAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
@@ -33,12 +38,14 @@ export default function AdminPage() {
     setLoading(true);
     setError("");
     try {
-      const [f, r] = await Promise.all([
+      const [f, r, a] = await Promise.all([
         apiRequest<Feedback[]>("/feedback"),
         apiRequest<Report[]>("/admin/reports"),
+        apiRequest<AdminAnalyticsResponse>("/admin/analytics"),
       ]);
       setFeedback(f);
       setReports(r);
+      setAnalytics(a.product);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unable to load owner tools.");
     } finally {
@@ -47,8 +54,8 @@ export default function AdminPage() {
   };
   useEffect(() => {
     let stopped = false;
-    if (user?.role === 'SUPER_ADMIN') void Promise.all([apiRequest<Feedback[]>('/feedback'), apiRequest<Report[]>('/admin/reports')])
-      .then(([f, r]) => { if (!stopped) { setFeedback(f); setReports(r); } })
+    if (user?.role === 'SUPER_ADMIN') void Promise.all([apiRequest<Feedback[]>('/feedback'), apiRequest<Report[]>('/admin/reports'), apiRequest<AdminAnalyticsResponse>('/admin/analytics')])
+      .then(([f, r, a]) => { if (!stopped) { setFeedback(f); setReports(r); setAnalytics(a.product); } })
       .catch(e => { if (!stopped) setError(e instanceof Error ? e.message : 'Unable to load owner tools.'); })
       .finally(() => { if (!stopped) setLoading(false); });
     return () => { stopped = true; };
@@ -77,6 +84,7 @@ export default function AdminPage() {
           {error}
         </p>
       )}
+      {analytics && <ProductAnalyticsPanel analytics={analytics} />}
       <AccountAdministration />
       <section className="space-y-3">
         <h2 className="font-bold">

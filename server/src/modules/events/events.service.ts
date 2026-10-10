@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Optional,
 } from "@nestjs/common";
 import { EventStatus, RsvpStatus } from "@prisma/client";
 import { PrismaService } from "@database/prisma.service";
@@ -17,6 +18,8 @@ import {
 } from "./dto/events.dto";
 import { PaginatedResponseDto, PaginationQueryDto } from "@common/dto/pagination.dto";
 import { AppLoggerService } from "@logger/logger.service";
+import { AnalyticsService } from "@modules/analytics/analytics.service";
+import { PRODUCT_EVENTS } from "@modules/analytics/analytics.events";
 
 @Injectable()
 export class EventsService {
@@ -76,6 +79,7 @@ export class EventsService {
     private readonly eventsRepository: EventsRepository,
     private readonly prisma: PrismaService,
     private readonly logger: AppLoggerService,
+    @Optional() private readonly analytics?: AnalyticsService,
   ) {}
 
   async createEvent(userId: string, dto: CreateEventDto) {
@@ -334,6 +338,10 @@ export class EventsService {
       userId,
       targetStatus,
     );
+    await this.analytics?.record(userId, PRODUCT_EVENTS.EVENT_REGISTERED, {
+      eventId,
+      status: rsvp.status,
+    });
     const message =
       rsvp.status === RsvpStatus.WAITLISTED
         ? "Event capacity is full. You have been added to the waitlist."

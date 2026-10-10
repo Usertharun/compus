@@ -1,12 +1,15 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { PrismaService } from '@database/prisma.service';
 import { AppLoggerService } from '@logger/logger.service';
+import { AnalyticsService } from '@modules/analytics/analytics.service';
+import { PRODUCT_EVENTS } from '@modules/analytics/analytics.events';
 
 @Injectable()
 export class SocialService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly logger: AppLoggerService,
+    @Optional() private readonly analytics?: AnalyticsService,
   ) {}
 
   async followUser(followerId: string, targetUserId: string) {
@@ -43,6 +46,9 @@ export class SocialService {
     });
 
     this.logger.log(`User ${followerId} followed target ${targetUserId}`, 'SocialService');
+    await this.analytics?.record(followerId, PRODUCT_EVENTS.STUDENT_FOLLOWED, {
+      targetUserId,
+    });
 
     return { success: true, message: 'Successfully followed student', record };
   }
