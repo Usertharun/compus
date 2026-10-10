@@ -30,8 +30,8 @@ export class HealthController {
     summary:
       "Check infrastructure health (Database, Memory, HTTP connectivity)",
   })
-  check() {
-    return this.health.check([
+  async check() {
+    const result = await this.health.check([
       () =>
         this.prismaIndicator.pingCheck("database", this.prisma, {
           timeout: 5000,
@@ -42,5 +42,13 @@ export class HealthController {
           this.config.get<number>("HEALTH_MAX_HEAP_MB", 300) * 1024 * 1024,
         ),
     ]);
+
+    const commit = this.config.get<string>("RAILWAY_GIT_COMMIT_SHA")?.trim();
+    return {
+      ...result,
+      release: {
+        commit: commit && /^[0-9a-f]{7,40}$/i.test(commit) ? commit : null,
+      },
+    };
   }
 }

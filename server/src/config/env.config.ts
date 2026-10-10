@@ -140,6 +140,10 @@ export class EnvironmentVariables {
   @IsOptional()
   LOG_LEVEL: string = "info";
 
+  @IsString()
+  @IsOptional()
+  RAILWAY_GIT_COMMIT_SHA?: string;
+
   @IsInt()
   @Min(64)
   @IsOptional()

@@ -1,19 +1,27 @@
 # Public launch rollout
 
-## Current status
+## Current status — 2026-10-10
 
-- [x] Feature implementation is complete in the working tree.
+- [x] The status review began from a clean `main` checkout at `281ac37` (`keep campus feed as home hub`) matching `origin/main`.
+- [x] The current product scope is implemented locally, including the campus home hub, club-page accounts and themes, and messaging/feed performance work added after the original launch deployment.
 - [x] Database migrations, CI validation, health monitoring, load testing, restore drill and image-copy tools are included.
-- [x] Local preflight passes: production builds, repository lint, 89 backend tests and ten HTTP/pagination/load-harness tests.
-- [x] Public club-login and privacy pages pass browser checks without JavaScript errors.
+- [x] Current local validation passes: frontend and backend production builds, repository lint, 95 backend tests and ten HTTP/pagination/load-harness tests.
+- [x] Public club-login and privacy pages passed the previously recorded browser checks without JavaScript errors.
 - [ ] Production database snapshot and provider retention window recorded.
-- [x] Changes reviewed, committed and deployed to backend and frontend.
+- [x] Vercel production is READY at `281ac37`; `compus-ashy.vercel.app` and `/privacy` return HTTP 200.
+- [ ] Confirm the Railway backend revision after deploying release metadata. The live health endpoint returns HTTP 200 with database and memory healthy, but the current response cannot identify its commit.
 - [x] Cloudinary credentials configured; new-image round trip and legacy-image migration verified (the production database contained zero legacy image rows).
 - [ ] Production health secret, GitHub failure notifications and Sentry alert delivery verified.
 - [ ] Staging load test and production-representative restore drill completed with evidence.
 - [ ] Deployed student, owner and permanent-club flows verified with separate accounts.
 
-Run `npm run launch:preflight` from the repository root before each release. It checks every local launch gate and reports only whether external variables are present; it never prints secret values. The unchecked items require access to the hosting, database, Cloudinary, GitHub and Sentry accounts and must be completed on the live environment.
+Run `npm run launch:preflight` from the repository root before each release. It checks every local launch gate and reports only whether external variables are present; it never prints secret values. On 2026-10-10, the underlying builds, lint and tests all passed when run directly. The preflight command itself needs an unrestricted local loopback environment for its load-harness tests; a restricted sandbox can report false failures because the child process cannot reach the temporary test server. The unchecked items require access to the hosting, database, Cloudinary, GitHub and Sentry accounts and must be completed on the live environment.
+
+### Changes awaiting complete production verification
+
+- Vercel has deployed the production frontend for the messaging/posting latency work, club-page accounts and themes, and the optimized My Campus home hub through `281ac37`.
+- Railway must expose and confirm its deployed Git revision before the corresponding backend changes and migrations can be marked verified.
+- After the backend revision is confirmed, run the student, owner and permanent-club flows with separate production test accounts.
 
 ## Production evidence — 2026-10-03
 
@@ -64,6 +72,6 @@ Run `server/scripts/load-test.cjs` with `TARGET_URL` (including `/api/v1`) and `
 
 The weekly/manual `restore-drill.yml` builds a fixture database, dumps/restores it and verifies every public table's row count and checksum. For a production-representative drill, follow [server/RECOVERY.md](server/RECOVERY.md), use an isolated frozen copy, and record elapsed time, recovery point, bucket recovery and application login/content checks. No production restore or load drill has been executed by this patch.
 
-## Local verification
+## Local verification — 2026-10-10
 
-Both production builds, repository lint, 89 backend unit tests and ten HTTP/pagination/load-harness tests pass. Browser checks verified public club-login and privacy controls without JavaScript errors. Authenticated feature tests cover pagination beyond 50, organizer authorization, attendance restrictions, cancellation notifications, approved club registration, password-change session revocation and Cloudinary URL-only persistence. A deployed end-to-end pass remains required.
+Both production builds, repository lint, 95 backend tests and ten HTTP/pagination/load-harness tests pass for the release-metadata change based on `281ac37`. Browser checks previously verified public club-login and privacy controls without JavaScript errors. Authenticated feature tests cover pagination beyond 50, organizer authorization, attendance restrictions, cancellation notifications, approved club registration, password-change session revocation and Cloudinary URL-only persistence. Backend revision confirmation and a deployed end-to-end pass remain required.
