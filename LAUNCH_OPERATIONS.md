@@ -8,8 +8,8 @@
 - [x] Current local validation passes: frontend and backend production builds, repository lint, 95 backend tests and ten HTTP/pagination/load-harness tests.
 - [x] Public club-login and privacy pages passed the previously recorded browser checks without JavaScript errors.
 - [ ] Production database snapshot and provider retention window recorded.
-- [x] Vercel production is READY at `281ac37`; `compus-ashy.vercel.app` and `/privacy` return HTTP 200.
-- [ ] Confirm the Railway backend revision after deploying release metadata. The live health endpoint returns HTTP 200 with database and memory healthy, but the current response cannot identify its commit.
+- [x] Vercel production is READY at `0ec97f9`; `compus-ashy.vercel.app` and `/privacy` return HTTP 200.
+- [x] Railway production is healthy at `0ec97f9`; `/api/v1/health` reports the matching commit with database and memory healthy.
 - [x] Cloudinary credentials configured; new-image round trip and legacy-image migration verified (the production database contained zero legacy image rows).
 - [ ] Production health secret, GitHub failure notifications and Sentry alert delivery verified.
 - [ ] Staging load test and production-representative restore drill completed with evidence.
@@ -19,9 +19,8 @@ Run `npm run launch:preflight` from the repository root before each release. It 
 
 ### Changes awaiting complete production verification
 
-- Vercel has deployed the production frontend for the messaging/posting latency work, club-page accounts and themes, and the optimized My Campus home hub through `281ac37`.
-- Railway must expose and confirm its deployed Git revision before the corresponding backend changes and migrations can be marked verified.
-- After the backend revision is confirmed, run the student, owner and permanent-club flows with separate production test accounts.
+- Vercel and Railway have deployed the messaging/posting latency work, club-page accounts and themes, and the optimized My Campus home hub through release `0ec97f9`.
+- Run the student, owner and permanent-club flows with separate production test accounts before marking the release fully accepted.
 
 ## Production evidence — 2026-10-03
 
@@ -74,4 +73,4 @@ The weekly/manual `restore-drill.yml` builds a fixture database, dumps/restores 
 
 ## Local verification — 2026-10-10
 
-Both production builds, repository lint, 95 backend tests and ten HTTP/pagination/load-harness tests pass for the release-metadata change based on `281ac37`. Browser checks previously verified public club-login and privacy controls without JavaScript errors. Authenticated feature tests cover pagination beyond 50, organizer authorization, attendance restrictions, cancellation notifications, approved club registration, password-change session revocation and Cloudinary URL-only persistence. Backend revision confirmation and a deployed end-to-end pass remain required.
+Both production builds, repository lint, 95 backend tests and ten HTTP/pagination/load-harness tests pass for `0ec97f9`. Browser checks previously verified public club-login and privacy controls without JavaScript errors. Authenticated feature tests cover pagination beyond 50, organizer authorization, attendance restrictions, cancellation notifications, approved club registration, password-change session revocation and Cloudinary URL-only persistence. The frontend and backend revisions are confirmed in production; a deployed multi-account end-to-end pass remains required.
